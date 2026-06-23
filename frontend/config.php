@@ -82,6 +82,9 @@ function renderNav($active = '') {
         $links['users'] = ['users.php', 'bi-person-gear', 'Users'];
         $links['settings'] = ['settings.php', 'bi-gear', 'Settings'];
     }
+    if ($role === 'owner') {
+        $links['saas'] = ['saas.php', 'bi-cloud', 'SaaS'];
+    }
     
     $navHtml = '<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">

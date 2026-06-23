@@ -11,7 +11,7 @@ Route::prefix('v1')->group(function () {
     // Authentication
     Route::post('/auth/login', [App\Http\Controllers\Api\v1\AuthController::class, 'login']);
 
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         // Auth
         Route::get('/auth/me', [App\Http\Controllers\Api\v1\AuthController::class, 'me']);
         Route::post('/auth/logout', [App\Http\Controllers\Api\v1\AuthController::class, 'logout']);
@@ -150,5 +150,22 @@ Route::prefix('v1')->group(function () {
             Route::post('/bank/verify-payment', [App\Http\Controllers\Api\v1\BankController::class, 'verifyPayment']);
             Route::get('/bank/statements', [App\Http\Controllers\Api\v1\BankController::class, 'statements']);
         });
+
+        // Tenants & SaaS Billing (Phase 3)
+        Route::middleware('permission:manage_users')->group(function () {
+            Route::get('/tenants', [App\Http\Controllers\Api\v1\TenantsController::class, 'index']);
+            Route::get('/tenants/{id}', [App\Http\Controllers\Api\v1\TenantsController::class, 'show']);
+            Route::post('/tenants', [App\Http\Controllers\Api\v1\TenantsController::class, 'store']);
+            Route::put('/tenants/{id}', [App\Http\Controllers\Api\v1\TenantsController::class, 'update']);
+            Route::post('/tenants/{tenantId}/subscribe', [App\Http\Controllers\Api\v1\TenantsController::class, 'subscribe']);
+            Route::get('/tenants/{tenantId}/invoices', [App\Http\Controllers\Api\v1\TenantsController::class, 'invoices']);
+            Route::post('/tenants/invoices/{invoiceId}/pay', [App\Http\Controllers\Api\v1\TenantsController::class, 'payInvoice']);
+        });
+        Route::get('/subscription-plans', [App\Http\Controllers\Api\v1\TenantsController::class, 'plans']);
+
+        // Offline-first Sync (Phase 3)
+        Route::post('/sync/push', [App\Http\Controllers\Api\v1\SyncController::class, 'push']);
+        Route::get('/sync/pull', [App\Http\Controllers\Api\v1\SyncController::class, 'pull']);
+        Route::get('/sync/status', [App\Http\Controllers\Api\v1\SyncController::class, 'status']);
     });
 });
