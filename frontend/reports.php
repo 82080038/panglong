@@ -26,7 +26,13 @@ renderHead('Reports');
 renderNav('reports');
 ?>
 <div class="container mt-4">
-    <h1>Reports</h1>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Reports</h1>
+        <div class="btn-group">
+            <button class="btn btn-outline-success btn-sm" onclick="exportCSV()"><i class="bi bi-file-earmark-spreadsheet"></i> Export CSV</button>
+            <button class="btn btn-outline-danger btn-sm" onclick="exportPDF()"><i class="bi bi-file-earmark-pdf"></i> Export PDF</button>
+        </div>
+    </div>
     <ul class="nav nav-tabs mb-3">
         <li class="nav-item"><a class="nav-link <?= $tab==='daily'?'active':'' ?>" href="?tab=daily">Daily Sales</a></li>
         <li class="nav-item"><a class="nav-link <?= $tab==='monthly'?'active':'' ?>" href="?tab=monthly">Monthly Sales</a></li>
@@ -166,4 +172,38 @@ renderNav('reports');
         <?php endif; ?>
     </div></div>
 </div>
+
+<script>
+function exportCSV() {
+    const tables = document.querySelectorAll('.card-body table');
+    if (!tables.length) { alert('No table to export'); return; }
+    const table = tables[0];
+    let csv = [];
+    table.querySelectorAll('tr').forEach(tr => {
+        const row = [];
+        tr.querySelectorAll('th, td').forEach(cell => {
+            let text = cell.textContent.trim().replace(/Rp\s/g, '').replace(/,/g, '');
+            text = text.replace(/"/g, '""');
+            row.push('"' + text + '"');
+        });
+        csv.push(row.join(','));
+    });
+    const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'report_<?= $tab ?>_' + new Date().toISOString().split('T')[0] + '.csv';
+    a.click();
+}
+
+function exportPDF() {
+    window.print();
+}
+</script>
+<style>
+@media print {
+    .navbar, .nav-tabs, .btn-group, .btn { display: none !important; }
+    .card { border: none !important; }
+    body { font-size: 12px; }
+}
+</style>
 <?php renderFoot(); ?>
