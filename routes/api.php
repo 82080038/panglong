@@ -167,5 +167,31 @@ Route::prefix('v1')->group(function () {
         Route::post('/sync/push', [App\Http\Controllers\Api\v1\SyncController::class, 'push']);
         Route::get('/sync/pull', [App\Http\Controllers\Api\v1\SyncController::class, 'pull']);
         Route::get('/sync/status', [App\Http\Controllers\Api\v1\SyncController::class, 'status']);
+
+        // AI Advanced (Phase 4)
+        Route::middleware('permission:view_reports')->group(function () {
+            Route::post('/ai/demand-forecast', [App\Http\Controllers\Api\v1\AIController::class, 'demandForecast']);
+            Route::get('/ai/demand-forecast/batch', [App\Http\Controllers\Api\v1\AIController::class, 'batchForecasts']);
+            Route::post('/ai/price-optimization', [App\Http\Controllers\Api\v1\AIController::class, 'priceOptimization']);
+            Route::get('/ai/price-optimization/batch', [App\Http\Controllers\Api\v1\AIController::class, 'batchPriceOptimization']);
+            Route::get('/ai/forecast-history/{productId}', [App\Http\Controllers\Api\v1\AIController::class, 'forecastHistory']);
+        });
+
+        // Marketplace Integration (Phase 4)
+        Route::middleware('permission:manage_products')->group(function () {
+            Route::get('/marketplace', [App\Http\Controllers\Api\v1\MarketplaceController::class, 'index']);
+            Route::post('/marketplace/connect', [App\Http\Controllers\Api\v1\MarketplaceController::class, 'connect']);
+            Route::post('/marketplace/{id}/sync-stock', [App\Http\Controllers\Api\v1\MarketplaceController::class, 'syncStock']);
+            Route::post('/marketplace/{id}/sync-products', [App\Http\Controllers\Api\v1\MarketplaceController::class, 'syncProducts']);
+            Route::post('/marketplace/{id}/map-product', [App\Http\Controllers\Api\v1\MarketplaceController::class, 'mapProduct']);
+            Route::post('/marketplace/{id}/disconnect', [App\Http\Controllers\Api\v1\MarketplaceController::class, 'disconnect']);
+        });
+
+        // IoT Integration (Phase 4)
+        Route::get('/iot/sensors', [App\Http\Controllers\Api\v1\IoTController::class, 'sensors']);
+        Route::post('/iot/sensors', [App\Http\Controllers\Api\v1\IoTController::class, 'registerSensor']);
+        Route::post('/iot/readings', [App\Http\Controllers\Api\v1\IoTController::class, 'recordReading']);
+        Route::get('/iot/sensors/{id}/readings', [App\Http\Controllers\Api\v1\IoTController::class, 'sensorReadings']);
+        Route::get('/iot/alerts', [App\Http\Controllers\Api\v1\IoTController::class, 'alerts']);
     });
 });

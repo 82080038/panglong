@@ -76,6 +76,9 @@ function renderNav($active = '') {
         'accounting' => ['accounting.php', 'bi-journal-text', 'Accounting'],
         'warehouses' => ['warehouses.php', 'bi-building', 'Warehouses'],
         'reorder' => ['reorder.php', 'bi-lightbulb', 'Reorder AI'],
+        'ai-insights' => ['ai_insights.php', 'bi-cpu', 'AI Insights'],
+        'marketplace' => ['marketplace.php', 'bi-shop', 'Marketplace'],
+        'iot' => ['iot.php', 'bi-thermometer-half', 'IoT'],
     ];
     
     if ($role === 'owner' || $role === 'manager') {
