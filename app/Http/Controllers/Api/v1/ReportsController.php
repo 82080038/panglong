@@ -81,4 +81,13 @@ class ReportsController extends Controller
     {
         return response()->json(['success' => true, 'data' => $this->reportService->getStockValuation()]);
     }
+
+    public function customReport(Request $request)
+    {
+        $dateFrom = $request->input('date_from', date('Y-m-01'));
+        $dateTo = $request->input('date_to', date('Y-m-d'));
+        $groupBy = $request->input('group_by', 'day');
+        $metric = $request->input('metric', 'total');
+        return response()->json(['success' => true, 'data' => $this->reportService->getCustomReport($dateFrom, $dateTo, $groupBy, $metric)]);
+    }
 }

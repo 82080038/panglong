@@ -399,4 +399,51 @@ class ReportService
             'total_products' => count($valuation),
         ];
     }
+
+    /**
+     * Advanced custom report builder
+     */
+    public function getCustomReport(string $dateFrom, string $dateTo, string $groupBy, string $metric): array
+    {
+        $query = Sale::whereBetween('sale_date', [$dateFrom, $dateTo])->where('status', '!=', 'voided');
+
+        switch ($groupBy) {
+            case 'day':
+                $query->selectRaw('sale_date as label, COUNT(*) as transaction_count, SUM(subtotal) as subtotal, SUM(discount) as discount, SUM(tax) as tax, SUM(total) as total');
+                $query->groupBy('sale_date')->orderBy('sale_date');
+                break;
+            case 'month':
+                $query->selectRaw("DATE_FORMAT(sale_date, '%Y-%m') as label, COUNT(*) as transaction_count, SUM(subtotal) as subtotal, SUM(discount) as discount, SUM(tax) as tax, SUM(total) as total");
+                $query->groupByRaw("DATE_FORMAT(sale_date, '%Y-%m')")->orderBy('label');
+                break;
+            case 'customer':
+                $query->with('customer')->selectRaw('customer_id, COUNT(*) as transaction_count, SUM(subtotal) as subtotal, SUM(discount) as discount, SUM(tax) as tax, SUM(total) as total');
+                $query->groupBy('customer_id')->orderByDesc('total');
+                break;
+            case 'payment_method':
+                $query->selectRaw('payment_method as label, COUNT(*) as transaction_count, SUM(subtotal) as subtotal, SUM(discount) as discount, SUM(tax) as tax, SUM(total) as total');
+                $query->groupBy('payment_method')->orderByDesc('total');
+                break;
+            case 'product':
+                $query->join('sale_items', 'sales.id', '=', 'sale_items.sale_id')
+                    ->join('products', 'sale_items.product_id', '=', 'products.id')
+                    ->selectRaw('products.name as label, SUM(sale_items.quantity) as quantity_sold, SUM(sale_items.subtotal) as revenue, COUNT(DISTINCT sales.id) as transaction_count')
+                    ->groupBy('products.id', 'products.name')->orderByDesc('revenue');
+                break;
+            default:
+                $query->selectRaw('sale_date as label, COUNT(*) as transaction_count, SUM(total) as total');
+                $query->groupBy('sale_date')->orderBy('sale_date');
+        }
+
+        $results = $query->get()->toArray();
+
+        return [
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'group_by' => $groupBy,
+            'metric' => $metric,
+            'data' => $results,
+            'total_records' => count($results),
+        ];
+    }
 }

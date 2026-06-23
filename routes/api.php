@@ -106,6 +106,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/reports/accounts/payable/aging', [App\Http\Controllers\Api\v1\ReportsController::class, 'apAging']);
             Route::get('/reports/profit-loss', [App\Http\Controllers\Api\v1\ReportsController::class, 'profitLoss']);
             Route::get('/reports/inventory/stock-valuation', [App\Http\Controllers\Api\v1\ReportsController::class, 'stockValuation']);
+            Route::get('/reports/custom', [App\Http\Controllers\Api\v1\ReportsController::class, 'customReport']);
         });
 
         // Accounting (Phase 2)
@@ -135,5 +136,19 @@ Route::prefix('v1')->group(function () {
 
         // Barcode lookup (Phase 2)
         Route::get('/barcode/lookup', [App\Http\Controllers\Api\v1\BarcodeController::class, 'lookup']);
+
+        // Notifications (Phase 2)
+        Route::middleware('permission:view_reports')->group(function () {
+            Route::post('/notifications/invoice/{saleId}', [App\Http\Controllers\Api\v1\NotificationsController::class, 'sendInvoice']);
+            Route::post('/notifications/payment-receipt/{saleId}', [App\Http\Controllers\Api\v1\NotificationsController::class, 'sendPaymentReceipt']);
+            Route::post('/notifications/ar-due-reminders', [App\Http\Controllers\Api\v1\NotificationsController::class, 'sendARDueReminders']);
+            Route::post('/notifications/ap-due-reminders', [App\Http\Controllers\Api\v1\NotificationsController::class, 'sendAPDueReminders']);
+        });
+
+        // Bank integration (Phase 2)
+        Route::middleware('permission:view_reports')->group(function () {
+            Route::post('/bank/verify-payment', [App\Http\Controllers\Api\v1\BankController::class, 'verifyPayment']);
+            Route::get('/bank/statements', [App\Http\Controllers\Api\v1\BankController::class, 'statements']);
+        });
     });
 });
