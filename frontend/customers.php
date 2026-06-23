@@ -1,7 +1,10 @@
 <?php
 require_once __DIR__ . '/config.php';
 
-$customers = apiCall('/customers');
+$search = $_GET['search'] ?? '';
+$customersEndpoint = '/customers?per_page=50';
+if ($search) $customersEndpoint .= '&search=' . urlencode($search);
+$customers = apiCall($customersEndpoint);
 $groups = apiCall('/customer-groups');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -65,6 +68,16 @@ $msg = $_GET['msg'] ?? '';
         </div>
     <?php endif; ?>
 
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="GET" class="row g-2">
+                <div class="col-md-8"><input type="text" class="form-control" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search by name or phone..."></div>
+                <div class="col-md-2"><button type="submit" class="btn btn-outline-primary w-100"><i class="bi bi-search"></i> Search</button></div>
+                <div class="col-md-2"><a href="customers.php" class="btn btn-outline-secondary w-100">Clear</a></div>
+            </form>
+        </div>
+    </div>
+
     <div class="card">
         <div class="card-body">
             <table class="table table-striped">
@@ -90,6 +103,7 @@ $msg = $_GET['msg'] ?? '';
                                 <td><?php echo htmlspecialchars($customer['email'] ?? '-'); ?></td>
                                 <td>Rp <?php echo number_format($customer['credit_limit'] ?? 0, 0, ',', '.'); ?></td>
                                 <td>
+                                    <a href="customer_detail.php?id=<?= $customer['id'] ?>" class="btn btn-sm btn-info"><i class="bi bi-eye"></i></a>
                                     <button class="btn btn-sm btn-warning edit-btn"
                                         data-id="<?php echo $customer['id']; ?>"
                                         data-name="<?php echo htmlspecialchars($customer['name']); ?>"

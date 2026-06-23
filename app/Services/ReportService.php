@@ -157,7 +157,6 @@ class ReportService
 
         return $stockData;
     }
-}
 
     /**
      * Get aging report for accounts payable
@@ -363,5 +362,41 @@ class ReportService
         }
 
         return $deadStock;
+    }
+
+    /**
+     * Stock valuation report (average cost method)
+     */
+    public function getStockValuation(): array
+    {
+        $products = Product::where('is_active', true)->get();
+        $valuation = [];
+        $totalValue = 0;
+
+        foreach ($products as $product) {
+            $currentStock = StockMovement::where('product_id', $product->id)->sum('quantity');
+            if ($currentStock <= 0) continue;
+
+            $avgCost = (float) $product->buy_price;
+            $stockValue = $currentStock * $avgCost;
+            $totalValue += $stockValue;
+
+            $valuation[] = [
+                'product_id' => $product->id,
+                'product_code' => $product->code,
+                'product_name' => $product->name,
+                'current_stock' => $currentStock,
+                'avg_cost' => $avgCost,
+                'stock_value' => $stockValue,
+                'sell_price' => (float) $product->sell_price,
+                'potential_revenue' => $currentStock * (float) $product->sell_price,
+            ];
+        }
+
+        return [
+            'items' => $valuation,
+            'total_stock_value' => $totalValue,
+            'total_products' => count($valuation),
+        ];
     }
 }

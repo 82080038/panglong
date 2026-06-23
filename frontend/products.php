@@ -1,7 +1,10 @@
 <?php
 require_once __DIR__ . '/config.php';
 
-$products = apiCall('/products');
+$search = $_GET['search'] ?? '';
+$productsEndpoint = '/products?per_page=50';
+if ($search) $productsEndpoint .= '&search=' . urlencode($search);
+$products = apiCall($productsEndpoint);
 $categories = apiCall('/categories');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -87,6 +90,16 @@ $msg = $_GET['msg'] ?? '';
         </div>
     <?php endif; ?>
 
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="GET" class="row g-2">
+                <div class="col-md-8"><input type="text" class="form-control" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search by name, code, or brand..."></div>
+                <div class="col-md-2"><button type="submit" class="btn btn-outline-primary w-100"><i class="bi bi-search"></i> Search</button></div>
+                <div class="col-md-2"><a href="products.php" class="btn btn-outline-secondary w-100">Clear</a></div>
+            </form>
+        </div>
+    </div>
+
     <div class="card">
         <div class="card-body">
             <table class="table table-striped" id="productsTable">
@@ -112,6 +125,7 @@ $msg = $_GET['msg'] ?? '';
                                 <td>Rp <?php echo number_format($product['buy_price'] ?? 0, 0, ',', '.'); ?></td>
                                 <td>Rp <?php echo number_format($product['sell_price'] ?? 0, 0, ',', '.'); ?></td>
                                 <td>
+                                    <a href="product_detail.php?id=<?= $product['id'] ?>" class="btn btn-sm btn-info"><i class="bi bi-eye"></i></a>
                                     <button class="btn btn-sm btn-warning" onclick='editProduct(<?= json_encode($product) ?>)'><i class="bi bi-pencil"></i></button>
                                     <form method="POST" style="display:inline" onsubmit="return confirm('Delete this product?')">
                                         <input type="hidden" name="action" value="delete">

@@ -1,7 +1,10 @@
 <?php
 require_once __DIR__ . '/config.php';
 
-$suppliers = apiCall('/suppliers');
+$search = $_GET['search'] ?? '';
+$suppliersEndpoint = '/suppliers?per_page=50';
+if ($search) $suppliersEndpoint .= '&search=' . urlencode($search);
+$suppliers = apiCall($suppliersEndpoint);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -38,6 +41,13 @@ $msg = $_GET['msg'] ?? '';
     <?php if ($msg): ?>
         <div class="alert alert-success alert-dismissible fade show">Supplier <?php echo htmlspecialchars($msg); ?>. <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
     <?php endif; ?>
+    <div class="card mb-3"><div class="card-body">
+        <form method="GET" class="row g-2">
+            <div class="col-md-8"><input type="text" class="form-control" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search supplier..."></div>
+            <div class="col-md-2"><button type="submit" class="btn btn-outline-primary w-100">Search</button></div>
+            <div class="col-md-2"><a href="suppliers.php" class="btn btn-outline-secondary w-100">Clear</a></div>
+        </form>
+    </div></div>
     <div class="card"><div class="card-body">
         <table class="table table-striped">
             <thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Email</th><th>Terms</th><th>Credit Limit</th><th>Actions</th></tr></thead>

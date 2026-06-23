@@ -105,6 +105,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/reports/accounts/receivable/aging', [App\Http\Controllers\Api\v1\ReportsController::class, 'arAging']);
             Route::get('/reports/accounts/payable/aging', [App\Http\Controllers\Api\v1\ReportsController::class, 'apAging']);
             Route::get('/reports/profit-loss', [App\Http\Controllers\Api\v1\ReportsController::class, 'profitLoss']);
+            Route::get('/reports/inventory/stock-valuation', [App\Http\Controllers\Api\v1\ReportsController::class, 'stockValuation']);
         });
     });
 });

@@ -13,6 +13,7 @@ $endpoints = [
     'lowstock' => '/reports/inventory/low-stock',
     'stockmovement' => '/reports/inventory/stock-movement?date_from=' . $dateFrom . '&date_to=' . $dateTo,
     'deadstock' => '/reports/inventory/dead-stock',
+    'stockvaluation' => '/reports/inventory/stock-valuation',
     'araging' => '/reports/accounts/receivable/aging',
     'apaging' => '/reports/accounts/payable/aging',
     'profitloss' => '/reports/profit-loss?date_from=' . $dateFrom . '&date_to=' . $dateTo,
@@ -35,6 +36,7 @@ renderNav('reports');
         <li class="nav-item"><a class="nav-link <?= $tab==='lowstock'?'active':'' ?>" href="?tab=lowstock">Low Stock</a></li>
         <li class="nav-item"><a class="nav-link <?= $tab==='stockmovement'?'active':'' ?>" href="?tab=stockmovement">Stock Movement</a></li>
         <li class="nav-item"><a class="nav-link <?= $tab==='deadstock'?'active':'' ?>" href="?tab=deadstock">Dead Stock</a></li>
+        <li class="nav-item"><a class="nav-link <?= $tab==='stockvaluation'?'active':'' ?>" href="?tab=stockvaluation">Stock Valuation</a></li>
         <li class="nav-item"><a class="nav-link <?= $tab==='araging'?'active':'' ?>" href="?tab=araging">AR Aging</a></li>
         <li class="nav-item"><a class="nav-link <?= $tab==='apaging'?'active':'' ?>" href="?tab=apaging">AP Aging</a></li>
     </ul>
@@ -115,6 +117,17 @@ renderNav('reports');
             <table class="table table-sm"><thead><tr><th>Code</th><th>Product</th><th>Stock</th><th>Stock Value</th><th>Days Inactive</th></tr></thead><tbody>
             <?php foreach ($reportData as $r): ?>
             <tr><td><?= htmlspecialchars($r['product_code']) ?></td><td><?= htmlspecialchars($r['product_name']) ?></td><td><?= $r['current_stock'] ?></td><td>Rp <?= number_format($r['stock_value'], 0) ?></td><td><?= $r['days_inactive'] ?></td></tr>
+            <?php endforeach; ?>
+            </tbody></table>
+
+        <?php elseif ($tab === 'stockvaluation'): ?>
+            <div class="row mb-3">
+                <div class="col-md-4"><div class="card bg-light"><div class="card-body"><small>Total Stock Value</small><h4>Rp <?= number_format($reportData['total_stock_value'] ?? 0, 0) ?></h4></div></div></div>
+                <div class="col-md-4"><div class="card bg-light"><div class="card-body"><small>Products in Stock</small><h4><?= $reportData['total_products'] ?? 0 ?></h4></div></div></div>
+            </div>
+            <table class="table table-sm"><thead><tr><th>Code</th><th>Product</th><th>Stock Qty</th><th>Avg Cost</th><th>Stock Value</th><th>Sell Price</th><th>Potential Revenue</th></tr></thead><tbody>
+            <?php foreach (($reportData['items'] ?? []) as $r): ?>
+            <tr><td><?= htmlspecialchars($r['product_code']) ?></td><td><?= htmlspecialchars($r['product_name']) ?></td><td><?= $r['current_stock'] ?></td><td>Rp <?= number_format($r['avg_cost'], 0) ?></td><td>Rp <?= number_format($r['stock_value'], 0) ?></td><td>Rp <?= number_format($r['sell_price'], 0) ?></td><td>Rp <?= number_format($r['potential_revenue'], 0) ?></td></tr>
             <?php endforeach; ?>
             </tbody></table>
 

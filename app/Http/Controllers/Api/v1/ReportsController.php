@@ -76,4 +76,9 @@ class ReportsController extends Controller
         $days = (int) $request->input('days', 90);
         return response()->json(['success' => true, 'data' => $this->reportService->getDeadStockReport($days)]);
     }
+
+    public function stockValuation()
+    {
+        return response()->json(['success' => true, 'data' => $this->reportService->getStockValuation()]);
+    }
 }
