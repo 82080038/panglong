@@ -19,6 +19,7 @@ class DeliveryItem extends Model
         'quantity',
         'unit_id',
         'notes',
+        'delivery_status',
     ];
 
     public function delivery(): BelongsTo

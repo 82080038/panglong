@@ -21,8 +21,13 @@ class Product extends Model
         'min_stock',
         'max_stock',
         'location',
+        'warehouse_location_id',
         'buy_price',
         'sell_price',
+        'weight_kg',
+        'length_cm',
+        'width_cm',
+        'height_cm',
         'is_active',
     ];
 
@@ -32,6 +37,10 @@ class Product extends Model
         'max_stock' => 'decimal:3',
         'buy_price' => 'decimal:2',
         'sell_price' => 'decimal:2',
+        'weight_kg' => 'decimal:3',
+        'length_cm' => 'decimal:2',
+        'width_cm' => 'decimal:2',
+        'height_cm' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 

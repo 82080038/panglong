@@ -18,6 +18,7 @@ abstract class TestCase extends BaseTestCase
         $this->seed(\Database\Seeders\PermissionSeeder::class);
         $this->seed(\Database\Seeders\RolePermissionSeeder::class);
         $this->seed(\Database\Seeders\UserSeeder::class);
+        $this->seed(\Database\Seeders\ChartOfAccountsSeeder::class);
     }
 
     protected function actingAsUser(string $role = 'kasir')

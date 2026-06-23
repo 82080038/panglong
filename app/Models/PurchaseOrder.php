@@ -20,6 +20,10 @@ class PurchaseOrder extends Model
         'discount',
         'tax',
         'total',
+        'freight_cost',
+        'insurance_cost',
+        'handling_cost',
+        'landed_total',
         'payment_status',
         'status',
         'notes',
@@ -32,6 +36,10 @@ class PurchaseOrder extends Model
         'discount' => 'decimal:2',
         'tax' => 'decimal:2',
         'total' => 'decimal:2',
+        'freight_cost' => 'decimal:2',
+        'insurance_cost' => 'decimal:2',
+        'handling_cost' => 'decimal:2',
+        'landed_total' => 'decimal:2',
     ];
 
     /**

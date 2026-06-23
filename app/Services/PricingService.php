@@ -7,15 +7,17 @@ use App\Models\ProductUnit;
 use App\Models\Customer;
 use App\Models\CustomerGroup;
 use App\Models\AppSetting;
+use App\Models\CustomerProductPrice;
+use App\Models\ProductTierPrice;
 
 class PricingService
 {
     /**
      * Get the effective unit price for a product+unit+customer combination.
-     * Priority: product_unit.price_per_unit > product.sell_price
+     * Priority: customer-specific price > tier price (volume) > product_unit.price_per_unit > product.sell_price
      * Then apply customer group discount percentage.
      */
-    public function getUnitPrice(int $productId, int $unitId, ?int $customerId = null): float
+    public function getUnitPrice(int $productId, int $unitId, ?int $customerId = null, ?float $quantity = null): float
     {
         $unit = ProductUnit::find($unitId);
         $basePrice = 0;
@@ -29,6 +31,36 @@ class PricingService
             }
         }
 
+        // Priority 1: Customer-specific price
+        if ($customerId) {
+            $customerPrice = CustomerProductPrice::where('customer_id', $customerId)
+                ->where('product_id', $productId)
+                ->where('unit_id', $unitId)
+                ->where('is_active', true)
+                ->when($quantity, function ($q) use ($quantity) {
+                    $q->where('min_qty', '<=', $quantity);
+                })
+                ->orderBy('min_qty', 'desc')
+                ->first();
+            if ($customerPrice) {
+                return round((float) $customerPrice->custom_price, 2);
+            }
+        }
+
+        // Priority 2: Volume-based tier price
+        if ($quantity) {
+            $tierPrice = ProductTierPrice::where('product_id', $productId)
+                ->where('unit_id', $unitId)
+                ->where('is_active', true)
+                ->where('min_qty', '<=', $quantity)
+                ->orderBy('min_qty', 'desc')
+                ->first();
+            if ($tierPrice) {
+                return round((float) $tierPrice->unit_price, 2);
+            }
+        }
+
+        // Priority 3: Customer group discount
         if ($customerId) {
             $customer = Customer::with('group')->find($customerId);
             if ($customer && $customer->group) {

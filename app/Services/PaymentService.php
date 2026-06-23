@@ -13,6 +13,12 @@ use Illuminate\Support\Facades\DB;
 
 class PaymentService
 {
+    private AccountingService $accountingService;
+
+    public function __construct(AccountingService $accountingService)
+    {
+        $this->accountingService = $accountingService;
+    }
     /**
      * Record sale payment
      */
@@ -82,6 +88,9 @@ class PaymentService
             $po->update([
                 'payment_status' => $totalPaid >= $po->total ? 'paid' : 'partial',
             ]);
+
+            // Post payment journal
+            $this->accountingService->postPaymentJournal('purchase', $poId, $data['amount'], $data['payment_method'], $userId);
 
             return $payment;
         });

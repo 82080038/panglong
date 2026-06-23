@@ -17,11 +17,13 @@ class Delivery extends Model
         'sale_id',
         'customer_name',
         'delivery_address',
+        'origin_address',
         'phone',
         'delivery_date',
         'delivery_time',
         'driver_name',
         'vehicle_plate',
+        'delivery_cost',
         'status',
         'notes',
         'delivered_at',
@@ -32,6 +34,7 @@ class Delivery extends Model
     protected $casts = [
         'delivery_date' => 'date',
         'delivered_at' => 'datetime',
+        'delivery_cost' => 'decimal:2',
     ];
 
     public function sale(): BelongsTo

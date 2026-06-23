@@ -15,10 +15,12 @@ use Exception;
 class SaleService
 {
     private PricingService $pricingService;
+    private AccountingService $accountingService;
 
-    public function __construct(PricingService $pricingService)
+    public function __construct(PricingService $pricingService, AccountingService $accountingService)
     {
         $this->pricingService = $pricingService;
+        $this->accountingService = $accountingService;
     }
 
     /**
@@ -112,7 +114,8 @@ class SaleService
                 'subtotal' => $subtotal,
                 'discount' => $discount,
                 'tax' => $taxAmount,
-                'total' => $total,
+                'total' => $total + ($data['delivery_cost'] ?? 0),
+                'delivery_cost' => $data['delivery_cost'] ?? 0,
                 'payment_method' => $data['payment_method'],
                 'payment_status' => $data['payment_method'] === 'cash' ? 'paid' : 'unpaid',
                 'status' => 'completed',
@@ -127,21 +130,23 @@ class SaleService
                     'sale_id' => $sale->id,
                     'product_id' => $item['product_id'],
                     'quantity' => $item['quantity'],
+                    'bonus_qty' => $item['bonus_qty'] ?? 0,
                     'unit_id' => $item['unit_id'],
                     'unit_price' => $item['unit_price'],
                     'discount' => $item['discount'] ?? 0,
                     'subtotal' => ($item['quantity'] * $item['unit_price']) - ($item['discount'] ?? 0),
                 ]);
 
-                // Create stock movement (negative = out)
+                // Create stock movement (negative = out, including bonus)
+                $totalOut = $item['quantity'] + ($item['bonus_qty'] ?? 0);
                 StockMovement::create([
                     'product_id' => $item['product_id'],
-                    'quantity' => -$item['quantity'],
+                    'quantity' => -$totalOut,
                     'unit_id' => $item['unit_id'],
                     'movement_type' => 'sale',
                     'reference_id' => $sale->id,
                     'reference_type' => 'sale',
-                    'notes' => "Sale {$invoiceNo}",
+                    'notes' => "Sale {$invoiceNo}" . (isset($item['bonus_qty']) && $item['bonus_qty'] > 0 ? " (incl. bonus {$item['bonus_qty']})" : ''),
                     'created_by' => $userId,
                 ]);
             }
@@ -159,6 +164,9 @@ class SaleService
                     'status' => 'pending',
                 ]);
             }
+
+            // Post journal entry
+            $this->accountingService->postSaleJournal($sale->fresh('items.product'));
 
             return $sale;
         });
@@ -202,6 +210,9 @@ class SaleService
                 $ar->update(['status' => 'voided', 'balance' => 0]);
             }
 
+            // Void journal entry (reversal)
+            $this->accountingService->voidSaleJournal($sale, $reason, $userId);
+
             return true;
         });
     }
@@ -241,6 +252,9 @@ class SaleService
                     ]);
                 }
             }
+
+            // Post payment journal
+            $this->accountingService->postPaymentJournal('sale', $saleId, $data['amount'], $data['payment_method'], $userId);
 
             return $payment;
         });

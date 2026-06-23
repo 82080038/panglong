@@ -16,6 +16,7 @@ class PurchaseItem extends Model
         'po_id',
         'product_id',
         'quantity',
+        'bonus_qty',
         'received_quantity',
         'unit_id',
         'unit_price',
@@ -24,6 +25,7 @@ class PurchaseItem extends Model
 
     protected $casts = [
         'quantity' => 'decimal:3',
+        'bonus_qty' => 'decimal:3',
         'received_quantity' => 'decimal:3',
         'unit_price' => 'decimal:2',
         'subtotal' => 'decimal:2',

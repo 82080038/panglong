@@ -8,16 +8,22 @@ use App\Models\PurchaseItem;
 use App\Models\StockMovement;
 use App\Models\AccountPayable;
 use App\Services\PaymentService;
+use App\Services\AccountingService;
+use App\Services\PricingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PurchaseOrdersController extends Controller
 {
     private PaymentService $paymentService;
+    private AccountingService $accountingService;
+    private PricingService $pricingService;
 
-    public function __construct(PaymentService $paymentService)
+    public function __construct(PaymentService $paymentService, AccountingService $accountingService, PricingService $pricingService)
     {
         $this->paymentService = $paymentService;
+        $this->accountingService = $accountingService;
+        $this->pricingService = $pricingService;
     }
 
     public function index(Request $request)
@@ -72,9 +78,13 @@ class PurchaseOrdersController extends Controller
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|numeric|min:0',
+            'items.*.bonus_qty' => 'nullable|numeric|min:0',
             'items.*.unit_id' => 'required|exists:product_units,id',
             'items.*.unit_price' => 'required|numeric|min:0',
             'discount' => 'nullable|numeric|min:0',
+            'freight_cost' => 'nullable|numeric|min:0',
+            'insurance_cost' => 'nullable|numeric|min:0',
+            'handling_cost' => 'nullable|numeric|min:0',
             'payment_method' => 'nullable|in:cash,credit,transfer',
             'notes' => 'nullable|string',
         ]);
@@ -86,7 +96,10 @@ class PurchaseOrdersController extends Controller
                     return $item['quantity'] * $item['unit_price'];
                 });
                 $discount = $validated['discount'] ?? 0;
-                $total = $subtotal - $discount;
+                $taxRate = $this->pricingService->getTaxRate();
+                $taxable = $subtotal - $discount;
+                $taxAmount = $taxable * $taxRate;
+                $total = $taxable + $taxAmount;
 
                 $paymentMethod = $validated['payment_method'] ?? 'credit';
 
@@ -96,8 +109,12 @@ class PurchaseOrdersController extends Controller
                     'po_date' => $validated['po_date'],
                     'subtotal' => $subtotal,
                     'discount' => $discount,
-                    'tax' => 0,
+                    'tax' => $taxAmount,
                     'total' => $total,
+                    'freight_cost' => $validated['freight_cost'] ?? 0,
+                    'insurance_cost' => $validated['insurance_cost'] ?? 0,
+                    'handling_cost' => $validated['handling_cost'] ?? 0,
+                    'landed_total' => $total + ($validated['freight_cost'] ?? 0) + ($validated['insurance_cost'] ?? 0) + ($validated['handling_cost'] ?? 0),
                     'payment_status' => $paymentMethod === 'cash' ? 'paid' : 'unpaid',
                     'status' => 'ordered',
                     'notes' => $validated['notes'] ?? null,
@@ -109,6 +126,7 @@ class PurchaseOrdersController extends Controller
                         'po_id' => $po->id,
                         'product_id' => $item['product_id'],
                         'quantity' => $item['quantity'],
+                        'bonus_qty' => $item['bonus_qty'] ?? 0,
                         'received_quantity' => 0,
                         'unit_id' => $item['unit_id'],
                         'unit_price' => $item['unit_price'],
@@ -129,6 +147,9 @@ class PurchaseOrdersController extends Controller
                         'status' => 'pending',
                     ]);
                 }
+
+                // Post journal entry
+                $this->accountingService->postPurchaseJournal($po->fresh('items.product'));
 
                 return response()->json([
                     'success' => true,

@@ -82,10 +82,12 @@ class SalesController extends Controller
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|numeric|min:0.001',
+            'items.*.bonus_qty' => 'nullable|numeric|min:0',
             'items.*.unit_id' => 'required|exists:product_units,id',
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.discount' => 'nullable|numeric|min:0',
             'discount' => 'nullable|numeric|min:0',
+            'delivery_cost' => 'nullable|numeric|min:0',
             'payment_method' => 'required|in:cash,credit,transfer',
             'notes' => 'nullable|string',
             'delivery_address' => 'nullable|string',
@@ -190,12 +192,14 @@ class SalesController extends Controller
             'product_id' => 'required|exists:products,id',
             'unit_id' => 'required|exists:product_units,id',
             'customer_id' => 'nullable|exists:customers,id',
+            'quantity' => 'nullable|numeric|min:0.001',
         ]);
 
         $price = $this->pricingService->getUnitPrice(
             $validated['product_id'],
             $validated['unit_id'],
-            $validated['customer_id'] ?? null
+            $validated['customer_id'] ?? null,
+            isset($validated['quantity']) ? (float) $validated['quantity'] : null
         );
 
         $margin = $this->pricingService->checkMargin($validated['product_id'], $price);

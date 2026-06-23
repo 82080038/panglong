@@ -23,6 +23,7 @@ class User extends Authenticatable
         'email',
         'phone',
         'role_id',
+        'branch_id',
         'is_active',
         'last_login_at',
     ];
@@ -55,6 +56,11 @@ class User extends Authenticatable
     public function role()
     {
         return $this->belongsTo(Role::class);
+    }
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     /**

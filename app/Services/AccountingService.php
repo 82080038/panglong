@@ -18,9 +18,11 @@ class AccountingService
             if ($existing) return $existing;
 
             $cashAccount = ChartOfAccount::where('code', '1010')->first();
+            $bankAccount = ChartOfAccount::where('code', '1020')->first();
             $arAccount = ChartOfAccount::where('code', '1100')->first();
             $salesAccount = ChartOfAccount::where('code', '4000')->first();
-            $vatAccount = ChartOfAccount::where('code', '2100')->first();
+            $vatOutAccount = ChartOfAccount::where('code', '2100')->first(); // PPN Keluaran
+            $salesDiscountAccount = ChartOfAccount::where('code', '4200')->first(); // Potongan Penjualan
             $inventoryAccount = ChartOfAccount::where('code', '1200')->first();
             $cogsAccount = ChartOfAccount::where('code', '5000')->first();
 
@@ -34,33 +36,49 @@ class AccountingService
                 'created_by' => $sale->created_by,
             ]);
 
-            // Debit: Cash or AR (full amount)
-            $debitAccount = ($sale->payment_method === 'cash') ? $cashAccount : $arAccount;
+            // Debit: Cash/Bank or AR (full amount)
+            $debitAccount = $arAccount;
+            if ($sale->payment_method === 'cash') {
+                $debitAccount = $cashAccount;
+            } elseif ($sale->payment_method === 'transfer') {
+                $debitAccount = $bankAccount;
+            }
             JournalEntryLine::create([
                 'journal_entry_id' => $journal->id,
                 'account_id' => $debitAccount->id,
                 'debit' => $sale->total,
                 'credit' => 0,
-                'description' => 'Sale ' . $sale->invoice_no,
+                'description' => 'Penjualan ' . $sale->invoice_no,
             ]);
 
-            // Credit: Sales Revenue (subtotal - discount)
+            // Credit: Sales Revenue (subtotal)
             JournalEntryLine::create([
                 'journal_entry_id' => $journal->id,
                 'account_id' => $salesAccount->id,
                 'debit' => 0,
-                'credit' => $sale->subtotal - $sale->discount,
-                'description' => 'Sales revenue',
+                'credit' => $sale->subtotal,
+                'description' => 'Pendapatan Penjualan',
             ]);
 
-            // Credit: VAT Payable (tax)
+            // Debit: Potongan Penjualan (if discount > 0)
+            if ($sale->discount > 0 && $salesDiscountAccount) {
+                JournalEntryLine::create([
+                    'journal_entry_id' => $journal->id,
+                    'account_id' => $salesDiscountAccount->id,
+                    'debit' => $sale->discount,
+                    'credit' => 0,
+                    'description' => 'Potongan Penjualan',
+                ]);
+            }
+
+            // Credit: PPN Keluaran (tax)
             if ($sale->tax > 0) {
                 JournalEntryLine::create([
                     'journal_entry_id' => $journal->id,
-                    'account_id' => $vatAccount->id,
+                    'account_id' => $vatOutAccount->id,
                     'debit' => 0,
                     'credit' => $sale->tax,
-                    'description' => 'VAT (PPN)',
+                    'description' => 'PPN Keluaran',
                 ]);
             }
 
@@ -75,14 +93,14 @@ class AccountingService
                     'account_id' => $cogsAccount->id,
                     'debit' => $cogs,
                     'credit' => 0,
-                    'description' => 'COGS for ' . $sale->invoice_no,
+                    'description' => 'HPP untuk ' . $sale->invoice_no,
                 ]);
                 JournalEntryLine::create([
                     'journal_entry_id' => $journal->id,
                     'account_id' => $inventoryAccount->id,
                     'debit' => 0,
                     'credit' => $cogs,
-                    'description' => 'Inventory released',
+                    'description' => 'Persediaan dikeluarkan',
                 ]);
             }
 
@@ -97,10 +115,11 @@ class AccountingService
             $existing = JournalEntry::where('reference_type', 'purchase_order')->where('reference_id', $po->id)->first();
             if ($existing) return $existing;
 
-            $apAccount = ChartOfAccount::where('code', '2000')->first();
-            $cashAccount = ChartOfAccount::where('code', '1010')->first();
-            $inventoryAccount = ChartOfAccount::where('code', '1200')->first();
-            $vatAccount = ChartOfAccount::where('code', '2100')->first();
+            $apAccount = ChartOfAccount::where('code', '2000')->first(); // Hutang Usaha
+            $cashAccount = ChartOfAccount::where('code', '1010')->first(); // Kas Tunai
+            $bankAccount = ChartOfAccount::where('code', '1020')->first(); // Bank BCA
+            $inventoryAccount = ChartOfAccount::where('code', '1200')->first(); // Persediaan
+            $vatInAccount = ChartOfAccount::where('code', '1300')->first(); // PPN Masukan
 
             $journal = JournalEntry::create([
                 'journal_no' => $journalNo,
@@ -112,34 +131,37 @@ class AccountingService
                 'created_by' => $po->created_by,
             ]);
 
-            // Debit: Inventory
+            // Debit: Persediaan
             JournalEntryLine::create([
                 'journal_entry_id' => $journal->id,
                 'account_id' => $inventoryAccount->id,
                 'debit' => $po->subtotal - $po->discount,
                 'credit' => 0,
-                'description' => 'Inventory from PO ' . $po->po_number,
+                'description' => 'Persediaan dari PO ' . $po->po_number,
             ]);
 
-            // Debit: VAT (if any)
-            if ($po->tax > 0) {
+            // Debit: PPN Masukan (if any)
+            if ($po->tax > 0 && $vatInAccount) {
                 JournalEntryLine::create([
                     'journal_entry_id' => $journal->id,
-                    'account_id' => $vatAccount->id,
+                    'account_id' => $vatInAccount->id,
                     'debit' => $po->tax,
                     'credit' => 0,
-                    'description' => 'VAT Input',
+                    'description' => 'PPN Masukan',
                 ]);
             }
 
-            // Credit: AP or Cash
-            $creditAccount = ($po->payment_status === 'paid') ? $cashAccount : $apAccount;
+            // Credit: Hutang Usaha or Kas/Bank
+            $creditAccount = $apAccount;
+            if ($po->payment_status === 'paid') {
+                $creditAccount = $cashAccount;
+            }
             JournalEntryLine::create([
                 'journal_entry_id' => $journal->id,
                 'account_id' => $creditAccount->id,
                 'debit' => 0,
                 'credit' => $po->total,
-                'description' => 'Payment for PO ' . $po->po_number,
+                'description' => 'Pembayaran PO ' . $po->po_number,
             ]);
 
             return $journal;
@@ -149,9 +171,11 @@ class AccountingService
     public function postPaymentJournal(string $type, int $referenceId, float $amount, string $method, int $userId): JournalEntry
     {
         return DB::transaction(function () use ($type, $referenceId, $amount, $method, $userId) {
-            $cashAccount = ChartOfAccount::where('code', $method === 'cash' ? '1010' : '1020')->first();
-            $arAccount = ChartOfAccount::where('code', '1100')->first();
-            $apAccount = ChartOfAccount::where('code', '2000')->first();
+            $cashAccount = ChartOfAccount::where('code', '1010')->first(); // Kas Tunai
+            $bankAccount = ChartOfAccount::where('code', '1020')->first(); // Bank BCA
+            $arAccount = ChartOfAccount::where('code', '1100')->first(); // Piutang Usaha
+            $apAccount = ChartOfAccount::where('code', '2000')->first(); // Hutang Usaha
+            $paymentAccount = ($method === 'cash') ? $cashAccount : $bankAccount;
 
             $journalNo = 'JE-PAY-' . $type . '-' . $referenceId . '-' . date('YmdHis');
             $journal = JournalEntry::create([
@@ -165,14 +189,185 @@ class AccountingService
             ]);
 
             if ($type === 'sale') {
-                // Debit Cash, Credit AR
-                JournalEntryLine::create(['journal_entry_id' => $journal->id, 'account_id' => $cashAccount->id, 'debit' => $amount, 'credit' => 0, 'description' => 'Payment received']);
-                JournalEntryLine::create(['journal_entry_id' => $journal->id, 'account_id' => $arAccount->id, 'debit' => 0, 'credit' => $amount, 'description' => 'AR settled']);
+                // Debit Kas/Bank, Credit Piutang Usaha
+                JournalEntryLine::create(['journal_entry_id' => $journal->id, 'account_id' => $paymentAccount->id, 'debit' => $amount, 'credit' => 0, 'description' => 'Penerimaan piutang']);
+                JournalEntryLine::create(['journal_entry_id' => $journal->id, 'account_id' => $arAccount->id, 'debit' => 0, 'credit' => $amount, 'description' => 'Pelunasan piutang']);
             } else {
-                // Debit AP, Credit Cash
-                JournalEntryLine::create(['journal_entry_id' => $journal->id, 'account_id' => $apAccount->id, 'debit' => $amount, 'credit' => 0, 'description' => 'AP settled']);
-                JournalEntryLine::create(['journal_entry_id' => $journal->id, 'account_id' => $cashAccount->id, 'debit' => 0, 'credit' => $amount, 'description' => 'Payment made']);
+                // Debit Hutang Usaha, Credit Kas/Bank
+                JournalEntryLine::create(['journal_entry_id' => $journal->id, 'account_id' => $apAccount->id, 'debit' => $amount, 'credit' => 0, 'description' => 'Pelunasan hutang']);
+                JournalEntryLine::create(['journal_entry_id' => $journal->id, 'account_id' => $paymentAccount->id, 'debit' => 0, 'credit' => $amount, 'description' => 'Pembayaran hutang']);
             }
+
+            return $journal;
+        });
+    }
+
+    public function voidSaleJournal(Sale $sale, string $reason, int $userId): ?JournalEntry
+    {
+        return DB::transaction(function () use ($sale, $reason, $userId) {
+            $original = JournalEntry::where('reference_type', 'sale')
+                ->where('reference_id', $sale->id)
+                ->where('status', 'posted')
+                ->first();
+
+            if (!$original) return null;
+
+            $original->update(['status' => 'reversed']);
+
+            $reversal = JournalEntry::create([
+                'journal_no' => 'JE-VOID-SALE-' . $sale->id . '-' . date('YmdHis'),
+                'entry_date' => date('Y-m-d'),
+                'description' => 'Pembatalan penjualan ' . $sale->invoice_no . ' (' . $reason . ')',
+                'reference_type' => 'sale_void',
+                'reference_id' => $sale->id,
+                'status' => 'posted',
+                'created_by' => $userId,
+            ]);
+
+            foreach ($original->lines as $line) {
+                JournalEntryLine::create([
+                    'journal_entry_id' => $reversal->id,
+                    'account_id' => $line->account_id,
+                    'debit' => $line->credit,
+                    'credit' => $line->debit,
+                    'description' => 'Reversal: ' . ($line->description ?? ''),
+                ]);
+            }
+
+            return $reversal;
+        });
+    }
+
+    public function postSalesReturnJournal($salesReturn, int $userId): JournalEntry
+    {
+        return DB::transaction(function () use ($salesReturn, $userId) {
+            $cashAccount = ChartOfAccount::where('code', '1010')->first();
+            $bankAccount = ChartOfAccount::where('code', '1020')->first();
+            $arAccount = ChartOfAccount::where('code', '1100')->first();
+            $salesAccount = ChartOfAccount::where('code', '4000')->first();
+            $vatOutAccount = ChartOfAccount::where('code', '2100')->first();
+            $inventoryAccount = ChartOfAccount::where('code', '1200')->first();
+            $cogsAccount = ChartOfAccount::where('code', '5000')->first();
+
+            $sale = $salesReturn->sale;
+
+            $journal = JournalEntry::create([
+                'journal_no' => 'JE-SR-' . $salesReturn->id . '-' . date('Ymd'),
+                'entry_date' => $salesReturn->return_date,
+                'description' => 'Retur penjualan ' . $salesReturn->return_no,
+                'reference_type' => 'sales_return',
+                'reference_id' => $salesReturn->id,
+                'status' => 'posted',
+                'created_by' => $userId,
+            ]);
+
+            $refundAccount = $arAccount;
+            if ($salesReturn->refund_method === 'cash') {
+                $refundAccount = $cashAccount;
+            } elseif ($salesReturn->refund_method === 'transfer') {
+                $refundAccount = $bankAccount;
+            }
+
+            JournalEntryLine::create([
+                'journal_entry_id' => $journal->id,
+                'account_id' => $salesAccount->id,
+                'debit' => $salesReturn->total_refund / (1 + ($sale->tax / max(1, $sale->subtotal - $sale->discount))),
+                'credit' => 0,
+                'description' => 'Pengembalian pendapatan',
+            ]);
+
+            if ($sale->tax > 0 && $vatOutAccount) {
+                $taxPortion = $salesReturn->total_refund - ($salesReturn->total_refund / (1 + ($sale->tax / max(1, $sale->subtotal - $sale->discount))));
+                JournalEntryLine::create([
+                    'journal_entry_id' => $journal->id,
+                    'account_id' => $vatOutAccount->id,
+                    'debit' => $taxPortion,
+                    'credit' => 0,
+                    'description' => 'Pengembalian PPN Keluaran',
+                ]);
+            }
+
+            JournalEntryLine::create([
+                'journal_entry_id' => $journal->id,
+                'account_id' => $refundAccount->id,
+                'debit' => 0,
+                'credit' => $salesReturn->total_refund,
+                'description' => 'Pengembalian ke customer',
+            ]);
+
+            if ($inventoryAccount && $cogsAccount) {
+                $cogs = 0;
+                foreach ($salesReturn->items as $item) {
+                    $product = $item->product;
+                    if ($product) {
+                        $cogs += $item->quantity * $product->buy_price;
+                    }
+                }
+                if ($cogs > 0) {
+                    JournalEntryLine::create([
+                        'journal_entry_id' => $journal->id,
+                        'account_id' => $inventoryAccount->id,
+                        'debit' => $cogs,
+                        'credit' => 0,
+                        'description' => 'Persediaan dikembalikan',
+                    ]);
+                    JournalEntryLine::create([
+                        'journal_entry_id' => $journal->id,
+                        'account_id' => $cogsAccount->id,
+                        'debit' => 0,
+                        'credit' => $cogs,
+                        'description' => 'Reversal HPP',
+                    ]);
+                }
+            }
+
+            return $journal;
+        });
+    }
+
+    public function postPurchaseReturnJournal($purchaseReturn, int $userId): JournalEntry
+    {
+        return DB::transaction(function () use ($purchaseReturn, $userId) {
+            $apAccount = ChartOfAccount::where('code', '2000')->first();
+            $cashAccount = ChartOfAccount::where('code', '1010')->first();
+            $bankAccount = ChartOfAccount::where('code', '1020')->first();
+            $inventoryAccount = ChartOfAccount::where('code', '1200')->first();
+            $vatInAccount = ChartOfAccount::where('code', '1300')->first();
+
+            $po = $purchaseReturn->purchaseOrder;
+
+            $journal = JournalEntry::create([
+                'journal_no' => 'JE-PR-' . $purchaseReturn->id . '-' . date('Ymd'),
+                'entry_date' => $purchaseReturn->return_date,
+                'description' => 'Retur pembelian ' . $purchaseReturn->return_no,
+                'reference_type' => 'purchase_return',
+                'reference_id' => $purchaseReturn->id,
+                'status' => 'posted',
+                'created_by' => $userId,
+            ]);
+
+            $refundAccount = $apAccount;
+            if ($purchaseReturn->refund_method === 'cash') {
+                $refundAccount = $cashAccount;
+            } elseif ($purchaseReturn->refund_method === 'transfer') {
+                $refundAccount = $bankAccount;
+            }
+
+            JournalEntryLine::create([
+                'journal_entry_id' => $journal->id,
+                'account_id' => $refundAccount->id,
+                'debit' => $purchaseReturn->total_refund,
+                'credit' => 0,
+                'description' => 'Pengembalian dari supplier',
+            ]);
+
+            JournalEntryLine::create([
+                'journal_entry_id' => $journal->id,
+                'account_id' => $inventoryAccount->id,
+                'debit' => 0,
+                'credit' => $purchaseReturn->total_refund,
+                'description' => 'Persediaan dikembalikan ke supplier',
+            ]);
 
             return $journal;
         });

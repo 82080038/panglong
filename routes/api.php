@@ -41,6 +41,83 @@ Route::prefix('v1')->group(function () {
         Route::middleware('permission:create_sales')->put('/deliveries/{id}/status', [App\Http\Controllers\Api\v1\DeliveriesController::class, 'updateStatus']);
         Route::middleware('permission:create_sales')->delete('/deliveries/{id}', [App\Http\Controllers\Api\v1\DeliveriesController::class, 'destroy']);
 
+        // Sales Returns
+        Route::get('/sales-returns', [App\Http\Controllers\Api\v1\ReturnsController::class, 'salesIndex']);
+        Route::get('/sales-returns/{id}', [App\Http\Controllers\Api\v1\ReturnsController::class, 'salesShow']);
+        Route::middleware('permission:create_sales')->post('/sales-returns', [App\Http\Controllers\Api\v1\ReturnsController::class, 'salesStore']);
+
+        // Purchase Returns
+        Route::get('/purchase-returns', [App\Http\Controllers\Api\v1\ReturnsController::class, 'purchaseIndex']);
+        Route::get('/purchase-returns/{id}', [App\Http\Controllers\Api\v1\ReturnsController::class, 'purchaseShow']);
+        Route::middleware('permission:manage_suppliers')->post('/purchase-returns', [App\Http\Controllers\Api\v1\ReturnsController::class, 'purchaseStore']);
+
+        // Quotations
+        Route::get('/quotations', [App\Http\Controllers\Api\v1\QuotationsController::class, 'index']);
+        Route::get('/quotations/{id}', [App\Http\Controllers\Api\v1\QuotationsController::class, 'show']);
+        Route::middleware('permission:create_sales')->post('/quotations', [App\Http\Controllers\Api\v1\QuotationsController::class, 'store']);
+        Route::middleware('permission:create_sales')->put('/quotations/{id}/status', [App\Http\Controllers\Api\v1\QuotationsController::class, 'updateStatus']);
+        Route::middleware('permission:create_sales')->post('/quotations/{id}/convert-to-sales-order', [App\Http\Controllers\Api\v1\QuotationsController::class, 'convertToSalesOrder']);
+
+        // Sales Orders
+        Route::get('/sales-orders', [App\Http\Controllers\Api\v1\SalesOrdersController::class, 'index']);
+        Route::get('/sales-orders/{id}', [App\Http\Controllers\Api\v1\SalesOrdersController::class, 'show']);
+        Route::middleware('permission:create_sales')->put('/sales-orders/{id}/status', [App\Http\Controllers\Api\v1\SalesOrdersController::class, 'updateStatus']);
+        Route::middleware('permission:create_sales')->post('/sales-orders/{id}/convert-to-invoice', [App\Http\Controllers\Api\v1\SalesOrdersController::class, 'convertToInvoice']);
+
+        // Pricing Management
+        Route::middleware('permission:manage_customers')->group(function () {
+            Route::get('/pricing/customer-prices', [App\Http\Controllers\Api\v1\PricingController::class, 'customerPrices']);
+            Route::post('/pricing/customer-prices', [App\Http\Controllers\Api\v1\PricingController::class, 'storeCustomerPrice']);
+            Route::delete('/pricing/customer-prices/{id}', [App\Http\Controllers\Api\v1\PricingController::class, 'destroyCustomerPrice']);
+        });
+        Route::middleware('permission:manage_products')->group(function () {
+            Route::get('/pricing/tier-prices', [App\Http\Controllers\Api\v1\PricingController::class, 'tierPrices']);
+            Route::post('/pricing/tier-prices', [App\Http\Controllers\Api\v1\PricingController::class, 'storeTierPrice']);
+            Route::delete('/pricing/tier-prices/{id}', [App\Http\Controllers\Api\v1\PricingController::class, 'destroyTierPrice']);
+        });
+        Route::middleware('permission:view_reports')->group(function () {
+            Route::get('/pricing/supplier-price-history', [App\Http\Controllers\Api\v1\PricingController::class, 'supplierPriceHistory']);
+        });
+
+        // Branches (Cabang Usaha)
+        Route::get('/branches', [App\Http\Controllers\Api\v1\BranchesController::class, 'index']);
+        Route::get('/branches/{id}', [App\Http\Controllers\Api\v1\BranchesController::class, 'show']);
+        Route::middleware('permission:manage_users')->post('/branches', [App\Http\Controllers\Api\v1\BranchesController::class, 'store']);
+        Route::middleware('permission:manage_users')->put('/branches/{id}', [App\Http\Controllers\Api\v1\BranchesController::class, 'update']);
+        Route::middleware('permission:manage_users')->delete('/branches/{id}', [App\Http\Controllers\Api\v1\BranchesController::class, 'destroy']);
+
+        // Employees (Manajemen Orang)
+        Route::get('/employees', [App\Http\Controllers\Api\v1\EmployeesController::class, 'index']);
+        Route::get('/employees/{id}', [App\Http\Controllers\Api\v1\EmployeesController::class, 'show']);
+        Route::middleware('permission:manage_users')->post('/employees', [App\Http\Controllers\Api\v1\EmployeesController::class, 'store']);
+        Route::middleware('permission:manage_users')->put('/employees/{id}', [App\Http\Controllers\Api\v1\EmployeesController::class, 'update']);
+        Route::middleware('permission:manage_users')->delete('/employees/{id}', [App\Http\Controllers\Api\v1\EmployeesController::class, 'destroy']);
+
+        // Warehouse Locations (Rak/Blok/Lokasi)
+        Route::get('/warehouse-locations', [App\Http\Controllers\Api\v1\WarehouseLocationsController::class, 'index']);
+        Route::middleware('permission:manage_products')->post('/warehouse-locations', [App\Http\Controllers\Api\v1\WarehouseLocationsController::class, 'store']);
+        Route::middleware('permission:manage_products')->put('/warehouse-locations/{id}', [App\Http\Controllers\Api\v1\WarehouseLocationsController::class, 'update']);
+        Route::middleware('permission:manage_products')->delete('/warehouse-locations/{id}', [App\Http\Controllers\Api\v1\WarehouseLocationsController::class, 'destroy']);
+
+        // Fixed Assets (Inventaris & Penyusutan)
+        Route::get('/fixed-assets', [App\Http\Controllers\Api\v1\FixedAssetsController::class, 'index']);
+        Route::get('/fixed-assets/{id}', [App\Http\Controllers\Api\v1\FixedAssetsController::class, 'show']);
+        Route::middleware('permission:view_reports')->post('/fixed-assets', [App\Http\Controllers\Api\v1\FixedAssetsController::class, 'store']);
+        Route::middleware('permission:view_reports')->post('/fixed-assets/{id}/depreciate', [App\Http\Controllers\Api\v1\FixedAssetsController::class, 'runDepreciation']);
+        Route::middleware('permission:view_reports')->post('/fixed-assets/depreciate-all', [App\Http\Controllers\Api\v1\FixedAssetsController::class, 'runMonthlyDepreciationAll']);
+        Route::middleware('permission:view_reports')->post('/fixed-assets/{id}/dispose', [App\Http\Controllers\Api\v1\FixedAssetsController::class, 'dispose']);
+
+        // Cash Management (Uang/Surat)
+        Route::middleware('permission:view_reports')->group(function () {
+            Route::get('/cash/balances', [App\Http\Controllers\Api\v1\CashManagementController::class, 'balances']);
+            Route::get('/cash/flow-summary', [App\Http\Controllers\Api\v1\CashManagementController::class, 'cashFlowSummary']);
+            Route::get('/cash/transactions', [App\Http\Controllers\Api\v1\CashManagementController::class, 'transactions']);
+            Route::post('/cash/transactions', [App\Http\Controllers\Api\v1\CashManagementController::class, 'storeTransaction']);
+            Route::get('/bank/statements', [App\Http\Controllers\Api\v1\CashManagementController::class, 'bankStatements']);
+            Route::post('/bank/statements/import', [App\Http\Controllers\Api\v1\CashManagementController::class, 'importBankStatements']);
+            Route::post('/bank/statements/{id}/reconcile', [App\Http\Controllers\Api\v1\CashManagementController::class, 'reconcileBankStatement']);
+        });
+
         // Products
         Route::get('/products', [App\Http\Controllers\Api\v1\ProductsController::class, 'index']);
         Route::get('/products/{id}', [App\Http\Controllers\Api\v1\ProductsController::class, 'show']);

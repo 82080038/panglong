@@ -21,6 +21,7 @@ class Sale extends Model
         'discount',
         'tax',
         'total',
+        'delivery_cost',
         'payment_method',
         'payment_status',
         'status',
@@ -35,6 +36,7 @@ class Sale extends Model
         'discount' => 'decimal:2',
         'tax' => 'decimal:2',
         'total' => 'decimal:2',
+        'delivery_cost' => 'decimal:2',
     ];
 
     /**
