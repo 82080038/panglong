@@ -10,6 +10,8 @@ class AccountReceivable extends Model
 {
     use HasFactory;
 
+    protected $table = 'accounts_receivable';
+
     protected $fillable = [
         'customer_id',
         'sale_id',

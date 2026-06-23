@@ -59,7 +59,7 @@ class SyncService
 
     public function pullChanges(?int $tenantId, string $lastSyncAt): array
     {
-        $entities = ['Product', 'Customer', 'Sale', 'Supplier', 'StockMovement'];
+        $entities = ['Product', 'Customer', 'Sale', 'Supplier'];
         $changes = [];
 
         foreach ($entities as $entity) {
@@ -77,6 +77,20 @@ class SyncService
                     'synced_at' => now()->toIso8601String(),
                 ];
             }
+        }
+
+        // StockMovement uses created_at only (no updated_at)
+        $query = \App\Models\StockMovement::where('created_at', '>', $lastSyncAt);
+        if ($tenantId) $query->where('tenant_id', $tenantId);
+        $records = $query->get();
+        foreach ($records as $record) {
+            $changes[] = [
+                'entity_type' => 'StockMovement',
+                'entity_id' => $record->id,
+                'action' => 'update',
+                'payload' => $record->toArray(),
+                'synced_at' => now()->toIso8601String(),
+            ];
         }
 
         return $changes;

@@ -13,7 +13,7 @@ class BarcodeController extends Controller
         $barcode = $validated['barcode'];
 
         // Search in product barcodes table
-        $productBarcode = \App\Models\ProductBarcode::where('barcode', $barcode)->first();
+        $productBarcode = \App\Models\Barcode::where('barcode', $barcode)->first();
         if ($productBarcode) {
             $product = Product::with(['category', 'units.unit', 'barcodes'])->find($productBarcode->product_id);
             if ($product) {
