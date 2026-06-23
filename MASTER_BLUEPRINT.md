@@ -4,15 +4,22 @@
 
 ## COMPLETE ENTERPRISE ARCHITECTURE PLAN
 
-Versi: 1.0
+Versi: 1.1 (Updated 2025-06-23)
 Target Teknologi:
 
-* PHP Native
-* MySQL / MariaDB
-* jQuery
-* Bootstrap
-* Offline First Hybrid
-* Multi Tenant SaaS
+* Backend: Laravel 10.x (PHP 8.1+) - REST API
+* Frontend: PHP Native (procedural, konsumsi API via cURL)
+* Database: MySQL 8.0+ / MariaDB 10.6+ (production), SQLite (dev)
+* jQuery 3.6.x
+* Bootstrap 5.3.x
+* Auth: Laravel Sanctum (token-based)
+* Permission: spatie/laravel-permission
+* Offline First Hybrid (Phase 3)
+* Multi Tenant SaaS (Phase 3)
+
+> Catatan: Blueprint ini adalah vision document. Implementasi Phase 1 MVP
+> menggunakan Laravel sebagai backend API dan PHP Native sebagai frontend.
+> Lihat DEVELOPMENT_ROADMAP.md untuk eksekusi plan detail.
 
 ---
 
@@ -183,56 +190,78 @@ Yang mengontrol:
 
 # 3. ARSITEKTUR ENTERPRISE
 
-## Arsitektur Dasar
+## Arsitektur Dasar (Implementasi Aktual)
 
 ```text
-Client
+Browser (User)
 ↓
-Public/index.php
+PHP Native Frontend (frontend/*.php)
+↓ cURL / API Call
+Laravel API (public/index.php)
 ↓
-Router
+Router (routes/api.php)
 ↓
-Controller
+Controller (app/Http/Controllers/Api/v1/)
 ↓
-Service Layer
+Service Layer (app/Services/)
 ↓
-Repository / Model
+Model / Eloquent (app/Models/)
 ↓
-Database
+Database (MySQL / SQLite)
 ```
+
+### Catatan Arsitektur
+- Frontend dan Backend adalah kode terpisah dalam satu repo
+- Frontend: `frontend/` directory (PHP Native, session-based)
+- Backend: `app/`, `routes/`, `config/` (Laravel framework)
+- Komunikasi via REST API (JSON over HTTP)
+- Authentication via Sanctum token
 
 ---
 
-# 4. STRUKTUR FOLDER PHP NATIVE
+# 4. STRUKTUR FOLDER AKTUAL
 
 ```text
-/app
-    /config
-    /controllers
-    /services
-    /models
-    /repositories
-    /middlewares
-    /helpers
-    /libraries
-    /modules
-    /events
-    /listeners
-
-/public
-    /assets
-    /uploads
-    index.php
-
-/storage
-    /logs
-    /backup
-    /cache
-    /temp
-
-/routes
-/system
-/vendor
+panglong/
+├── app/                        # Laravel backend
+│   ├── Console/
+│   ├── Exceptions/
+│   ├── Helpers/
+│   ├── Http/
+│   │   ├── Controllers/
+│   │   │   └── Api/v1/         # API controllers
+│   │   └── Middleware/
+│   ├── Models/                 # Eloquent models (25)
+│   ├── Providers/
+│   └── Services/               # Business logic (7 services)
+├── bootstrap/
+├── config/
+├── database/
+│   ├── migrations/             # 25 migration files
+│   └── seeders/                # 8 seeder files
+├── frontend/                   # PHP Native frontend
+│   ├── index.php               # Dashboard
+│   ├── login.php               # Auth page
+│   ├── logout.php
+│   ├── products.php            # Product CRUD
+│   ├── customers.php           # Customer CRUD
+│   ├── sales.php               # POS / Sales
+│   ├── stock.php               # Inventory
+│   └── test_login.php          # Test page
+├── public/
+│   └── index.php               # Laravel entry point
+├── routes/
+│   ├── api.php                 # API routes (v1)
+│   ├── web.php
+│   └── console.php
+├── storage/
+│   ├── logs/
+│   └── framework/
+├── vendor/                     # Composer dependencies
+├── composer.json
+├── artisan
+├── .env.example
+└── *.md                        # Documentation files
 ```
 
 ---
@@ -1449,6 +1478,9 @@ Sistem harus tetap berjalan.
 ---
 
 # 113. SCALABILITY ROADMAP
+
+> Status: Phase 1 MVP - IN PROGRESS
+> Lihat DEVELOPMENT_ROADMAP.md untuk detail sprint plan
 
 Tahapan:
 

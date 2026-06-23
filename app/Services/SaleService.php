@@ -4,14 +4,23 @@ namespace App\Services;
 
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\SalePayment;
 use App\Models\StockMovement;
 use App\Models\Customer;
 use App\Models\AccountReceivable;
+use App\Models\AppSetting;
 use Illuminate\Support\Facades\DB;
 use Exception;
 
 class SaleService
 {
+    private PricingService $pricingService;
+
+    public function __construct(PricingService $pricingService)
+    {
+        $this->pricingService = $pricingService;
+    }
+
     /**
      * Calculate subtotal from items
      */
@@ -23,10 +32,13 @@ class SaleService
     }
 
     /**
-     * Calculate total with tax
+     * Calculate total with configurable tax
      */
-    public function calculateTotal(float $subtotal, float $discount, float $taxRate = 0.11): float
+    public function calculateTotal(float $subtotal, float $discount, ?float $taxRate = null): float
     {
+        if ($taxRate === null) {
+            $taxRate = $this->pricingService->getTaxRate();
+        }
         $taxable = $subtotal - $discount;
         return $taxable + ($taxable * $taxRate);
     }
@@ -47,27 +59,65 @@ class SaleService
     }
 
     /**
-     * Create sale with stock movements
+     * Create sale with stock movements, credit limit check, negative stock prevention
      */
     public function createSale(array $data, int $userId): Sale
     {
         return DB::transaction(function () use ($data, $userId) {
-            $invoiceNo = $this->generateInvoiceNumber($data['sale_date']);
+            $customerId = $data['customer_id'] ?? null;
+            $customerName = 'Walk-in Customer';
+            $customer = null;
+
+            if ($customerId) {
+                $customer = Customer::with('group')->find($customerId);
+                if (!$customer) {
+                    throw new Exception('Customer not found');
+                }
+                $customerName = $customer->name;
+            }
+
+            // Calculate subtotal
             $subtotal = $this->calculateSubtotal($data['items']);
-            $total = $this->calculateTotal($subtotal, $data['discount'] ?? 0, 0.11);
+            $discount = $data['discount'] ?? 0;
+            $taxRate = $this->pricingService->getTaxRate();
+            $total = $this->calculateTotal($subtotal, $discount, $taxRate);
+            $taxAmount = ($subtotal - $discount) * $taxRate;
+
+            // Credit limit check for credit sales
+            if ($data['payment_method'] === 'credit' && $customer) {
+                $creditCheck = $this->pricingService->checkCreditLimit($customer->id, $total);
+                if (!$creditCheck['allowed']) {
+                    throw new Exception($creditCheck['message']);
+                }
+            }
+
+            // Negative stock prevention - check all items
+            $stockService = app(StockService::class);
+            foreach ($data['items'] as $item) {
+                $currentStock = $stockService->getCurrentStock($item['product_id']);
+                if ($currentStock < $item['quantity']) {
+                    $product = \App\Models\Product::find($item['product_id']);
+                    $productName = $product ? $product->name : "Product #{$item['product_id']}";
+                    throw new Exception("Insufficient stock for {$productName}. Available: {$currentStock}, Requested: {$item['quantity']}");
+                }
+            }
+
+            $invoiceNo = $this->generateInvoiceNumber($data['sale_date']);
 
             $sale = Sale::create([
                 'invoice_no' => $invoiceNo,
-                'customer_id' => $data['customer_id'],
+                'customer_id' => $customerId,
+                'customer_name_snapshot' => $customerName,
                 'sale_date' => $data['sale_date'],
                 'subtotal' => $subtotal,
-                'discount' => $data['discount'] ?? 0,
-                'tax' => $total - $subtotal - ($data['discount'] ?? 0),
+                'discount' => $discount,
+                'tax' => $taxAmount,
                 'total' => $total,
                 'payment_method' => $data['payment_method'],
                 'payment_status' => $data['payment_method'] === 'cash' ? 'paid' : 'unpaid',
                 'status' => 'completed',
                 'notes' => $data['notes'] ?? null,
+                'delivery_address' => $data['delivery_address'] ?? null,
                 'created_by' => $userId,
             ]);
 
@@ -83,7 +133,7 @@ class SaleService
                     'subtotal' => ($item['quantity'] * $item['unit_price']) - ($item['discount'] ?? 0),
                 ]);
 
-                // Create stock movement
+                // Create stock movement (negative = out)
                 StockMovement::create([
                     'product_id' => $item['product_id'],
                     'quantity' => -$item['quantity'],
@@ -97,12 +147,11 @@ class SaleService
             }
 
             // Create accounts receivable if credit
-            if ($data['payment_method'] === 'credit') {
-                $customer = Customer::find($data['customer_id']);
+            if ($data['payment_method'] === 'credit' && $customer) {
                 $dueDate = date('Y-m-d', strtotime($data['sale_date'] . " +{$customer->payment_terms} days"));
 
                 AccountReceivable::create([
-                    'customer_id' => $data['customer_id'],
+                    'customer_id' => $customer->id,
                     'sale_id' => $sale->id,
                     'amount' => $total,
                     'balance' => $total,
@@ -147,7 +196,53 @@ class SaleService
                 'notes' => ($sale->notes ?? '') . " [VOIDED: {$reason}]",
             ]);
 
+            // Update AR if exists
+            $ar = AccountReceivable::where('sale_id', $saleId)->first();
+            if ($ar) {
+                $ar->update(['status' => 'voided', 'balance' => 0]);
+            }
+
             return true;
+        });
+    }
+
+    /**
+     * Record sale payment
+     */
+    public function recordSalePayment(int $saleId, array $data, int $userId): SalePayment
+    {
+        return DB::transaction(function () use ($saleId, $data, $userId) {
+            $sale = Sale::findOrFail($saleId);
+
+            $payment = SalePayment::create([
+                'sale_id' => $saleId,
+                'amount' => $data['amount'],
+                'payment_method' => $data['payment_method'],
+                'payment_date' => $data['payment_date'],
+                'notes' => $data['notes'] ?? null,
+                'created_by' => $userId,
+            ]);
+
+            $totalPaid = $sale->payments()->sum('amount');
+
+            if ($totalPaid >= $sale->total) {
+                $sale->update(['payment_status' => 'paid']);
+            } elseif ($totalPaid > 0) {
+                $sale->update(['payment_status' => 'partial']);
+            }
+
+            if ($sale->payment_method === 'credit') {
+                $receivable = AccountReceivable::where('sale_id', $saleId)->first();
+                if ($receivable) {
+                    $newBalance = $receivable->balance - $data['amount'];
+                    $receivable->update([
+                        'balance' => max(0, $newBalance),
+                        'status' => $newBalance <= 0 ? 'paid' : 'partial',
+                    ]);
+                }
+            }
+
+            return $payment;
         });
     }
 }

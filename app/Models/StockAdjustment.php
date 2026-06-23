@@ -10,11 +10,14 @@ class StockAdjustment extends Model
 {
     use HasFactory;
 
+    public const UPDATED_AT = null;
+
     protected $fillable = [
         'product_id',
         'quantity',
         'adjustment_type',
         'reason',
+        'status',
         'approved_by',
         'approved_at',
         'created_by',

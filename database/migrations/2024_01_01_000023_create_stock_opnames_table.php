@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->date('opname_date')->notNullable();
             $table->text('notes')->nullable();
+            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
             $table->unsignedBigInteger('approved_by')->nullable();
             $table->timestamp('approved_at')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();

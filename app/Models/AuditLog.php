@@ -10,6 +10,8 @@ class AuditLog extends Model
 {
     use HasFactory;
 
+    public const UPDATED_AT = null;
+
     protected $fillable = [
         'user_id',
         'action',

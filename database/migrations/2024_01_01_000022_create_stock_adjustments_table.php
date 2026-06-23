@@ -17,6 +17,7 @@ return new class extends Migration
             $table->decimal('quantity', 10, 3)->notNullable();
             $table->enum('adjustment_type', ['physical_count', 'damage', 'loss', 'theft', 'correction'])->notNullable();
             $table->text('reason')->notNullable();
+            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
             $table->unsignedBigInteger('approved_by')->nullable();
             $table->timestamp('approved_at')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();

@@ -10,6 +10,8 @@ class SalePayment extends Model
 {
     use HasFactory;
 
+    public const UPDATED_AT = null;
+
     protected $fillable = [
         'sale_id',
         'amount',

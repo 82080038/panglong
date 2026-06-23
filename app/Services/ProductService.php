@@ -42,7 +42,7 @@ class ProductService
                     ]);
 
                     if ($unitData['is_base_unit']) {
-                        $product->update(['base_unit_id' => $unit->id]);
+                        // base_unit_id removed - is_base_unit flag on product_units is used instead
                     }
                 }
             }
@@ -104,10 +104,11 @@ class ProductService
      */
     public function getLowStockProducts()
     {
+        $stockService = app(StockService::class);
         return Product::where('is_active', true)
                      ->get()
-                     ->filter(function ($product) {
-                         return $this->getCurrentStock($product->id) < $product->min_stock;
+                     ->filter(function ($product) use ($stockService) {
+                         return $stockService->getCurrentStock($product->id) < $product->min_stock;
                      });
     }
 }

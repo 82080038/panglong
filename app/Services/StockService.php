@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Product;
+use App\Models\ProductUnit;
 use App\Models\StockMovement;
 use App\Models\StockAdjustment;
 use App\Models\StockOpname;
@@ -75,6 +76,7 @@ class StockService
             'quantity' => $data['quantity'],
             'adjustment_type' => $data['adjustment_type'],
             'reason' => $data['reason'],
+            'status' => 'pending',
             'created_by' => $userId,
         ]);
     }
@@ -91,11 +93,16 @@ class StockService
                 throw new Exception('Adjustment already approved');
             }
 
+            // Get base unit
+            $baseUnit = ProductUnit::where('product_id', $adjustment->product_id)
+                ->where('is_base_unit', true)
+                ->first();
+
             // Create stock movement
             StockMovement::create([
                 'product_id' => $adjustment->product_id,
                 'quantity' => $adjustment->quantity,
-                'unit_id' => Product::findOrFail($adjustment->product_id)->base_unit_id,
+                'unit_id' => $baseUnit?->id,
                 'movement_type' => 'adjustment',
                 'reference_id' => $adjustment->id,
                 'reference_type' => 'adjustment',
@@ -105,6 +112,7 @@ class StockService
 
             // Update adjustment status
             $adjustment->update([
+                'status' => 'approved',
                 'approved_by' => $approverId,
                 'approved_at' => now(),
             ]);
@@ -122,6 +130,7 @@ class StockService
             $opname = StockOpname::create([
                 'opname_date' => $data['opname_date'],
                 'notes' => $data['notes'] ?? null,
+                'status' => 'pending',
                 'created_by' => $userId,
             ]);
 
@@ -159,10 +168,14 @@ class StockService
 
             foreach ($opname->items as $item) {
                 if ($item->difference != 0) {
+                    $baseUnit = ProductUnit::where('product_id', $item->product_id)
+                        ->where('is_base_unit', true)
+                        ->first();
+
                     StockMovement::create([
                         'product_id' => $item->product_id,
                         'quantity' => $item->difference,
-                        'unit_id' => Product::findOrFail($item->product_id)->base_unit_id,
+                        'unit_id' => $baseUnit?->id,
                         'movement_type' => 'opname',
                         'reference_id' => $opname->id,
                         'reference_type' => 'opname',
@@ -175,6 +188,7 @@ class StockService
             }
 
             $opname->update([
+                'status' => 'approved',
                 'approved_by' => $approverId,
                 'approved_at' => now(),
             ]);

@@ -3,69 +3,108 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
-|
-*/
-
 Route::get('/user', function (Request $request) {
-    return response()->json([
-        'message' => 'API is working',
-        'version' => '1.0.0',
-    ]);
+    return response()->json(['message' => 'API is working', 'version' => '1.0.0']);
 });
 
-// API v1 routes
 Route::prefix('v1')->group(function () {
     // Authentication
     Route::post('/auth/login', [App\Http\Controllers\Api\v1\AuthController::class, 'login']);
-    Route::get('/auth/me', [App\Http\Controllers\Api\v1\AuthController::class, 'me']);
-    Route::post('/auth/logout', [App\Http\Controllers\Api\v1\AuthController::class, 'logout']);
-    
-    // Protected routes
+
     Route::middleware('auth:sanctum')->group(function () {
+        // Auth
+        Route::get('/auth/me', [App\Http\Controllers\Api\v1\AuthController::class, 'me']);
+        Route::post('/auth/logout', [App\Http\Controllers\Api\v1\AuthController::class, 'logout']);
+
+        // Roles
+        Route::get('/roles', function () {
+            return response()->json(['success' => true, 'data' => \App\Models\Role::with('permissions')->get()]);
+        });
+
+        // App Settings
+        Route::get('/settings', [App\Http\Controllers\Api\v1\AppSettingsController::class, 'index']);
+        Route::middleware('permission:manage_users')->put('/settings', [App\Http\Controllers\Api\v1\AppSettingsController::class, 'update']);
+
         // Sales
-        Route::apiResource('sales', App\Http\Controllers\Api\v1\SalesController::class);
-        Route::post('/sales/{id}/payment', [App\Http\Controllers\Api\v1\SalesController::class, 'payment']);
-        
+        Route::get('/sales', [App\Http\Controllers\Api\v1\SalesController::class, 'index']);
+        Route::get('/sales/{id}', [App\Http\Controllers\Api\v1\SalesController::class, 'show']);
+        Route::middleware('permission:create_sales')->post('/sales', [App\Http\Controllers\Api\v1\SalesController::class, 'store']);
+        Route::middleware('permission:create_sales')->put('/sales/{id}', [App\Http\Controllers\Api\v1\SalesController::class, 'update']);
+        Route::middleware('permission:void_sales')->delete('/sales/{id}', [App\Http\Controllers\Api\v1\SalesController::class, 'destroy']);
+        Route::middleware('permission:record_payment')->post('/sales/{id}/payment', [App\Http\Controllers\Api\v1\SalesController::class, 'payment']);
+        Route::get('/sales/price', [App\Http\Controllers\Api\v1\SalesController::class, 'getPrice']);
+
+        // Deliveries
+        Route::get('/deliveries', [App\Http\Controllers\Api\v1\DeliveriesController::class, 'index']);
+        Route::get('/deliveries/{id}', [App\Http\Controllers\Api\v1\DeliveriesController::class, 'show']);
+        Route::middleware('permission:create_sales')->post('/deliveries', [App\Http\Controllers\Api\v1\DeliveriesController::class, 'store']);
+        Route::middleware('permission:create_sales')->put('/deliveries/{id}/status', [App\Http\Controllers\Api\v1\DeliveriesController::class, 'updateStatus']);
+        Route::middleware('permission:create_sales')->delete('/deliveries/{id}', [App\Http\Controllers\Api\v1\DeliveriesController::class, 'destroy']);
+
         // Products
-        Route::apiResource('products', App\Http\Controllers\Api\v1\ProductsController::class);
+        Route::get('/products', [App\Http\Controllers\Api\v1\ProductsController::class, 'index']);
+        Route::get('/products/{id}', [App\Http\Controllers\Api\v1\ProductsController::class, 'show']);
         Route::get('/products/search', [App\Http\Controllers\Api\v1\ProductsController::class, 'search']);
-        
+        Route::middleware('permission:manage_products')->post('/products', [App\Http\Controllers\Api\v1\ProductsController::class, 'store']);
+        Route::middleware('permission:manage_products')->put('/products/{id}', [App\Http\Controllers\Api\v1\ProductsController::class, 'update']);
+        Route::middleware('permission:manage_products')->delete('/products/{id}', [App\Http\Controllers\Api\v1\ProductsController::class, 'destroy']);
+
         // Customers
-        Route::apiResource('customers', App\Http\Controllers\Api\v1\CustomersController::class);
-        
+        Route::get('/customers', [App\Http\Controllers\Api\v1\CustomersController::class, 'index']);
+        Route::get('/customers/{id}', [App\Http\Controllers\Api\v1\CustomersController::class, 'show']);
+        Route::middleware('permission:manage_customers')->post('/customers', [App\Http\Controllers\Api\v1\CustomersController::class, 'store']);
+        Route::middleware('permission:manage_customers')->put('/customers/{id}', [App\Http\Controllers\Api\v1\CustomersController::class, 'update']);
+        Route::middleware('permission:manage_customers')->delete('/customers/{id}', [App\Http\Controllers\Api\v1\CustomersController::class, 'destroy']);
+
         // Inventory
         Route::get('/stock', [App\Http\Controllers\Api\v1\InventoryController::class, 'index']);
         Route::get('/stock/{product_id}', [App\Http\Controllers\Api\v1\InventoryController::class, 'show']);
-        Route::post('/stock/adjustments', [App\Http\Controllers\Api\v1\InventoryController::class, 'adjustment']);
-        Route::post('/stock/adjustments/{id}/approve', [App\Http\Controllers\Api\v1\InventoryController::class, 'approveAdjustment']);
-        Route::post('/stock/opnames', [App\Http\Controllers\Api\v1\InventoryController::class, 'opname']);
-        Route::post('/stock/opnames/{id}/approve', [App\Http\Controllers\Api\v1\InventoryController::class, 'approveOpname']);
-        
+        Route::middleware('permission:stock_adjustment')->post('/stock/adjustments', [App\Http\Controllers\Api\v1\InventoryController::class, 'adjustment']);
+        Route::middleware('permission:approve_adjustment')->post('/stock/adjustments/{id}/approve', [App\Http\Controllers\Api\v1\InventoryController::class, 'approveAdjustment']);
+        Route::middleware('permission:stock_adjustment')->post('/stock/opnames', [App\Http\Controllers\Api\v1\InventoryController::class, 'opname']);
+        Route::middleware('permission:approve_adjustment')->post('/stock/opnames/{id}/approve', [App\Http\Controllers\Api\v1\InventoryController::class, 'approveOpname']);
+
         // Suppliers
-        Route::apiResource('suppliers', App\Http\Controllers\Api\v1\SuppliersController::class);
-        
+        Route::get('/suppliers', [App\Http\Controllers\Api\v1\SuppliersController::class, 'index']);
+        Route::get('/suppliers/{id}', [App\Http\Controllers\Api\v1\SuppliersController::class, 'show']);
+        Route::middleware('permission:manage_suppliers')->post('/suppliers', [App\Http\Controllers\Api\v1\SuppliersController::class, 'store']);
+        Route::middleware('permission:manage_suppliers')->put('/suppliers/{id}', [App\Http\Controllers\Api\v1\SuppliersController::class, 'update']);
+        Route::middleware('permission:manage_suppliers')->delete('/suppliers/{id}', [App\Http\Controllers\Api\v1\SuppliersController::class, 'destroy']);
+
         // Purchase Orders
-        Route::apiResource('purchase-orders', App\Http\Controllers\Api\v1\PurchaseOrdersController::class);
-        Route::post('/purchase-orders/{id}/receive', [App\Http\Controllers\Api\v1\PurchaseOrdersController::class, 'receive']);
-        
+        Route::get('/purchase-orders', [App\Http\Controllers\Api\v1\PurchaseOrdersController::class, 'index']);
+        Route::get('/purchase-orders/{id}', [App\Http\Controllers\Api\v1\PurchaseOrdersController::class, 'show']);
+        Route::middleware('permission:manage_suppliers')->post('/purchase-orders', [App\Http\Controllers\Api\v1\PurchaseOrdersController::class, 'store']);
+        Route::middleware('permission:manage_suppliers')->post('/purchase-orders/{id}/receive', [App\Http\Controllers\Api\v1\PurchaseOrdersController::class, 'receive']);
+        Route::middleware('permission:record_payment')->post('/purchase-orders/{id}/payment', [App\Http\Controllers\Api\v1\PurchaseOrdersController::class, 'payment']);
+        Route::middleware('permission:manage_suppliers')->delete('/purchase-orders/{id}', [App\Http\Controllers\Api\v1\PurchaseOrdersController::class, 'destroy']);
+
         // Categories
-        Route::apiResource('categories', App\Http\Controllers\Api\v1\CategoriesController::class);
-        
+        Route::get('/categories', [App\Http\Controllers\Api\v1\CategoriesController::class, 'index']);
+        Route::get('/categories/{id}', [App\Http\Controllers\Api\v1\CategoriesController::class, 'show']);
+        Route::middleware('permission:manage_products')->post('/categories', [App\Http\Controllers\Api\v1\CategoriesController::class, 'store']);
+        Route::middleware('permission:manage_products')->put('/categories/{id}', [App\Http\Controllers\Api\v1\CategoriesController::class, 'update']);
+        Route::middleware('permission:manage_products')->delete('/categories/{id}', [App\Http\Controllers\Api\v1\CategoriesController::class, 'destroy']);
+
         // Customer Groups
-        Route::apiResource('customer-groups', App\Http\Controllers\Api\v1\CustomerGroupsController::class);
-        
+        Route::get('/customer-groups', [App\Http\Controllers\Api\v1\CustomerGroupsController::class, 'index']);
+        Route::get('/customer-groups/{id}', [App\Http\Controllers\Api\v1\CustomerGroupsController::class, 'show']);
+        Route::middleware('permission:manage_customers')->post('/customer-groups', [App\Http\Controllers\Api\v1\CustomerGroupsController::class, 'store']);
+        Route::middleware('permission:manage_customers')->put('/customer-groups/{id}', [App\Http\Controllers\Api\v1\CustomerGroupsController::class, 'update']);
+        Route::middleware('permission:manage_customers')->delete('/customer-groups/{id}', [App\Http\Controllers\Api\v1\CustomerGroupsController::class, 'destroy']);
+
         // Reports
-        Route::get('/reports/sales/daily', [App\Http\Controllers\Api\v1\ReportsController::class, 'dailySales']);
-        Route::get('/reports/sales/monthly', [App\Http\Controllers\Api\v1\ReportsController::class, 'monthlySales']);
-        Route::get('/reports/inventory/low-stock', [App\Http\Controllers\Api\v1\ReportsController::class, 'lowStock']);
-        Route::get('/reports/accounts/receivable/aging', [App\Http\Controllers\Api\v1\ReportsController::class, 'arAging']);
+        Route::middleware('permission:view_reports')->group(function () {
+            Route::get('/reports/sales/daily', [App\Http\Controllers\Api\v1\ReportsController::class, 'dailySales']);
+            Route::get('/reports/sales/monthly', [App\Http\Controllers\Api\v1\ReportsController::class, 'monthlySales']);
+            Route::get('/reports/sales/by-product', [App\Http\Controllers\Api\v1\ReportsController::class, 'salesByProduct']);
+            Route::get('/reports/sales/by-customer', [App\Http\Controllers\Api\v1\ReportsController::class, 'salesByCustomer']);
+            Route::get('/reports/inventory/low-stock', [App\Http\Controllers\Api\v1\ReportsController::class, 'lowStock']);
+            Route::get('/reports/inventory/stock-movement', [App\Http\Controllers\Api\v1\ReportsController::class, 'stockMovement']);
+            Route::get('/reports/inventory/dead-stock', [App\Http\Controllers\Api\v1\ReportsController::class, 'deadStock']);
+            Route::get('/reports/accounts/receivable/aging', [App\Http\Controllers\Api\v1\ReportsController::class, 'arAging']);
+            Route::get('/reports/accounts/payable/aging', [App\Http\Controllers\Api\v1\ReportsController::class, 'apAging']);
+            Route::get('/reports/profit-loss', [App\Http\Controllers\Api\v1\ReportsController::class, 'profitLoss']);
+        });
     });
 });

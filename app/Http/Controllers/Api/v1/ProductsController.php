@@ -37,9 +37,17 @@ class ProductsController extends Controller
             $products = $query->get()->filter(function ($product) {
                 return $product->current_stock < $product->min_stock;
             });
-        } else {
-            $products = $query->orderBy('name')->paginate($request->per_page ?? 15);
+
+            return response()->json([
+                'success' => true,
+                'data' => $products->values(),
+                'meta' => [
+                    'total' => $products->count(),
+                ],
+            ]);
         }
+
+        $products = $query->orderBy('name')->paginate($request->per_page ?? 15);
 
         return response()->json([
             'success' => true,

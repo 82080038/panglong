@@ -2,25 +2,29 @@
 
 # PANGLONG ERP - PHASE 1 MVP
 
-## Version: 1.0
-## Status: Development Ready
+## Version: 1.1 (Updated 2025-06-23)
+## Status: Development In Progress
+
+> **WARNING**: Sebelum menjalankan aplikasi, baca DEVELOPMENT_ROADMAP.md
+> untuk mengetahui issue yang belum diselesaikan.
 
 ---
 
 # WHAT HAS BEEN COMPLETED
 
-All foundational development work for the Panglong ERP MVP has been completed:
-
 ## 1. Documentation
-- ✅ LARAVEL_LEARNING_GUIDE.md - Complete Laravel learning guide
+- ✅ MASTER_BLUEPRINT.md - Complete enterprise architecture plan
 - ✅ MVP_SCOPE.md - MVP scope document
 - ✅ LARAVEL_STRUCTURE.md - Laravel project structure
-- ✅ DATABASE_SCHEMA.md - Complete database schema
+- ✅ DATABASE_SCHEMA.md - Complete database schema (v1.1 - circular FK fixed)
 - ✅ API_SPECIFICATION.md - API endpoints specification
 - ✅ TESTING_FRAMEWORK.md - Testing framework configuration
 - ✅ TECHNICAL_DOCUMENTATION.md - Technical documentation structure
+- ✅ LARAVEL_LEARNING_GUIDE.md - Complete Laravel learning guide
+- ✅ DEVELOPMENT_ROADMAP.md - Execution plan & issue tracker
+- ✅ PROJECT_STATUS.md - Accurate audit of current state
 
-## 2. Project Structure
+## 2. Project Structure (SCAFFOLDED - belum semua tested)
 - ✅ Complete directory structure created
 - ✅ composer.json configured
 - ✅ .env.example created
@@ -29,92 +33,66 @@ All foundational development work for the Panglong ERP MVP has been completed:
 - ✅ public/index.php created
 - ✅ routes/api.php configured
 - ✅ routes/web.php configured
+- ✅ frontend/ directory with PHP Native pages
 
-## 3. Database Migrations
+## 3. Database Migrations (SCAFFOLDED - belum tested dengan MySQL)
 - ✅ 25 migration files created for all tables:
-  - roles
-  - permissions
-  - role_permission
-  - customer_groups
-  - categories
-  - users
-  - customers
-  - suppliers
-  - products
-  - product_units
-  - barcodes
-  - stock_movements
-  - sales
-  - sale_items
-  - sale_payments
-  - purchase_orders
-  - purchase_items
-  - purchase_payments
-  - accounts_receivable
-  - accounts_payable
-  - payments
-  - stock_adjustments
-  - stock_opnames
-  - opname_items
-  - audit_logs
+  - roles, permissions, role_permission
+  - customer_groups, categories, users, customers, suppliers
+  - products, product_units, barcodes, stock_movements
+  - sales, sale_items, sale_payments
+  - purchase_orders, purchase_items, purchase_payments
+  - accounts_receivable, accounts_payable, payments
+  - stock_adjustments, stock_opnames, opname_items, audit_logs
 
-## 4. Models
+> **NOTE**: Migration `products` masih memiliki `base_unit_id` column.
+> DATABASE_SCHEMA.md v1.1 merekomendasikan penghapusan FK ini.
+> Migration perlu di-update untuk match schema doc.
+
+## 4. Models (SCAFFOLDED)
 - ✅ 25 Eloquent models created with relationships:
-  - User
-  - Role
-  - Permission
-  - CustomerGroup
-  - Category
-  - Customer
-  - Supplier
-  - Product
-  - ProductUnit
-  - Barcode
-  - StockMovement
-  - Sale
-  - SaleItem
-  - SalePayment
-  - PurchaseOrder
-  - PurchaseItem
-  - PurchasePayment
-  - AccountReceivable
-  - AccountPayable
-  - Payment
-  - StockAdjustment
-  - StockOpname
-  - OpnameItem
-  - AuditLog
+  - User, Role, Permission, CustomerGroup, Category
+  - Customer, Supplier, Product, ProductUnit, Barcode
+  - StockMovement, Sale, SaleItem, SalePayment
+  - PurchaseOrder, PurchaseItem, PurchasePayment
+  - AccountReceivable, AccountPayable, Payment
+  - StockAdjustment, StockOpname, OpnameItem, AuditLog
 
-## 5. Services
+## 5. Services (SCAFFOLDED - belum verified)
 - ✅ 7 service classes created:
-  - SaleService - Sales business logic
-  - StockService - Inventory management logic
-  - ProductService - Product management logic
-  - CustomerService - Customer management logic
-  - PaymentService - Payment processing logic
-  - ReportService - Report generation logic
-  - AuthService - Authentication logic
+  - SaleService, StockService, ProductService
+  - CustomerService, PaymentService, ReportService, AuthService
 
-## 6. Controllers
+## 6. Controllers (SCAFFOLDED - validasi masih inline)
 - ✅ 10 API controllers created:
-  - AuthController - Authentication endpoints
-  - SalesController - Sales management
-  - ProductsController - Product management
-  - CustomersController - Customer management
-  - InventoryController - Inventory management
-  - SuppliersController - Supplier management
-  - PurchaseOrdersController - Purchase order management
-  - CategoriesController - Category management
-  - CustomerGroupsController - Customer group management
-  - ReportsController - Report endpoints
+  - AuthController, SalesController, ProductsController
+  - CustomersController, InventoryController, SuppliersController
+  - PurchaseOrdersController, CategoriesController
+  - CustomerGroupsController, ReportsController
 
-## 7. Seeders
-- ✅ 5 seeders created:
-  - RoleSeeder - User roles
-  - PermissionSeeder - System permissions
-  - UserSeeder - Default users
-  - CustomerGroupSeeder - Customer groups
-  - CategorySeeder - Product categories
+## 7. Seeders (SCAFFOLDED - belum tested)
+- ✅ 8 seeders created:
+  - RoleSeeder, PermissionSeeder, UserSeeder
+  - CustomerGroupSeeder, CategorySeeder, ProductSeeder
+  - CustomerSeeder, DatabaseSeeder
+
+---
+
+# MISSING COMPONENTS (TODO)
+
+Komponen berikut belum dibuat dan perlu diselesaikan sebelum aplikasi siap:
+
+| Komponen | Prioritas | Estimasi |
+|----------|-----------|----------|
+| `.gitignore` | CRITICAL | 5 menit |
+| `phpunit.xml` | HIGH | 10 menit |
+| `tests/` directory + base classes | HIGH | 15 menit |
+| `database/factories/` | HIGH | 30 menit |
+| Form Request classes | HIGH | 2 jam |
+| API Resource classes | MEDIUM | 1 jam |
+| `package.json` | LOW | 10 menit |
+| Fix migration: hapus base_unit_id FK | HIGH | 30 menit |
+| Register CheckPermission middleware | HIGH | 10 menit |
 
 ---
 
@@ -428,10 +406,21 @@ For questions or issues:
 
 # SUMMARY
 
-All foundational development work is complete. The application is ready for:
-- Database setup
-- Dependency installation
-- Development testing
-- Frontend integration
+Foundational scaffolding is complete. Namun aplikasi belum fully functional.
 
-The backend API is fully functional and ready to serve the frontend application.
+**Yang perlu dilakukan sebelum testing:**
+1. Buat `.gitignore` dan remove sensitive files dari git
+2. Fix circular FK di migration products
+3. Register middleware di Kernel.php
+4. Jalankan `composer install`
+5. Jalankan `php artisan migrate --seed`
+6. Test API login endpoint
+
+**Yang perlu dilakukan sebelum production:**
+1. Buat Form Request validation classes
+2. Buat API Resource classes
+3. Tulis unit & feature tests
+4. Standardisasi error handling
+5. Frontend integration testing
+
+> Lihat DEVELOPMENT_ROADMAP.md untuk sprint plan detail.

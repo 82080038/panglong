@@ -10,10 +10,13 @@ class PurchaseItem extends Model
 {
     use HasFactory;
 
+    public const UPDATED_AT = null;
+
     protected $fillable = [
         'po_id',
         'product_id',
         'quantity',
+        'received_quantity',
         'unit_id',
         'unit_price',
         'subtotal',
@@ -21,6 +24,7 @@ class PurchaseItem extends Model
 
     protected $casts = [
         'quantity' => 'decimal:3',
+        'received_quantity' => 'decimal:3',
         'unit_price' => 'decimal:2',
         'subtotal' => 'decimal:2',
     ];

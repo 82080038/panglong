@@ -2,8 +2,12 @@
 
 # PANGLONG ERP - PHASE 1 MVP
 
-## Version: 1.0
+## Version: 1.1 (Updated 2025-06-23)
 ## Database: MySQL 8.0+ / MariaDB 10.6+
+
+> **v1.1 Change**: Removed `base_unit_id` FK from `products` table to resolve
+> circular dependency with `product_units.product_id`. Base unit is now
+> queried via `WHERE is_base_unit = 1`.
 
 ---
 
@@ -83,7 +87,8 @@
 │ alias           │       │ conversion_fctr │
 │ category_id (FK)│       │ is_base_unit    │
 │ brand           │       │ price_per_unit  │
-│ base_unit_id    │       └─────────────────┘
+│ (base_unit via  │       └─────────────────┘
+│  product_units)  │
 │ min_stock       │
 │ max_stock       │       ┌─────────────────┐
 │ location        │       │    barcodes     │
@@ -406,7 +411,8 @@ CREATE TABLE products (
     alias TEXT, -- JSON array of alternative names
     category_id BIGINT UNSIGNED,
     brand VARCHAR(100),
-    base_unit_id BIGINT UNSIGNED,
+    -- base_unit_id dihapus: circular FK dengan product_units.product_id
+    -- Base unit didapat via query: SELECT * FROM product_units WHERE product_id = ? AND is_base_unit = 1
     min_stock DECIMAL(10,3) DEFAULT 0,
     max_stock DECIMAL(10,3) DEFAULT 0,
     location VARCHAR(50), -- zone/rak
@@ -420,8 +426,8 @@ CREATE TABLE products (
     INDEX idx_category_id (category_id),
     INDEX idx_brand (brand),
     FULLTEXT idx_search (name, alias, brand),
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
-    FOREIGN KEY (base_unit_id) REFERENCES product_units(id) ON DELETE RESTRICT
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+    -- FK base_unit_id dihapus untuk menghindari circular dependency
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
@@ -811,7 +817,7 @@ SELECT
     COALESCE(SUM(sm.quantity * pu.conversion_factor), 0) as current_stock,
     pu.unit_name as base_unit
 FROM products p
-LEFT JOIN product_units pu ON p.base_unit_id = pu.id
+LEFT JOIN product_units pu ON pu.product_id = p.id AND pu.is_base_unit = 1
 LEFT JOIN stock_movements sm ON p.id = sm.product_id
 GROUP BY p.id, p.code, p.name, p.min_stock, p.max_stock, pu.unit_name;
 ```

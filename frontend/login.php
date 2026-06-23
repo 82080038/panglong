@@ -4,6 +4,10 @@ session_start();
 define('API_URL', 'http://127.0.0.1:8000/api/v1');
 
 $error = '';
+$msg = $_GET['msg'] ?? '';
+if ($msg === 'timeout') {
+    $error = 'Session expired. Please login again.';
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = $_POST['username'];

@@ -10,6 +10,8 @@ class OpnameItem extends Model
 {
     use HasFactory;
 
+    public const UPDATED_AT = null;
+
     protected $fillable = [
         'opname_id',
         'product_id',

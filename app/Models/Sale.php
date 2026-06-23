@@ -14,6 +14,7 @@ class Sale extends Model
     protected $fillable = [
         'invoice_no',
         'customer_id',
+        'customer_name_snapshot',
         'sale_date',
         'subtotal',
         'discount',
@@ -23,6 +24,7 @@ class Sale extends Model
         'payment_status',
         'status',
         'notes',
+        'delivery_address',
         'created_by',
     ];
 
@@ -72,5 +74,10 @@ class Sale extends Model
     public function accountsReceivable()
     {
         return $this->hasOne(AccountReceivable::class);
+    }
+
+    public function deliveries(): HasMany
+    {
+        return $this->hasMany(Delivery::class);
     }
 }

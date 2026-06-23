@@ -158,3 +158,210 @@ class ReportService
         return $stockData;
     }
 }
+
+    /**
+     * Get aging report for accounts payable
+     */
+    public function getPayableAging(): array
+    {
+        $aps = \App\Models\AccountPayable::with('supplier')->get();
+        
+        $aging = [
+            '0_30_days' => 0,
+            '31_60_days' => 0,
+            '61_90_days' => 0,
+            'over_90_days' => 0,
+            'total_outstanding' => 0,
+            'details' => [],
+        ];
+
+        foreach ($aps as $ap) {
+            if ($ap->balance > 0) {
+                $daysOverdue = now()->diffInDays($ap->due_date, false);
+                $aging['total_outstanding'] += $ap->balance;
+
+                if ($daysOverdue <= 30) {
+                    $aging['0_30_days'] += $ap->balance;
+                } elseif ($daysOverdue <= 60) {
+                    $aging['31_60_days'] += $ap->balance;
+                } elseif ($daysOverdue <= 90) {
+                    $aging['61_90_days'] += $ap->balance;
+                } else {
+                    $aging['over_90_days'] += $ap->balance;
+                }
+
+                $aging['details'][] = [
+                    'supplier_id' => $ap->supplier_id,
+                    'supplier_name' => $ap->supplier->name,
+                    'outstanding' => $ap->balance,
+                    'days_overdue' => $daysOverdue,
+                ];
+            }
+        }
+
+        return $aging;
+    }
+
+    /**
+     * Sales by product report
+     */
+    public function getSalesByProduct(string $dateFrom, string $dateTo): array
+    {
+        $sales = Sale::whereBetween('sale_date', [$dateFrom, $dateTo])
+                     ->where('status', '!=', 'voided')
+                     ->with('items')
+                     ->get();
+
+        $productData = [];
+        foreach ($sales as $sale) {
+            foreach ($sale->items as $item) {
+                $pid = $item->product_id;
+                if (!isset($productData[$pid])) {
+                    $productData[$pid] = [
+                        'product_id' => $pid,
+                        'product_name' => $item->product->name ?? 'N/A',
+                        'quantity_sold' => 0,
+                        'revenue' => 0,
+                        'profit' => 0,
+                    ];
+                }
+                $productData[$pid]['quantity_sold'] += $item->quantity;
+                $productData[$pid]['revenue'] += $item->subtotal;
+                $buyPrice = $item->product->buy_price ?? 0;
+                $productData[$pid]['profit'] += $item->subtotal - ($item->quantity * $buyPrice);
+            }
+        }
+
+        return array_values($productData);
+    }
+
+    /**
+     * Sales by customer report
+     */
+    public function getSalesByCustomer(string $dateFrom, string $dateTo): array
+    {
+        $sales = Sale::whereBetween('sale_date', [$dateFrom, $dateTo])
+                     ->where('status', '!=', 'voided')
+                     ->with('customer')
+                     ->get();
+
+        $customerData = [];
+        foreach ($sales as $sale) {
+            $cid = $sale->customer_id ?? 0;
+            $name = $sale->customer_name_snapshot ?? ($sale->customer->name ?? 'Walk-in');
+            if (!isset($customerData[$cid])) {
+                $customerData[$cid] = [
+                    'customer_id' => $cid,
+                    'customer_name' => $name,
+                    'total_sales' => 0,
+                    'total_revenue' => 0,
+                    'total_paid' => 0,
+                    'total_unpaid' => 0,
+                ];
+            }
+            $customerData[$cid]['total_sales']++;
+            $customerData[$cid]['total_revenue'] += $sale->total;
+            if ($sale->payment_status === 'paid') {
+                $customerData[$cid]['total_paid'] += $sale->total;
+            } else {
+                $customerData[$cid]['total_unpaid'] += $sale->total;
+            }
+        }
+
+        return array_values($customerData);
+    }
+
+    /**
+     * Profit/Loss report
+     */
+    public function getProfitLoss(string $dateFrom, string $dateTo): array
+    {
+        $sales = Sale::whereBetween('sale_date', [$dateFrom, $dateTo])
+                     ->where('status', '!=', 'voided')
+                     ->with('items.product')
+                     ->get();
+
+        $revenue = $sales->sum('subtotal');
+        $discount = $sales->sum('discount');
+        $tax = $sales->sum('tax');
+        $cogs = 0;
+
+        foreach ($sales as $sale) {
+            foreach ($sale->items as $item) {
+                $cogs += $item->quantity * ($item->product->buy_price ?? 0);
+            }
+        }
+
+        $grossProfit = $revenue - $cogs;
+        $netProfit = $grossProfit - $discount;
+
+        return [
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'revenue' => $revenue,
+            'cogs' => $cogs,
+            'gross_profit' => $grossProfit,
+            'discount' => $discount,
+            'tax' => $tax,
+            'net_profit' => $netProfit,
+            'total_sales' => $sales->count(),
+        ];
+    }
+
+    /**
+     * Stock movement report
+     */
+    public function getStockMovementReport(string $dateFrom, string $dateTo): array
+    {
+        $movements = \App\Models\StockMovement::with(['product', 'product.baseUnit'])
+            ->whereDate('created_at', '>=', $dateFrom)
+            ->whereDate('created_at', '<=', $dateTo)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return $movements->map(function ($m) {
+            return [
+                'date' => $m->created_at->format('Y-m-d H:i'),
+                'product_name' => $m->product->name ?? 'N/A',
+                'product_code' => $m->product->code ?? '',
+                'quantity' => $m->quantity,
+                'movement_type' => $m->movement_type,
+                'reference_type' => $m->reference_type,
+                'notes' => $m->notes,
+            ];
+        })->toArray();
+    }
+
+    /**
+     * Dead stock report (no movement in X days)
+     */
+    public function getDeadStockReport(int $days = 90): array
+    {
+        $cutoffDate = now()->subDays($days);
+        
+        $products = Product::where('is_active', true)->get();
+        $deadStock = [];
+
+        foreach ($products as $product) {
+            $currentStock = StockMovement::where('product_id', $product->id)->sum('quantity');
+            if ($currentStock <= 0) continue;
+
+            $lastMovement = StockMovement::where('product_id', $product->id)
+                ->where('created_at', '>=', $cutoffDate)
+                ->count();
+
+            if ($lastMovement === 0) {
+                $deadStock[] = [
+                    'product_id' => $product->id,
+                    'product_code' => $product->code,
+                    'product_name' => $product->name,
+                    'current_stock' => $currentStock,
+                    'stock_value' => $currentStock * $product->buy_price,
+                    'days_inactive' => $days,
+                ];
+            }
+        }
+
+        return $deadStock;
+    }
+}

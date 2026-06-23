@@ -18,7 +18,6 @@ return new class extends Migration
             $table->text('alias')->nullable();
             $table->unsignedBigInteger('category_id')->nullable();
             $table->string('brand')->nullable();
-            $table->unsignedBigInteger('base_unit_id')->nullable();
             $table->decimal('min_stock', 10, 3)->default(0);
             $table->decimal('max_stock', 10, 3)->default(0);
             $table->string('location')->nullable();

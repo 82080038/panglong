@@ -10,6 +10,8 @@ class StockMovement extends Model
 {
     use HasFactory;
 
+    public const UPDATED_AT = null;
+
     protected $fillable = [
         'product_id',
         'quantity',

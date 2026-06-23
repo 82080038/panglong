@@ -52,10 +52,31 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Throwable $e)
     {
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage(),
-            'error' => class_basename($e),
-        ], 500);
+        if ($request->is('api/*') || $request->expectsJson()) {
+            if ($e instanceof \Illuminate\Validation\ValidationException) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'errors' => $e->errors(),
+                ], 422);
+            }
+
+            if ($e instanceof \Illuminate\Auth\AuthenticationException) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated.',
+                ], 401);
+            }
+
+            if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpException) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage() ?: 'Error',
+                    'error' => class_basename($e),
+                ], $e->getStatusCode());
+            }
+        }
+
+        return parent::render($request, $e);
     }
 }

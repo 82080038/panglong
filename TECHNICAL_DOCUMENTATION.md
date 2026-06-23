@@ -2,8 +2,13 @@
 
 # PANGLONG ERP - PHASE 1 MVP
 
-## Version: 1.0
-## Last Updated: 2024
+## Version: 1.1 (Updated 2025-06-23)
+## Last Updated: 2025-06-23
+
+> **Note**: Dokumentasi ini menggambarkan struktur ideal. Implementasi
+> aktual menggunakan PHP Native frontend (bukan Blade templates) yang
+> berkomunikasi dengan Laravel API via cURL. Lihat DEVELOPMENT_ROADMAP.md
+> untuk status implementasi terkini.
 
 ---
 

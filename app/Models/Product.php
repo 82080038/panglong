@@ -17,7 +17,6 @@ class Product extends Model
         'alias',
         'category_id',
         'brand',
-        'base_unit_id',
         'min_stock',
         'max_stock',
         'location',
@@ -44,11 +43,11 @@ class Product extends Model
     }
 
     /**
-     * Get the base unit for the product.
+     * Get the base unit for the product (via is_base_unit flag).
      */
-    public function baseUnit(): BelongsTo
+    public function baseUnit()
     {
-        return $this->belongsTo(ProductUnit::class, 'base_unit_id');
+        return $this->hasOne(ProductUnit::class)->where('is_base_unit', true);
     }
 
     /**

@@ -1,145 +1,221 @@
 <?php
-session_start();
-
-define('API_URL', 'http://127.0.0.1:8000/api/v1');
-
-if (!isset($_SESSION['token'])) {
-    header('Location: login.php');
-    exit;
-}
-
-function apiCall($endpoint, $method = 'GET', $data = null) {
-    $ch = curl_init();
-    $url = API_URL . $endpoint;
-    
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'Authorization: Bearer ' . $_SESSION['token']
-    ]);
-    
-    if ($data) {
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-    }
-    
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    
-    return json_decode($response, true);
-}
+require_once __DIR__ . '/config.php';
 
 $customers = apiCall('/customers');
+$groups = apiCall('/customer-groups');
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    
+    if ($action === 'create') {
+        $data = [
+            'name' => $_POST['name'],
+            'address' => $_POST['address'] ?? null,
+            'phone' => $_POST['phone'] ?? null,
+            'email' => $_POST['email'] ?? null,
+            'group_id' => $_POST['group_id'] ?? null,
+            'credit_limit' => $_POST['credit_limit'] ?? 0,
+            'payment_terms' => $_POST['payment_terms'] ?? 30,
+            'is_active' => true,
+        ];
+        $result = apiCall('/customers', 'POST', $data);
+        if ($result['code'] === 201) {
+            header('Location: customers.php?msg=created');
+            exit;
+        }
+    } elseif ($action === 'update') {
+        $id = $_POST['id'];
+        $data = [
+            'name' => $_POST['name'],
+            'address' => $_POST['address'] ?? null,
+            'phone' => $_POST['phone'] ?? null,
+            'email' => $_POST['email'] ?? null,
+            'group_id' => $_POST['group_id'] ?? null,
+            'credit_limit' => $_POST['credit_limit'] ?? 0,
+            'payment_terms' => $_POST['payment_terms'] ?? 30,
+            'is_active' => isset($_POST['is_active']),
+        ];
+        $result = apiCall('/customers/' . $id, 'PUT', $data);
+        header('Location: customers.php?msg=updated');
+        exit;
+    } elseif ($action === 'delete') {
+        $id = $_POST['id'];
+        $result = apiCall('/customers/' . $id, 'DELETE');
+        header('Location: customers.php?msg=deleted');
+        exit;
+    }
+}
+
+$msg = $_GET['msg'] ?? '';
 ?>
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customers - Panglong ERP</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="index.php">Panglong ERP</a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="index.php">Dashboard</a>
-                <a class="nav-link" href="logout.php" class="btn btn-sm btn-outline-light">Logout</a>
-            </div>
-        </div>
-    </nav>
+<?php renderHead('Customers - Panglong ERP'); ?>
+<?php renderNav('customers'); ?>
 
-    <div class="container mt-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>Customers</h1>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal">
-                <i class="bi bi-plus"></i> Add Customer
-            </button>
-        </div>
-
-        <div class="card">
-            <div class="card-body">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Phone</th>
-                            <th>Address</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (isset($customers['data']) && is_array($customers['data'])): ?>
-                            <?php foreach ($customers['data'] as $customer): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($customer['id']); ?></td>
-                                    <td><?php echo htmlspecialchars($customer['name']); ?></td>
-                                    <td><?php echo htmlspecialchars($customer['email']); ?></td>
-                                    <td><?php echo htmlspecialchars($customer['phone']); ?></td>
-                                    <td><?php echo htmlspecialchars($customer['address']); ?></td>
-                                    <td>
-                                        <button class="btn btn-sm btn-warning">Edit</button>
-                                        <button class="btn btn-sm btn-danger">Delete</button>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr>
-                                <td colspan="6" class="text-center">No customers found</td>
-                            </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Customers</h1>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal">
+            <i class="bi bi-plus"></i> Add Customer
+        </button>
     </div>
 
-    <!-- Add Modal -->
-    <div class="modal fade" id="addModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
+    <?php if ($msg): ?>
+        <div class="alert alert-success alert-dismissible fade show">
+            Customer <?php echo htmlspecialchars($msg); ?> successfully. <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
+
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Group</th>
+                        <th>Phone</th>
+                        <th>Email</th>
+                        <th>Credit Limit</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (isset($customers['body']['data']) && is_array($customers['body']['data'])): ?>
+                        <?php foreach ($customers['body']['data'] as $customer): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($customer['id']); ?></td>
+                                <td><?php echo htmlspecialchars($customer['name']); ?></td>
+                                <td><?php echo htmlspecialchars($customer['group']['name'] ?? 'N/A'); ?></td>
+                                <td><?php echo htmlspecialchars($customer['phone'] ?? '-'); ?></td>
+                                <td><?php echo htmlspecialchars($customer['email'] ?? '-'); ?></td>
+                                <td>Rp <?php echo number_format($customer['credit_limit'] ?? 0, 0, ',', '.'); ?></td>
+                                <td>
+                                    <button class="btn btn-sm btn-warning edit-btn"
+                                        data-id="<?php echo $customer['id']; ?>"
+                                        data-name="<?php echo htmlspecialchars($customer['name']); ?>"
+                                        data-phone="<?php echo htmlspecialchars($customer['phone'] ?? ''); ?>"
+                                        data-email="<?php echo htmlspecialchars($customer['email'] ?? ''); ?>"
+                                        data-address="<?php echo htmlspecialchars($customer['address'] ?? ''); ?>"
+                                        data-group="<?php echo $customer['group_id'] ?? ''; ?>"
+                                        data-credit="<?php echo $customer['credit_limit'] ?? 0; ?>"
+                                        data-terms="<?php echo $customer['payment_terms'] ?? 30; ?>"
+                                        data-active="<?php echo $customer['is_active'] ?? 1; ?>">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <form method="POST" style="display:inline" onsubmit="return confirm('Delete this customer?')">
+                                        <input type="hidden" name="action" value="delete">
+                                        <input type="hidden" name="id" value="<?php echo $customer['id']; ?>">
+                                        <button type="submit" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr><td colspan="7" class="text-center">No customers found</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add Modal -->
+<div class="modal fade" id="addModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="customers.php">
+                <input type="hidden" name="action" value="create">
                 <div class="modal-header">
                     <h5 class="modal-title">Add Customer</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="addForm">
-                        <div class="mb-3">
-                            <label class="form-label">Name</label>
-                            <input type="text" name="name" class="form-control" required>
+                    <div class="mb-3"><label class="form-label">Name *</label><input type="text" name="name" class="form-control" required></div>
+                    <div class="mb-3"><label class="form-label">Phone</label><input type="text" name="phone" class="form-control"></div>
+                    <div class="mb-3"><label class="form-label">Email</label><input type="email" name="email" class="form-control"></div>
+                    <div class="mb-3"><label class="form-label">Address</label><textarea name="address" class="form-control"></textarea></div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Group</label>
+                            <select name="group_id" class="form-select">
+                                <option value="">Select Group</option>
+                                <?php if (isset($groups['body']['data'])): ?>
+                                    <?php foreach ($groups['body']['data'] as $g): ?>
+                                        <option value="<?php echo $g['id']; ?>"><?php echo htmlspecialchars($g['name']); ?></option>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </select>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Email</label>
-                            <input type="email" name="email" class="form-control" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Phone</label>
-                            <input type="text" name="phone" class="form-control" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Address</label>
-                            <textarea name="address" class="form-control" required></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Save</button>
-                    </form>
+                        <div class="col-md-3 mb-3"><label class="form-label">Credit Limit</label><input type="number" name="credit_limit" class="form-control" value="0" min="0"></div>
+                        <div class="col-md-3 mb-3"><label class="form-label">Terms (days)</label><input type="number" name="payment_terms" class="form-control" value="30" min="0"></div>
+                    </div>
                 </div>
-            </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
         </div>
     </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-        $('#addForm').submit(function(e) {
-            e.preventDefault();
-            alert('Add customer feature coming soon');
-        });
-    </script>
-</body>
-</html>
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="customers.php">
+                <input type="hidden" name="action" value="update">
+                <input type="hidden" name="id" id="edit_id">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Customer</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="form-label">Name *</label><input type="text" name="name" id="edit_name" class="form-control" required></div>
+                    <div class="mb-3"><label class="form-label">Phone</label><input type="text" name="phone" id="edit_phone" class="form-control"></div>
+                    <div class="mb-3"><label class="form-label">Email</label><input type="email" name="email" id="edit_email" class="form-control"></div>
+                    <div class="mb-3"><label class="form-label">Address</label><textarea name="address" id="edit_address" class="form-control"></textarea></div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Group</label>
+                            <select name="group_id" id="edit_group" class="form-select">
+                                <option value="">Select Group</option>
+                                <?php if (isset($groups['body']['data'])): ?>
+                                    <?php foreach ($groups['body']['data'] as $g): ?>
+                                        <option value="<?php echo $g['id']; ?>"><?php echo htmlspecialchars($g['name']); ?></option>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3"><label class="form-label">Credit Limit</label><input type="number" name="credit_limit" id="edit_credit" class="form-control" min="0"></div>
+                        <div class="col-md-3 mb-3"><label class="form-label">Terms (days)</label><input type="number" name="payment_terms" id="edit_terms" class="form-control" min="0"></div>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" name="is_active" id="edit_active" class="form-check-input" value="1">
+                        <label class="form-check-label" for="edit_active">Active</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+$('.edit-btn').click(function() {
+    $('#edit_id').val($(this).data('id'));
+    $('#edit_name').val($(this).data('name'));
+    $('#edit_phone').val($(this).data('phone'));
+    $('#edit_email').val($(this).data('email'));
+    $('#edit_address').val($(this).data('address'));
+    $('#edit_group').val($(this).data('group'));
+    $('#edit_credit').val($(this).data('credit'));
+    $('#edit_terms').val($(this).data('terms'));
+    $('#edit_active').prop('checked', $(this).data('active') == 1);
+    new bootstrap.Modal($('#editModal')[0]).show();
+});
+</script>
+<?php renderFoot(); ?>
