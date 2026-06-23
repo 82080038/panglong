@@ -107,5 +107,33 @@ Route::prefix('v1')->group(function () {
             Route::get('/reports/profit-loss', [App\Http\Controllers\Api\v1\ReportsController::class, 'profitLoss']);
             Route::get('/reports/inventory/stock-valuation', [App\Http\Controllers\Api\v1\ReportsController::class, 'stockValuation']);
         });
+
+        // Accounting (Phase 2)
+        Route::middleware('permission:view_reports')->group(function () {
+            Route::get('/accounting/chart-of-accounts', [App\Http\Controllers\Api\v1\AccountingController::class, 'chartOfAccounts']);
+            Route::get('/accounting/journal-entries', [App\Http\Controllers\Api\v1\AccountingController::class, 'journalEntries']);
+            Route::get('/accounting/trial-balance', [App\Http\Controllers\Api\v1\AccountingController::class, 'trialBalance']);
+            Route::get('/accounting/balance-sheet', [App\Http\Controllers\Api\v1\AccountingController::class, 'balanceSheet']);
+            Route::get('/accounting/income-statement', [App\Http\Controllers\Api\v1\AccountingController::class, 'incomeStatement']);
+            Route::get('/accounting/general-ledger', [App\Http\Controllers\Api\v1\AccountingController::class, 'generalLedger']);
+            Route::post('/accounting/journal-entry', [App\Http\Controllers\Api\v1\AccountingController::class, 'postManualJournal']);
+        });
+
+        // Warehouses (Phase 2)
+        Route::middleware('permission:manage_products')->group(function () {
+            Route::get('/warehouses', [App\Http\Controllers\Api\v1\WarehousesController::class, 'index']);
+            Route::post('/warehouses', [App\Http\Controllers\Api\v1\WarehousesController::class, 'store']);
+            Route::get('/warehouses/{id}/stock', [App\Http\Controllers\Api\v1\WarehousesController::class, 'stockByWarehouse']);
+            Route::post('/warehouses/transfer', [App\Http\Controllers\Api\v1\WarehousesController::class, 'createTransfer']);
+            Route::get('/warehouses/transfers', [App\Http\Controllers\Api\v1\WarehousesController::class, 'transfers']);
+        });
+
+        // Reorder suggestions (Phase 2 - AI Basic)
+        Route::middleware('permission:view_reports')->group(function () {
+            Route::get('/reorder/suggestions', [App\Http\Controllers\Api\v1\ReorderController::class, 'suggestions']);
+        });
+
+        // Barcode lookup (Phase 2)
+        Route::get('/barcode/lookup', [App\Http\Controllers\Api\v1\BarcodeController::class, 'lookup']);
     });
 });

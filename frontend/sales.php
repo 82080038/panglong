@@ -79,6 +79,15 @@ renderNav('sales');
             </div>
             <div class="modal-body">
                 <form id="saleForm">
+                    <div class="row mb-2">
+                        <div class="col-md-8">
+                            <label class="form-label"><i class="bi bi-upc-scan"></i> Barcode Scanner</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="barcodeInput" placeholder="Scan or type barcode..." autocomplete="off">
+                                <button type="button" class="btn btn-outline-primary" onclick="lookupBarcode()"><i class="bi bi-search"></i></button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <label class="form-label">Customer (optional)</label>
@@ -217,6 +226,59 @@ renderNav('sales');
 <script>
 let currentPage = 1;
 let productsJson = <?= json_encode($products) ?>;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const barcodeInput = document.getElementById('barcodeInput');
+    if (barcodeInput) {
+        barcodeInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); lookupBarcode(); }
+        });
+    }
+});
+
+function lookupBarcode() {
+    const barcode = document.getElementById('barcodeInput').value.trim();
+    if (!barcode) return;
+    fetch('http://127.0.0.1:8000/api/v1/barcode/lookup?barcode=' + encodeURIComponent(barcode), {
+        headers: { 'Authorization': 'Bearer <?= $_SESSION['token'] ?>' }
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success && res.data) {
+            addProductToSale(res.data);
+            document.getElementById('barcodeInput').value = '';
+        } else {
+            alert('Product not found for barcode: ' + barcode);
+        }
+    })
+    .catch(err => alert('Error looking up barcode'));
+}
+
+function addProductToSale(product) {
+    const tbody = document.getElementById('saleItemsBody');
+    if (!tbody) return;
+    const existingRow = tbody.querySelector('tr[data-product-id="' + product.id + '"]');
+    if (existingRow) {
+        const qtyInput = existingRow.querySelector('.qty-input');
+        qtyInput.value = (parseFloat(qtyInput.value) || 0) + 1;
+        qtyInput.dispatchEvent(new Event('input'));
+        return;
+    }
+    const row = document.createElement('tr');
+    row.className = 'item-row';
+    row.dataset.productId = product.id;
+    row.innerHTML = `
+        <td><select class="form-select form-select-sm productSelect" onchange="onProductChange(this)">${productsJson.map(p=>`<option value="${p.id}" ${p.id===product.id?'selected':''}>${p.code} - ${p.name}</option>`).join('')}</select></td>
+        <td><input type="number" class="form-control form-control-sm qty-input" value="1" min="1" style="width:70px" oninput="calcRowTotal(this)"></td>
+        <td><select class="form-select form-select-sm unitSelect">${(product.units||[]).map(u=>`<option value="${u.unit_id}" ${u.is_base_unit?'selected':''}>${u.unit_name}</option>`).join('')}</select></td>
+        <td><input type="number" class="form-control form-control-sm price-input" value="${product.sell_price||0}" step="0.01" style="width:100px" oninput="calcRowTotal(this)"></td>
+        <td><input type="number" class="form-control form-control-sm discount-input" value="0" min="0" style="width:80px" oninput="calcRowTotal(this)"></td>
+        <td class="row-total">Rp ${number_format(product.sell_price||0,0)}</td>
+        <td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove(); recalcTotal();"><i class="bi bi-x"></i></button></td>
+    `;
+    tbody.appendChild(row);
+    recalcTotal();
+}
 
 function resetSaleForm() {
     document.getElementById('saleForm').reset();

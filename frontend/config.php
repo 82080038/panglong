@@ -73,6 +73,9 @@ function renderNav($active = '') {
         'suppliers' => ['suppliers.php', 'bi-truck', 'Suppliers'],
         'purchase-orders' => ['purchase-orders.php', 'bi-bag-check', 'Purchase Orders'],
         'reports' => ['reports.php', 'bi-graph-up', 'Reports'],
+        'accounting' => ['accounting.php', 'bi-journal-text', 'Accounting'],
+        'warehouses' => ['warehouses.php', 'bi-building', 'Warehouses'],
+        'reorder' => ['reorder.php', 'bi-lightbulb', 'Reorder AI'],
     ];
     
     if ($role === 'owner' || $role === 'manager') {

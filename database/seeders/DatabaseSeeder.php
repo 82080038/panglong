@@ -1,25 +1,22 @@
 <?php
-
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
         $this->call([
-            RoleSeeder::class,
-            PermissionSeeder::class,
+            RolesAndPermissionsSeeder::class,
             RolePermissionSeeder::class,
-            UserSeeder::class,
-            CustomerGroupSeeder::class,
-            CategorySeeder::class,
-            ProductSeeder::class,
-            CustomerSeeder::class,
+            UsersTableSeeder::class,
+            CategoriesSeeder::class,
+            CustomerGroupsSeeder::class,
+            SuppliersSeeder::class,
+            ChartOfAccountsSeeder::class,
+            WarehouseSeeder::class,
+            AppSettingSeeder::class,
         ]);
     }
 }
