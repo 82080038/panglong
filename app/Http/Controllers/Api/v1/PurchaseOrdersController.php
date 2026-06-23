@@ -139,7 +139,7 @@ class PurchaseOrdersController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create purchase order: ' . $e->getMessage(),
+                'message' => 'Failed to create purchase order. Please check your input.',
             ], 500);
         }
     }
@@ -228,7 +228,7 @@ class PurchaseOrdersController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to receive: ' . $e->getMessage(),
+                'message' => 'Failed to process receiving. Please try again.',
             ], 500);
         }
     }

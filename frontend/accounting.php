@@ -120,7 +120,7 @@ renderNav('accounting');
             <h5>General Ledger</h5>
             <table class="table table-sm"><thead><tr><th>Date</th><th>Journal No</th><th>Description</th><th>Account</th><th class="text-end">Debit</th><th class="text-end">Credit</th><th class="text-end">Balance</th></tr></thead><tbody>
             <?php foreach (($data ?? []) as $l): ?>
-            <tr><td><?= $l['date'] ?></td><td><?= $l['journal_no'] ?></td><td><?= htmlspecialchars($l['description']) ?></td><td><?= $l['account_code'] ?> - <?= $l['account_name'] ?></td><td class="text-end">Rp <?= number_format($l['debit'], 0) ?></td><td class="text-end">Rp <?= number_format($l['credit'], 0) ?></td><td class="text-end">Rp <?= number_format($l['balance'], 0) ?></td></tr>
+            <tr><td><?= htmlspecialchars($l['date']) ?></td><td><?= htmlspecialchars($l['journal_no']) ?></td><td><?= htmlspecialchars($l['description']) ?></td><td><?= htmlspecialchars($l['account_code']) ?> - <?= htmlspecialchars($l['account_name']) ?></td><td class="text-end">Rp <?= number_format($l['debit'], 0) ?></td><td class="text-end">Rp <?= number_format($l['credit'], 0) ?></td><td class="text-end">Rp <?= number_format($l['balance'], 0) ?></td></tr>
             <?php endforeach; ?>
             </tbody></table>
 
@@ -128,11 +128,11 @@ renderNav('accounting');
             <h5>Journal Entries</h5>
             <?php if (isset($data['data'])): foreach ($data['data'] as $je): ?>
             <div class="card mb-2"><div class="card-body">
-                <h6><?= $je['journal_no'] ?> - <?= htmlspecialchars($je['description']) ?> <span class="badge bg-secondary"><?= $je['status'] ?></span></h6>
-                <p class="text-muted small mb-1"><?= $je['entry_date'] ?> | By: <?= $je['creator']['name'] ?? 'N/A' ?></p>
+                <h6><?= htmlspecialchars($je['journal_no']) ?> - <?= htmlspecialchars($je['description']) ?> <span class="badge bg-secondary"><?= htmlspecialchars($je['status']) ?></span></h6>
+                <p class="text-muted small mb-1"><?= htmlspecialchars($je['entry_date']) ?> | By: <?= htmlspecialchars($je['creator']['name'] ?? 'N/A') ?></p>
                 <table class="table table-sm mb-0"><thead><tr><th>Account</th><th class="text-end">Debit</th><th class="text-end">Credit</th></tr></thead><tbody>
                 <?php foreach ($je['lines'] as $line): ?>
-                <tr><td><?= $line['account']['code'] ?> - <?= $line['account']['name'] ?></td><td class="text-end">Rp <?= number_format($line['debit'], 0) ?></td><td class="text-end">Rp <?= number_format($line['credit'], 0) ?></td></tr>
+                <tr><td><?= htmlspecialchars($line['account']['code']) ?> - <?= htmlspecialchars($line['account']['name']) ?></td><td class="text-end">Rp <?= number_format($line['debit'], 0) ?></td><td class="text-end">Rp <?= number_format($line['credit'], 0) ?></td></tr>
                 <?php endforeach; ?>
                 </tbody></table>
             </div></div>

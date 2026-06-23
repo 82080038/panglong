@@ -239,8 +239,8 @@ document.addEventListener('DOMContentLoaded', function() {
 function lookupBarcode() {
     const barcode = document.getElementById('barcodeInput').value.trim();
     if (!barcode) return;
-    fetch('http://127.0.0.1:8000/api/v1/barcode/lookup?barcode=' + encodeURIComponent(barcode), {
-        headers: { 'Authorization': 'Bearer <?= $_SESSION['token'] ?>' }
+    fetch(API_URL+'/barcode/lookup?barcode=' + encodeURIComponent(barcode), {
+        headers: { 'Authorization': 'Bearer '+API_TOKEN }
     })
     .then(r => r.json())
     .then(res => {
@@ -325,8 +325,8 @@ function onCustomerChange() {
 
 function fetchPrice(customerId, productId, row) {
     const unitId = row.querySelector('.productSelect').value;
-    fetch(`http://127.0.0.1:8000/api/v1/sales/price?product_id=${productId}&unit_id=${unitId || productId}&customer_id=${customerId || ''}`, {
-        headers: { 'Authorization': 'Bearer <?= $_SESSION['token'] ?>' }
+    fetch(`${API_URL}/sales/price?product_id=${productId}&unit_id=${unitId || productId}&customer_id=${customerId || ''}`, {
+        headers: { 'Authorization': 'Bearer '+API_TOKEN }
     })
     .then(r => r.json())
     .then(data => {
@@ -389,8 +389,8 @@ function submitSale() {
         notes: document.getElementById('saleNotes').value,
         delivery_address: document.getElementById('deliveryAddress').value,
     };
-    fetch('http://127.0.0.1:8000/api/v1/sales', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer <?= $_SESSION['token'] ?>' },
+    fetch(API_URL+'/sales', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+API_TOKEN },
         body: JSON.stringify(data)
     }).then(r => r.json()).then(res => {
         if (res.success) { alert('Sale created: ' + res.data.invoice_no); location.reload(); }
@@ -399,7 +399,7 @@ function submitSale() {
 }
 
 function viewSale(id) {
-    fetch(`http://127.0.0.1:8000/api/v1/sales/${id}`, { headers: { 'Authorization': 'Bearer <?= $_SESSION['token'] ?>' } })
+    fetch(`${API_URL}/sales/${id}`, { headers: { 'Authorization': 'Bearer '+API_TOKEN } })
     .then(r => r.json()).then(res => {
         if (res.success) {
             const s = res.data;
@@ -436,8 +436,8 @@ function submitPayment() {
         payment_method: document.getElementById('paymentMethodType').value,
         payment_date: document.getElementById('paymentDate').value,
     };
-    fetch(`http://127.0.0.1:8000/api/v1/sales/${id}/payment`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer <?= $_SESSION['token'] ?>' },
+    fetch(`${API_URL}/sales/${id}/payment`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+API_TOKEN },
         body: JSON.stringify(data)
     }).then(r => r.json()).then(res => {
         if (res.success) { alert('Payment recorded'); location.reload(); }
@@ -455,8 +455,8 @@ function submitVoid() {
     const id = document.getElementById('voidSaleId').value;
     const reason = document.getElementById('voidReason').value;
     if (!reason) { alert('Reason required'); return; }
-    fetch(`http://127.0.0.1:8000/api/v1/sales/${id}`, {
-        method: 'DELETE', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer <?= $_SESSION['token'] ?>' },
+    fetch(`${API_URL}/sales/${id}`, {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+API_TOKEN },
         body: JSON.stringify({ reason })
     }).then(r => r.json()).then(res => {
         if (res.success) { alert('Sale voided'); location.reload(); }
@@ -483,8 +483,8 @@ function submitDelivery() {
         vehicle_plate: document.getElementById('deliveryPlate').value,
         notes: document.getElementById('deliveryNotes').value,
     };
-    fetch('http://127.0.0.1:8000/api/v1/deliveries', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer <?= $_SESSION['token'] ?>' },
+    fetch(API_URL+'/deliveries', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+API_TOKEN },
         body: JSON.stringify(data)
     }).then(r => r.json()).then(res => {
         if (res.success) { alert('Delivery created: ' + res.data.delivery_no); bootstrap.Modal.getInstance(document.getElementById('deliveryModal')).hide(); }
@@ -494,9 +494,9 @@ function submitDelivery() {
 
 function loadSales() {
     const search = document.getElementById('saleSearch').value;
-    let url = `http://127.0.0.1:8000/api/v1/sales?per_page=20&page=${currentPage}`;
+    let url = `API_URL+'/sales?per_page=20&page=${currentPage}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
-    fetch(url, { headers: { 'Authorization': 'Bearer <?= $_SESSION['token'] ?>' } })
+    fetch(url, { headers: { 'Authorization': 'Bearer '+API_TOKEN } })
     .then(r => r.json()).then(res => {
         if (res.success) {
             const tbody = document.getElementById('salesTableBody');

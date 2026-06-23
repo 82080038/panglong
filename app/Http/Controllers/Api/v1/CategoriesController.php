@@ -24,23 +24,27 @@ class CategoriesController extends Controller
             'parent_id' => 'nullable|exists:categories,id',
         ]);
 
-        $level = 1;
-        if (!empty($validated['parent_id'])) {
-            $parent = \App\Models\Category::findOrFail($validated['parent_id']);
-            $level = $parent->level + 1;
+        try {
+            $level = 1;
+            if (!empty($validated['parent_id'])) {
+                $parent = \App\Models\Category::findOrFail($validated['parent_id']);
+                $level = $parent->level + 1;
+            }
+
+            $category = \App\Models\Category::create([
+                'name' => $validated['name'],
+                'parent_id' => $validated['parent_id'],
+                'level' => $level,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Category created successfully',
+                'data' => $category,
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Failed to create category.'], 500);
         }
-
-        $category = \App\Models\Category::create([
-            'name' => $validated['name'],
-            'parent_id' => $validated['parent_id'],
-            'level' => $level,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Category created successfully',
-            'data' => $category,
-        ], 201);
     }
 
     public function show($id)
@@ -60,14 +64,18 @@ class CategoriesController extends Controller
             'parent_id' => 'sometimes|exists:categories,id',
         ]);
 
-        $category = \App\Models\Category::findOrFail($id);
-        $category->update($validated);
+        try {
+            $category = \App\Models\Category::findOrFail($id);
+            $category->update($validated);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Category updated successfully',
-            'data' => $category,
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Category updated successfully',
+                'data' => $category,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Failed to update category.'], 500);
+        }
     }
 
     public function destroy($id)

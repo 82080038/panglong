@@ -59,7 +59,7 @@ renderNav('iot');
                 <td><?= htmlspecialchars($s['name']) ?></td>
                 <td><span class="badge bg-info"><?= ucfirst($s['type']) ?></span></td>
                 <td><?= htmlspecialchars($s['location'] ?? '-') ?></td>
-                <td><?= $lastReading ? $lastReading['value'] . ' ' . ($lastReading['unit'] ?? '') : 'No data' ?></td>
+                <td><?= $lastReading ? htmlspecialchars($lastReading['value']) . ' ' . htmlspecialchars($lastReading['unit'] ?? '') : 'No data' ?></td>
                 <td><span class="badge bg-<?= $s['is_active']?'success':'danger' ?>"><?= $s['is_active']?'Active':'Inactive' ?></span></td>
             </tr>
             <?php endforeach; else: ?>

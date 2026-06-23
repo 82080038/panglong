@@ -75,6 +75,20 @@ class Handler extends ExceptionHandler
                     'error' => class_basename($e),
                 ], $e->getStatusCode());
             }
+
+            if ($e instanceof \Illuminate\Database\QueryException) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Database error occurred. Please check your input and try again.',
+                ], 500);
+            }
+
+            if (!config('app.debug')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'An unexpected error occurred.',
+                ], 500);
+            }
         }
 
         return parent::render($request, $e);

@@ -84,8 +84,8 @@ function submitDelivery() {
         vehicle_plate: document.getElementById('delPlate').value,
         notes: document.getElementById('delNotes').value,
     };
-    fetch('http://127.0.0.1:8000/api/v1/deliveries', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer <?= $_SESSION['token'] ?>' },
+    fetch(API_URL+'/deliveries', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+API_TOKEN },
         body: JSON.stringify(data)
     }).then(r => r.json()).then(res => {
         if (res.success) { alert('Delivery created: ' + res.data.delivery_no); location.reload(); }
@@ -95,8 +95,8 @@ function submitDelivery() {
 
 function updateStatus(id, status) {
     if (!status) return;
-    fetch(`http://127.0.0.1:8000/api/v1/deliveries/${id}/status`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer <?= $_SESSION['token'] ?>' },
+    fetch(`${API_URL}/deliveries/${id}/status`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+API_TOKEN },
         body: JSON.stringify({ status })
     }).then(r => r.json()).then(res => {
         if (res.success) { alert('Status updated'); location.reload(); }

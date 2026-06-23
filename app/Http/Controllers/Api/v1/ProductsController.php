@@ -106,7 +106,7 @@ class ProductsController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create product: ' . $e->getMessage(),
+                'message' => 'Failed to create product. Please check your input.',
             ], 500);
         }
     }
@@ -137,7 +137,7 @@ class ProductsController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update product: ' . $e->getMessage(),
+                'message' => 'Failed to update product. Please check your input.',
             ], 500);
         }
     }

@@ -105,7 +105,7 @@ class InventoryController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create adjustment: ' . $e->getMessage(),
+                'message' => 'Failed to create adjustment. Please check your input.',
             ], 500);
         }
     }
@@ -122,7 +122,7 @@ class InventoryController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to approve adjustment: ' . $e->getMessage(),
+                'message' => 'Failed to approve adjustment.',
             ], 500);
         }
     }
@@ -148,7 +148,7 @@ class InventoryController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create opname: ' . $e->getMessage(),
+                'message' => 'Failed to create stock opname. Please check your input.',
             ], 500);
         }
     }
@@ -165,7 +165,7 @@ class InventoryController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to approve opname: ' . $e->getMessage(),
+                'message' => 'Failed to approve stock opname.',
             ], 500);
         }
     }

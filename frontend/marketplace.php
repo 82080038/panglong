@@ -27,7 +27,7 @@ renderNav('marketplace');
                 </div>
                 <div class="card-body">
                     <p><strong><?= htmlspecialchars($int['shop_name']) ?></strong><br><small class="text-muted">Shop ID: <?= htmlspecialchars($int['shop_id']) ?></small></p>
-                    <p><small>Last synced: <?= $int['last_synced_at'] ?? 'Never' ?></small></p>
+                    <p><small>Last synced: <?= htmlspecialchars($int['last_synced_at'] ?? 'Never') ?></small></p>
                     <p>Mapped products: <?= count($int['mappings'] ?? []) ?></p>
                     <div class="btn-group">
                         <button class="btn btn-sm btn-outline-primary" onclick="syncStock(<?= $int['id'] ?>)"><i class="bi bi-arrow-repeat"></i> Sync Stock</button>
@@ -81,8 +81,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <script>
-function syncStock(id){fetch('http://127.0.0.1:8000/api/v1/marketplace/'+id+'/sync-stock',{method:'POST',headers:{'Authorization':'Bearer <?= $_SESSION['token'] ?>'}}).then(r=>r.json()).then(d=>alert(d.message||'Synced')).catch(()=>alert('Error'))}
-function syncProducts(id){fetch('http://127.0.0.1:8000/api/v1/marketplace/'+id+'/sync-products',{method:'POST',headers:{'Authorization':'Bearer <?= $_SESSION['token'] ?>'}}).then(r=>r.json()).then(d=>alert(d.message||'Synced')).catch(()=>alert('Error'))}
-function disconnect(id){if(!confirm('Disconnect?'))return;fetch('http://127.0.0.1:8000/api/v1/marketplace/'+id+'/disconnect',{method:'POST',headers:{'Authorization':'Bearer <?= $_SESSION['token'] ?>'}}).then(r=>r.json()).then(()=>location.reload()).catch(()=>alert('Error'))}
+function syncStock(id){fetch(API_URL+'/marketplace/'+id+'/sync-stock',{method:'POST',headers:{'Authorization':'Bearer '+API_TOKEN}}).then(r=>r.json()).then(d=>alert(d.message||'Synced')).catch(()=>alert('Error'))}
+function syncProducts(id){fetch(API_URL+'/marketplace/'+id+'/sync-products',{method:'POST',headers:{'Authorization':'Bearer '+API_TOKEN}}).then(r=>r.json()).then(d=>alert(d.message||'Synced')).catch(()=>alert('Error'))}
+function disconnect(id){if(!confirm('Disconnect?'))return;fetch(API_URL+'/marketplace/'+id+'/disconnect',{method:'POST',headers:{'Authorization':'Bearer '+API_TOKEN}}).then(r=>r.json()).then(()=>location.reload()).catch(()=>alert('Error'))}
 </script>
 <?php renderFoot(); ?>

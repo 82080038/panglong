@@ -128,6 +128,7 @@ function renderHead($title) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>const API_URL="' . API_URL . '";const API_TOKEN="' . ($_SESSION['token'] ?? '') . '";</script>
 </head>
 <body>';
 }

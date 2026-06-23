@@ -82,7 +82,7 @@ class CustomersController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create customer: ' . $e->getMessage(),
+                'message' => 'Failed to create customer. Please check your input.',
             ], 500);
         }
     }
@@ -111,7 +111,7 @@ class CustomersController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update customer: ' . $e->getMessage(),
+                'message' => 'Failed to update customer. Please check your input.',
             ], 500);
         }
     }

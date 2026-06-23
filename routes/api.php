@@ -188,10 +188,12 @@ Route::prefix('v1')->group(function () {
         });
 
         // IoT Integration (Phase 4)
-        Route::get('/iot/sensors', [App\Http\Controllers\Api\v1\IoTController::class, 'sensors']);
-        Route::post('/iot/sensors', [App\Http\Controllers\Api\v1\IoTController::class, 'registerSensor']);
-        Route::post('/iot/readings', [App\Http\Controllers\Api\v1\IoTController::class, 'recordReading']);
-        Route::get('/iot/sensors/{id}/readings', [App\Http\Controllers\Api\v1\IoTController::class, 'sensorReadings']);
-        Route::get('/iot/alerts', [App\Http\Controllers\Api\v1\IoTController::class, 'alerts']);
+        Route::middleware('permission:manage_products')->group(function () {
+            Route::get('/iot/sensors', [App\Http\Controllers\Api\v1\IoTController::class, 'sensors']);
+            Route::post('/iot/sensors', [App\Http\Controllers\Api\v1\IoTController::class, 'registerSensor']);
+            Route::post('/iot/readings', [App\Http\Controllers\Api\v1\IoTController::class, 'recordReading']);
+            Route::get('/iot/sensors/{id}/readings', [App\Http\Controllers\Api\v1\IoTController::class, 'sensorReadings']);
+            Route::get('/iot/alerts', [App\Http\Controllers\Api\v1\IoTController::class, 'alerts']);
+        });
     });
 });

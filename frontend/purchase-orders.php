@@ -183,8 +183,8 @@ function submitPO() {
         payment_method: document.getElementById('poPayment').value,
         notes: document.getElementById('poNotes').value,
     };
-    fetch('http://127.0.0.1:8000/api/v1/purchase-orders', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer <?= $_SESSION['token'] ?>' },
+    fetch(API_URL+'/purchase-orders', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+API_TOKEN },
         body: JSON.stringify(data)
     }).then(r => r.json()).then(res => {
         if (res.success) { alert('PO created: ' + res.data.po_number); location.reload(); }
@@ -194,7 +194,7 @@ function submitPO() {
 
 function receivePO(id) {
     document.getElementById('receivePOId').value = id;
-    fetch(`http://127.0.0.1:8000/api/v1/purchase-orders/${id}`, { headers: { 'Authorization': 'Bearer <?= $_SESSION['token'] ?>' } })
+    fetch(`${API_URL}/purchase-orders/${id}`, { headers: { 'Authorization': 'Bearer '+API_TOKEN } })
     .then(r => r.json()).then(res => {
         if (res.success) {
             const po = res.data;
@@ -227,8 +227,8 @@ function submitReceive() {
         if (qty > 0) items.push({ purchase_item_id: parseInt(input.dataset.itemId), received_quantity: qty });
     });
     const body = items.length > 0 ? { items } : {};
-    fetch(`http://127.0.0.1:8000/api/v1/purchase-orders/${id}/receive`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer <?= $_SESSION['token'] ?>' },
+    fetch(`${API_URL}/purchase-orders/${id}/receive`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+API_TOKEN },
         body: JSON.stringify(body)
     }).then(r => r.json()).then(res => {
         if (res.success) { alert(res.message); location.reload(); }
@@ -251,8 +251,8 @@ function submitPOPayment() {
         payment_method: document.getElementById('poPayMethod').value,
         payment_date: document.getElementById('poPayDate').value,
     };
-    fetch(`http://127.0.0.1:8000/api/v1/purchase-orders/${id}/payment`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer <?= $_SESSION['token'] ?>' },
+    fetch(`${API_URL}/purchase-orders/${id}/payment`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+API_TOKEN },
         body: JSON.stringify(data)
     }).then(r => r.json()).then(res => {
         if (res.success) { alert('Payment recorded'); location.reload(); }
@@ -261,7 +261,7 @@ function submitPOPayment() {
 }
 
 function viewPO(id) {
-    fetch(`http://127.0.0.1:8000/api/v1/purchase-orders/${id}`, { headers: { 'Authorization': 'Bearer <?= $_SESSION['token'] ?>' } })
+    fetch(`${API_URL}/purchase-orders/${id}`, { headers: { 'Authorization': 'Bearer '+API_TOKEN } })
     .then(r => r.json()).then(res => {
         if (res.success) {
             const po = res.data;
