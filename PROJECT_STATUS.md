@@ -2,8 +2,8 @@
 
 # PANGLONG ERP - ACCURATE AUDIT
 
-## Version: 1.0
-## Date: 2025-06-23
+## Version: 2.0
+## Date: 2026-06-24
 ## Auditor: Automated Analysis
 
 ---
@@ -12,14 +12,19 @@
 
 | Metric | Value |
 |--------|-------|
-| Total files tracked | ~120 (excl. vendor) |
-| Documentation files | 10 MD files |
-| Backend PHP files | ~50 (app/) |
-| Frontend PHP files | 8 (frontend/) |
-| Migration files | 25 |
-| Seeder files | 8 |
-| Test files | 0 |
-| Overall Readiness | ~35% (scaffolded, not verified) |
+| Documentation files | 12 MD files |
+| Backend PHP files | 146 (app/) |
+| Models | 63 |
+| Controllers | 33 |
+| Frontend PHP files | 26 (frontend/) |
+| Migration files | 37 |
+| Seeder files | 16 |
+| PHPUnit test files | 14 (58 tests passing) |
+| Playwright E2E specs | 18 |
+| Overall Readiness | Functional; full PHPUnit suite green |
+
+> Catatan: tabel "SCAFFOLDED" di bawah berasal dari audit awal (v1.0) dan
+> sebagian sudah usang; modul-modul tersebut kini terimplementasi.
 
 ---
 

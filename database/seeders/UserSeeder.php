@@ -18,10 +18,12 @@ class UserSeeder extends Seeder
         $kasirRole = Role::where('slug', 'kasir')->first();
         $gudangRole = Role::where('slug', 'gudang')->first();
 
+        $defaultPassword = bcrypt(env('SEED_DEFAULT_PASSWORD', 'password123'));
+
         $users = [
             [
                 'username' => 'admin',
-                'password' => bcrypt('password123'),
+                'password' => $defaultPassword,
                 'full_name' => 'Administrator',
                 'email' => 'admin@panglong.com',
                 'role_id' => $ownerRole->id,
@@ -29,7 +31,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'username' => 'manager1',
-                'password' => bcrypt('password123'),
+                'password' => $defaultPassword,
                 'full_name' => 'Manager 1',
                 'email' => 'manager1@panglong.com',
                 'role_id' => $managerRole->id,
@@ -37,7 +39,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'username' => 'kasir1',
-                'password' => bcrypt('password123'),
+                'password' => $defaultPassword,
                 'full_name' => 'Kasir 1',
                 'email' => 'kasir1@panglong.com',
                 'role_id' => $kasirRole->id,
@@ -45,7 +47,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'username' => 'gudang1',
-                'password' => bcrypt('password123'),
+                'password' => $defaultPassword,
                 'full_name' => 'Gudang 1',
                 'email' => 'gudang1@panglong.com',
                 'role_id' => $gudangRole->id,
