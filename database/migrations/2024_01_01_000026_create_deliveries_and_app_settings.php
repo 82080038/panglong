@@ -57,7 +57,7 @@ return new class extends Migration
         // Add delivery_address to sales table
         Schema::table('sales', function (Blueprint $table) {
             $table->text('delivery_address')->nullable()->after('notes');
-            $table->string('customer_name_snapshot')->nullable()->after('customer_id');
+            $table->string('customer_name_snapshot')->default('Walk-in Customer')->nullable()->after('customer_id');
         });
 
         // Add received_quantity to purchase_items for partial receive

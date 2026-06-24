@@ -8,9 +8,11 @@ class TenantScope
 {
     public function handle(Request $request, Closure $next)
     {
-        // Get tenant from token's user
+        // Resolve the tenant from the authenticated token's user and bind it
+        // for the lifetime of this request. This avoids relying on the session
+        // store, which is not started for stateless (token) API requests.
         if ($request->user() && $request->user()->tenant_id) {
-            session(['tenant_id' => $request->user()->tenant_id]);
+            app()->instance('currentTenantId', $request->user()->tenant_id);
         }
         return $next($request);
     }
