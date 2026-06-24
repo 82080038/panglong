@@ -11,7 +11,6 @@ return new class extends Migration
         // Add delivery_cost to sales
         Schema::table('sales', function (Blueprint $table) {
             $table->decimal('delivery_cost', 15, 2)->default(0)->after('total');
-            $table->string('customer_name_snapshot')->default('Walk-in Customer')->change();
         });
 
         // Add delivery_cost to deliveries

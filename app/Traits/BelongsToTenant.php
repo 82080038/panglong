@@ -9,16 +9,23 @@ trait BelongsToTenant
     protected static function bootBelongsToTenant(): void
     {
         static::addGlobalScope('tenant', function (Builder $builder) {
-            if (session()->has('tenant_id')) {
-                $builder->where($builder->getModel()->getTable() . '.tenant_id', session('tenant_id'));
+            $tenantId = static::currentTenantId();
+            if ($tenantId !== null) {
+                $builder->where($builder->getModel()->getTable() . '.tenant_id', $tenantId);
             }
         });
 
         static::creating(function ($model) {
-            if (session()->has('tenant_id') && empty($model->tenant_id)) {
-                $model->tenant_id = session('tenant_id');
+            $tenantId = static::currentTenantId();
+            if ($tenantId !== null && empty($model->tenant_id)) {
+                $model->tenant_id = $tenantId;
             }
         });
+    }
+
+    protected static function currentTenantId()
+    {
+        return app()->bound('currentTenantId') ? app('currentTenantId') : null;
     }
 
     public function tenant()

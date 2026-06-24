@@ -27,12 +27,12 @@ Route::prefix('v1')->group(function () {
 
         // Sales
         Route::get('/sales', [App\Http\Controllers\Api\v1\SalesController::class, 'index']);
+        Route::get('/sales/price', [App\Http\Controllers\Api\v1\SalesController::class, 'getPrice']);
         Route::get('/sales/{id}', [App\Http\Controllers\Api\v1\SalesController::class, 'show']);
         Route::middleware('permission:create_sales')->post('/sales', [App\Http\Controllers\Api\v1\SalesController::class, 'store']);
         Route::middleware('permission:create_sales')->put('/sales/{id}', [App\Http\Controllers\Api\v1\SalesController::class, 'update']);
         Route::middleware('permission:void_sales')->delete('/sales/{id}', [App\Http\Controllers\Api\v1\SalesController::class, 'destroy']);
         Route::middleware('permission:record_payment')->post('/sales/{id}/payment', [App\Http\Controllers\Api\v1\SalesController::class, 'payment']);
-        Route::get('/sales/price', [App\Http\Controllers\Api\v1\SalesController::class, 'getPrice']);
 
         // Deliveries
         Route::get('/deliveries', [App\Http\Controllers\Api\v1\DeliveriesController::class, 'index']);
@@ -120,8 +120,8 @@ Route::prefix('v1')->group(function () {
 
         // Products
         Route::get('/products', [App\Http\Controllers\Api\v1\ProductsController::class, 'index']);
-        Route::get('/products/{id}', [App\Http\Controllers\Api\v1\ProductsController::class, 'show']);
         Route::get('/products/search', [App\Http\Controllers\Api\v1\ProductsController::class, 'search']);
+        Route::get('/products/{id}', [App\Http\Controllers\Api\v1\ProductsController::class, 'show']);
         Route::middleware('permission:manage_products')->post('/products', [App\Http\Controllers\Api\v1\ProductsController::class, 'store']);
         Route::middleware('permission:manage_products')->put('/products/{id}', [App\Http\Controllers\Api\v1\ProductsController::class, 'update']);
         Route::middleware('permission:manage_products')->delete('/products/{id}', [App\Http\Controllers\Api\v1\ProductsController::class, 'destroy']);

@@ -53,6 +53,7 @@ class SaleService
         $prefix = date('Ymd', strtotime($date));
         $lastInvoice = Sale::where('invoice_no', 'like', "INV{$prefix}%")
                           ->orderBy('id', 'desc')
+                          ->lockForUpdate()
                           ->first();
         
         $sequence = $lastInvoice ? (int)substr($lastInvoice->invoice_no, -4) + 1 : 1;
@@ -92,6 +93,11 @@ class SaleService
                     throw new Exception($creditCheck['message']);
                 }
             }
+
+            // Lock the involved product rows so concurrent sales cannot
+            // oversell the same stock (check-then-write must be atomic).
+            $productIds = collect($data['items'])->pluck('product_id')->unique()->values()->all();
+            \App\Models\Product::whereIn('id', $productIds)->lockForUpdate()->get();
 
             // Negative stock prevention - check all items
             $stockService = app(StockService::class);
