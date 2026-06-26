@@ -127,7 +127,7 @@ Panglong ERP adalah platform ERP distribksi material bangunan yang dikembangkan 
 - [x] Audit log implementation (auto-trigger on model events)
 - [x] Permission middleware applied to all API routes
 - [x] Login attempt limit (5 attempts, 15 min lock)
-- [x] 39 Playwright E2E tests
+- [x] 50 Playwright E2E tests (19 specs)
 
 ---
 

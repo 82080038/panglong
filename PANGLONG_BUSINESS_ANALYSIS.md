@@ -435,7 +435,7 @@ Sprint 1-12 + Gap Features + UI/UX Enhancements telah selesai. Panglong ERP seka
 - ✅ Stock adjustment & stock opname
 - ✅ Reports (daily, monthly, low-stock, stock-valuation, profit-loss, AR-aging, dead-stock)
 - ✅ Settings (tax rate, company info, session timeout)
-- ✅ 39 Playwright E2E tests semua lulus
+- ✅ 50 Playwright E2E tests (19 specs) semua lulus
 
 **Yang sudah diimplementasi (Sprint 7-11):**
 - ✅ Sales Return (retur penjualan) dengan stock-in otomatis & approval
