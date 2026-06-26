@@ -1,21 +1,37 @@
 <?php
 require_once 'config.php';
 
-$settingsResp = apiCall('/settings');
-$settings = $settingsResp['body']['data'] ?? [];
+$d = db();
+
+// app_settings uses key-value store: (id, key, value, type, description, created_at, updated_at, tenant_id)
+$rows = $d->query("SELECT key, value FROM app_settings")->fetchAll();
+$settings = [];
+foreach ($rows as $row) {
+    $settings[$row['key']] = $row['value'];
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $settingsData = [
-        ['key' => 'tax_rate', 'value' => $_POST['tax_rate'] ?? '0.11', 'type' => 'float'],
-        ['key' => 'tax_enabled', 'value' => isset($_POST['tax_enabled']) ? '1' : '0', 'type' => 'boolean'],
-        ['key' => 'company_name', 'value' => $_POST['company_name'] ?? '', 'type' => 'string'],
-        ['key' => 'company_address', 'value' => $_POST['company_address'] ?? '', 'type' => 'string'],
-        ['key' => 'company_phone', 'value' => $_POST['company_phone'] ?? '', 'type' => 'string'],
-        ['key' => 'session_timeout_minutes', 'value' => $_POST['session_timeout_minutes'] ?? '30', 'type' => 'integer'],
+    $now = date('Y-m-d H:i:s');
+    $newSettings = [
+        'tax_rate' => $_POST['tax_rate'] ?? '0.11',
+        'tax_enabled' => isset($_POST['tax_enabled']) ? '1' : '0',
+        'company_name' => $_POST['company_name'] ?? '',
+        'company_address' => $_POST['company_address'] ?? '',
+        'company_phone' => $_POST['company_phone'] ?? '',
+        'session_timeout_minutes' => $_POST['session_timeout_minutes'] ?? '30',
     ];
-    $result = apiCall('/settings', 'PUT', ['settings' => $settingsData]);
-    $msg = ($result['body']['success'] ?? false) ? 'saved' : 'error';
-    header("Location: settings.php?msg=$msg");
+
+    foreach ($newSettings as $key => $value) {
+        $stmt = $d->prepare("SELECT id FROM app_settings WHERE key = ?");
+        $stmt->execute([$key]);
+        $existing = $stmt->fetch();
+        if ($existing) {
+            $d->prepare("UPDATE app_settings SET value = ?, updated_at = ? WHERE id = ?")->execute([$value, $now, $existing['id']]);
+        } else {
+            $d->prepare("INSERT INTO app_settings (key, value, type, description, created_at, updated_at) VALUES (?, ?, 'string', ?, ?, ?)")->execute([$key, $value, $key, $now, $now]);
+        }
+    }
+    header("Location: settings.php?msg=saved");
     exit;
 }
 
@@ -25,8 +41,8 @@ renderHead('Settings');
 renderNav('settings');
 ?>
 <div class="container mt-4">
-    <h1>Settings</h1>
-    <?php if ($msg === 'saved'): ?><div class="alert alert-success">Settings saved successfully.</div><?php endif; ?>
+    <h1>Pengaturan</h1>
+    <?php if ($msg === 'saved'): ?><div class="alert alert-success">Settings saved Berhasil.</div><?php endif; ?>
     <?php if ($msg === 'error'): ?><div class="alert alert-danger">Error saving settings.</div><?php endif; ?>
     <form method="POST" action="settings.php">
         <div class="card mb-3">
@@ -51,9 +67,9 @@ renderNav('settings');
             <div class="card-header"><h5 class="mb-0">Company Information</h5></div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-6 mb-3"><label class="form-label">Company Name</label><input type="text" class="form-control" name="company_name" value="<?= htmlspecialchars($settings['company_name'] ?? '') ?>"></div>
-                    <div class="col-md-6 mb-3"><label class="form-label">Phone</label><input type="text" class="form-control" name="company_phone" value="<?= htmlspecialchars($settings['company_phone'] ?? '') ?>"></div>
-                    <div class="col-md-12 mb-3"><label class="form-label">Address</label><textarea class="form-control" name="company_address" rows="2"><?= htmlspecialchars($settings['company_address'] ?? '') ?></textarea></div>
+                    <div class="col-md-6 mb-3"><label class="form-label">Nama Perusahaan</label><input type="text" class="form-control" name="company_name" value="<?= htmlspecialchars($settings['company_name'] ?? '') ?>"></div>
+                    <div class="col-md-6 mb-3"><label class="form-label">Telepon</label><input type="text" class="form-control" name="company_phone" value="<?= htmlspecialchars($settings['company_phone'] ?? '') ?>"></div>
+                    <div class="col-md-12 mb-3"><label class="form-label">Alamat</label><textarea class="form-control" name="company_address" rows="2"><?= htmlspecialchars($settings['company_address'] ?? '') ?></textarea></div>
                 </div>
             </div>
         </div>

@@ -17,7 +17,7 @@ test.describe('Panglong ERP - Accounting Page', () => {
 
     await page.goto(`${FRONTEND_BASE}/accounting.php`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('h1')).toContainText('Accounting');
+    await expect(page.locator('h1')).toContainText('Akuntansi');
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
   });
@@ -25,6 +25,6 @@ test.describe('Panglong ERP - Accounting Page', () => {
   test('accounting trial balance tab works', async ({ page }) => {
     await page.goto(`${FRONTEND_BASE}/accounting.php?tab=trial_balance`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('.nav-tabs .nav-link.active')).toContainText('Trial Balance');
+    await expect(page.locator('.nav-tabs .nav-link.active')).toContainText('Neraca Saldo');
   });
 });

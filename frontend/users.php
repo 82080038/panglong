@@ -7,22 +7,24 @@ if ($role !== 'owner' && $role !== 'manager') {
     exit;
 }
 
-$roles = apiCall('/roles');
+$d = db();
+$roles = $d->query("SELECT * FROM roles ORDER BY id")->fetchAll();
+$users = $d->query("SELECT u.id, u.username, u.full_name, u.email, u.phone, u.is_active, r.name as role_name, r.slug as role_slug FROM users u LEFT JOIN roles r ON u.role_id = r.id ORDER BY u.id")->fetchAll();
 ?>
 <?php renderHead('User Management - Panglong ERP'); ?>
 <?php renderNav('users'); ?>
 
 <div class="container mt-4">
-    <h1>User Management</h1>
+    <h1>Manajemen Pengguna/h1>
     <p class="text-muted">Current user: <?php echo htmlspecialchars(userFullName()); ?> (<?php echo ucfirst($role); ?>)</p>
     
     <div class="card mt-3"><div class="card-body">
-        <h5>System Roles</h5>
+        <h5>Peran Sistem</h5>
         <table class="table table-sm">
-            <thead><tr><th>Role</th><th>Slug</th><th>Description</th></tr></thead>
+            <thead><tr><th>Peran</th><th>Slug</th><th>Deskripsi</th></tr></thead>
             <tbody>
-                <?php if (isset($roles['body']['data'])): ?>
-                    <?php foreach ($roles['body']['data'] as $r): ?>
+                <?php if (is_array($roles)): ?>
+                    <?php foreach ($roles as $r): ?>
                         <tr><td><?php echo htmlspecialchars($r['name']); ?></td><td><code><?php echo htmlspecialchars($r['slug']); ?></code></td><td><?php echo htmlspecialchars($r['description'] ?? ''); ?></td></tr>
                     <?php endforeach; ?>
                 <?php endif; ?>

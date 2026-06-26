@@ -2,9 +2,20 @@
 
 # PANGLONG ERP - PHASE 1 MVP
 
-## Version: 1.0
-## Base URL: `http://localhost:8000/api/v1`
-## Authentication: Session-based (Web) / Token-based (Future Mobile)
+## Version: 1.2 (Updated 2026-06-26)
+## Status: Laravel API scaffolded & tested — TIDAK digunakan frontend (frontend uses ajax.php + PDO SQLite)
+## Base URL: `http://localhost:8000/api/v1` (Laravel API — TIDAK digunakan frontend)
+## Authentication: Sanctum token-based (Laravel API)
+
+> **PENTING:** Dokumen ini menggambarkan Laravel REST API yang ada di repo
+> (`app/Http/Controllers/Api/v1/`, `routes/api.php`). API ini telah diuji
+> dengan PHPUnit, tetapi **frontend PHP Native TIDAK menggunakan API ini**.
+>
+> Frontend mengakses database langsung via PDO SQLite melalui `frontend/ajax.php`
+> sebagai single AJAX endpoint dengan jQuery `$.ajax()`. Autentikasi frontend
+> menggunakan session-based (`frontend/auth.php` dengan `password_verify()`).
+>
+> Lihat `PROJECT_STATUS.md` dan `SETUP_GUIDE.md` untuk arsitektur aktual.
 
 ---
 

@@ -17,7 +17,7 @@ test.describe('Panglong ERP - Purchase Orders Page', () => {
 
     await page.goto(`${FRONTEND_BASE}/purchase-orders.php`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('h1')).toHaveText('Purchase Orders');
+    await expect(page.locator('h1')).toContainText('Pesanan');
     await expect(page.locator('table.table-striped')).toBeVisible();
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
@@ -26,7 +26,7 @@ test.describe('Panglong ERP - Purchase Orders Page', () => {
   test('new PO modal opens with supplier dropdown', async ({ page }) => {
     await page.goto(`${FRONTEND_BASE}/purchase-orders.php`);
     await page.waitForLoadState('networkidle');
-    await page.click('button:has-text("New PO")');
+    await page.click('button:has-text("PO Baru")');
     await expect(page.locator('#poModal')).toBeVisible();
     await expect(page.locator('#poSupplier')).toBeVisible();
   });

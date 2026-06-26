@@ -2,13 +2,22 @@
 require_once __DIR__ . '/config.php';
 
 $id = $_GET['id'] ?? 0;
-$resp = apiCall('/sales/' . $id);
-$sale = $resp['body']['data'] ?? null;
+$d = db();
+
+$stmt = $d->prepare("SELECT s.*, c.name as customer_name FROM sales s LEFT JOIN customers c ON s.customer_id = c.id WHERE s.id = ?");
+$stmt->execute([$id]);
+$sale = $stmt->fetch();
 
 if (!$sale) {
     echo "Sale not found";
     exit;
 }
+
+$sale['customer'] = ['name' => $sale['customer_name'] ?? 'Walk-in'];
+
+$items = $d->prepare("SELECT si.*, p.name as product_name FROM sale_items si LEFT JOIN products p ON si.product_id = p.id WHERE si.sale_id = ?");
+$items->execute([$id]);
+$sale['items'] = $items->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -51,7 +60,7 @@ if (!$sale) {
             <?php if (isset($sale['items'])): ?>
                 <?php foreach ($sale['items'] as $item): ?>
                     <tr>
-                        <td><?php echo htmlspecialchars($item['product']['name'] ?? 'Item'); ?></td>
+                        <td><?php echo htmlspecialchars($item['product_name'] ?? 'Item'); ?></td>
                         <td><?php echo $item['quantity']; ?></td>
                         <td><?php echo number_format($item['unit_price'], 0, ',', '.'); ?></td>
                         <td><?php echo number_format($item['subtotal'], 0, ',', '.'); ?></td>
@@ -61,7 +70,7 @@ if (!$sale) {
         </tbody>
     </table>
     <div class="total">
-        <div class="total-row"><span>TOTAL</span><span>Rp <?php echo number_format($sale['total'] ?? 0, 0, ',', '.'); ?></span></div>
+        <div class="total-row"><span>TOTAL</span><span><?php echo rupiah($sale['total'] ?? 0) ?></span></div>
     </div>
     <div class="footer">
         <p>Terima kasih atas kunjungan Anda</p>

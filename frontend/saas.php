@@ -1,46 +1,24 @@
 <?php
 require_once 'config.php';
 
+$d = db();
+
 $tab = $_GET['tab'] ?? 'plans';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (($_POST['action'] ?? '') === 'create_tenant') {
-        $result = apiCall('/tenants', 'POST', [
-            'name' => $_POST['name'],
-            'subdomain' => $_POST['subdomain'],
-            'company_name' => $_POST['company_name'] ?? null,
-            'company_address' => $_POST['company_address'] ?? null,
-            'company_phone' => $_POST['company_phone'] ?? null,
-            'company_email' => $_POST['company_email'] ?? null,
-            'tax_id' => $_POST['tax_id'] ?? null,
-            'plan_code' => $_POST['plan_code'] ?? 'BUSINESS',
-        ]);
-        $msg = $result['code'] === 201 ? 'tenant_created' : 'error';
-        header("Location: saas.php?tab=tenants&msg=$msg");
-        exit;
-    } elseif (($_POST['action'] ?? '') === 'subscribe') {
-        $result = apiCall('/tenants/' . $_POST['tenant_id'] . '/subscribe', 'POST', [
-            'plan_id' => (int)$_POST['plan_id'],
-            'billing_cycle' => $_POST['billing_cycle'] ?? 'monthly',
-        ]);
-        $msg = $result['code'] === 201 ? 'subscribed' : 'error';
-        header("Location: saas.php?tab=tenants&msg=$msg");
-        exit;
-    } elseif (($_POST['action'] ?? '') === 'pay_invoice') {
-        $result = apiCall('/tenants/invoices/' . $_POST['invoice_id'] . '/pay', 'POST', [
-            'payment_method' => $_POST['payment_method'],
-        ]);
-        $msg = $result['code'] === 200 ? 'paid' : 'error';
-        header("Location: saas.php?tab=invoices&msg=$msg");
+        $now = date('Y-m-d H:i:s');
+        $code = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $_POST['subdomain']), 0, 6));
+        $trialEnds = date('Y-m-d H:i:s', strtotime('+14 days'));
+        $stmt = $d->prepare("INSERT INTO tenants (code, name, subdomain, company_name, company_address, company_phone, company_email, tax_id, status, trial_ends_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,'trial',?,?,?)");
+        $stmt->execute([$code, $_POST['name'], $_POST['subdomain'], $_POST['company_name'] ?? null, $_POST['company_address'] ?? null, $_POST['company_phone'] ?? null, $_POST['company_email'] ?? null, $_POST['tax_id'] ?? null, $trialEnds, $now, $now]);
+        header("Location: saas.php?tab=tenants&msg=tenant_created");
         exit;
     }
 }
 
-$plansResp = apiCall('/subscription-plans');
-$plans = $plansResp['body']['data'] ?? [];
-
-$tenantsResp = apiCall('/tenants');
-$tenants = $tenantsResp['body']['data'] ?? [];
+$plans = $d->query("SELECT * FROM subscription_plans ORDER BY price_monthly")->fetchAll();
+$tenants = $d->query("SELECT * FROM tenants ORDER BY id DESC")->fetchAll();
 
 $msg = $_GET['msg'] ?? '';
 renderHead('SaaS Management');
@@ -55,7 +33,7 @@ renderNav('saas');
     <?php if ($msg): ?>
     <div class="alert alert-<?= $msg==='error'?'danger':'success' ?> alert-dismissible fade show">
         <?php
-        $msgs = ['tenant_created'=>'Tenant created with 14-day trial','subscribed'=>'Subscription activated','paid'=>'Invoice paid successfully','error'=>'Error occurred'];
+        $msgs = ['tenant_created'=>'Tenant dibuat dengan uji coba 14 hari','subscribed'=>'Langganan diaktifkan','paid'=>'Faktur berhasil dibayar','error'=>'Terjadi kesalahan'];
         echo $msgs[$msg] ?? $msg;
         ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -63,8 +41,8 @@ renderNav('saas');
     <?php endif; ?>
 
     <ul class="nav nav-tabs mb-3">
-        <li class="nav-item"><a class="nav-link <?= $tab==='plans'?'active':'' ?>" href="?tab=plans">Subscription Plans</a></li>
-        <li class="nav-item"><a class="nav-link <?= $tab==='tenants'?'active':'' ?>" href="?tab=tenants">Tenants</a></li>
+        <li class="nav-item"><a class="nav-link <?= $tab==='plans'?'active':'' ?>" href="?tab=plans">Paket Langganan</a></li>
+        <li class="nav-item"><a class="nav-link <?= $tab==='tenants'?'active':'' ?>" href="?tab=tenants">Tenant</a></li>
     </ul>
 
     <?php if ($tab === 'plans'): ?>
@@ -76,8 +54,8 @@ renderNav('saas');
                     <div class="card-body text-center">
                         <h5 class="card-title"><?= htmlspecialchars($plan['name']) ?></h5>
                         <p class="text-muted small"><?= htmlspecialchars($plan['description']) ?></p>
-                        <h3>Rp <?= number_format($plan['price_monthly'], 0) ?><small class="text-muted">/mo</small></h3>
-                        <p class="small">Rp <?= number_format($plan['price_yearly'], 0) ?>/yr</p>
+                        <h3><?= rupiah($plan['price_monthly']) ?><small class="text-muted">/mo</small></h3>
+                        <p class="small"><?= rupiah($plan['price_yearly']) ?>/yr</p>
                         <hr>
                         <ul class="list-unstyled text-start small">
                             <li><i class="bi bi-<?= $plan['max_users']>=5?'check':'check' ?>"></i> Up to <?= $plan['max_users'] ?> users</li>
@@ -96,14 +74,14 @@ renderNav('saas');
 
     <?php elseif ($tab === 'tenants'): ?>
         <table class="table table-striped">
-            <thead><tr><th>Code</th><th>Name</th><th>Subdomain</th><th>Status</th><th>Trial Ends</th><th>Subscription Ends</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Kode</th><th>Nama</th><th>Subdomain</th><th>Status</th><th>Trial Ends</th><th>Subscription Ends</th><th>Aksi</th></tr></thead>
             <tbody>
             <?php foreach ($tenants as $t): ?>
             <tr>
                 <td><?= htmlspecialchars($t['code']) ?></td>
                 <td><?= htmlspecialchars($t['name']) ?></td>
                 <td><?= htmlspecialchars($t['subdomain']) ?></td>
-                <td><span class="badge bg-<?= $t['status']==='active'?'success':($t['status']==='trial'?'info':($t['status']==='suspended'?'warning':'danger')) ?>"><?= ucfirst($t['status']) ?></span></td>
+                <td><span class="badge bg-<?= $t['status']==='active'?'success':($t['status']==='trial'?'info':($t['status']==='suspended'?'warning':'danger')) ?>"><?= $t['status'] === 'active' ? 'Aktif' : ($t['status'] === 'trial' ? 'Uji Coba' : ($t['status'] === 'suspended' ? 'Ditangguhkan' : 'Berhenti')) ?></span></td>
                 <td><?= $t['trial_ends_at'] ?? '-' ?></td>
                 <td><?= $t['subscription_ends_at'] ?? '-' ?></td>
                 <td>
@@ -141,15 +119,15 @@ renderNav('saas');
                 <div class="col-md-6"><label class="form-label">Tax ID (NPWP)</label><input type="text" class="form-control" name="tax_id"></div>
             </div>
             <div class="row mb-3">
-                <div class="col-md-6"><label class="form-label">Phone</label><input type="text" class="form-control" name="company_phone"></div>
+                <div class="col-md-6"><label class="form-label">Telepon</label><input type="text" class="form-control" name="company_phone"></div>
                 <div class="col-md-6"><label class="form-label">Email</label><input type="email" class="form-control" name="company_email"></div>
             </div>
-            <div class="mb-3"><label class="form-label">Address</label><textarea class="form-control" name="company_address"></textarea></div>
+            <div class="mb-3"><label class="form-label">Alamat</label><textarea class="form-control" name="company_address"></textarea></div>
             <div class="mb-3"><label class="form-label">Trial Plan</label><select class="form-select" name="plan_code">
                 <?php foreach ($plans as $p): ?><option value="<?= $p['code'] ?>"><?= $p['name'] ?></option><?php endforeach; ?>
             </select></div>
         </div>
-        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Create Tenant</button></div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Create Tenant</button></div>
     </form>
 </div></div></div>
 <?php renderFoot(); ?>

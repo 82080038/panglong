@@ -42,13 +42,16 @@ services:
       - app
 
   frontend:
-    image: php:8.3-apache
+    image: php:8.2-apache
     container_name: panglong-frontend
     restart: unless-stopped
     ports:
       - "8081:80"
     volumes:
       - ./frontend:/var/www/html
+      - ./database:/var/www/database
+    environment:
+      DB_PATH: /var/www/database/database.sqlite
     networks:
       - panglong
 

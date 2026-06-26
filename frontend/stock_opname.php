@@ -1,36 +1,31 @@
 <?php
 require_once 'config.php';
 
-$productsResp = apiCall('/products?per_page=100');
-$products = $productsResp['body']['data'] ?? [];
+$d = db();
 
-// Pre-load stock data server-side to avoid CORS
+$products = $d->query("SELECT id, code, name FROM products WHERE is_active = 1 ORDER BY name LIMIT 100")->fetchAll();
+
 $stockData = [];
 foreach ($products as $p) {
-    $sr = apiCall('/stock/' . $p['id']);
-    $stockData[$p['id']] = $sr['body']['data']['current_stock'] ?? ($sr['body']['data'] ?? 0);
+    $stmt = $d->prepare("SELECT COALESCE(SUM(quantity),0) as qty FROM stock_movements WHERE product_id = ?");
+    $stmt->execute([$p['id']]);
+    $stockData[$p['id']] = $stmt->fetchColumn();
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'create_opname') {
-    $items = [];
+    $now = date('Y-m-d H:i:s');
+    $opnameNo = 'OP-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
     if (!empty($_POST['physical_qty'])) {
         foreach ($_POST['physical_qty'] as $pid => $qty) {
             if ($qty !== '') {
-                $items[] = ['product_id' => (int)$pid, 'physical_qty' => (float)$qty];
+                $sysQty = $stockData[$pid] ?? 0;
+                $diff = (float)$qty - (float)$sysQty;
+                $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, movement_type, notes, created_at) VALUES (?,?,?,?,?)");
+                $stmt->execute([(int)$pid, $diff, 'physical_count', 'Stok opname ' . $opnameNo, $now]);
             }
         }
-    }
-    if (count($items) > 0) {
-        $data = [
-            'opname_date' => $_POST['opname_date'],
-            'notes' => $_POST['notes'] ?? null,
-            'items' => $items,
-        ];
-        $result = apiCall('/stock/opnames', 'POST', $data);
-        if ($result['code'] === 201 || ($result['body']['success'] ?? false)) {
-            header('Location: stock_opname.php?msg=created');
-            exit;
-        }
+        header('Location: stock_opname.php?msg=created');
+        exit;
     }
     header('Location: stock_opname.php?msg=error');
     exit;
@@ -38,16 +33,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
 
 $msg = $_GET['msg'] ?? '';
 
-renderHead('Stock Opname');
+renderHead('Stok Opname');
 renderNav('stock-opname');
 ?>
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1>Stock Opname</h1>
+        <h1>Stok Opname</h1>
     </div>
 
     <?php if ($msg === 'created'): ?>
-        <div class="alert alert-success alert-dismissible fade show">Opname created (pending approval). <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+        <div class="alert alert-success alert-dismissible fade show">Opname dibuat (menunggu persetujuan). <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
     <?php elseif ($msg === 'error'): ?>
         <div class="alert alert-danger alert-dismissible fade show">Error creating opname. <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
     <?php endif; ?>
@@ -58,11 +53,11 @@ renderNav('stock-opname');
             <form method="POST" action="stock_opname.php">
                 <input type="hidden" name="action" value="create_opname">
                 <div class="row mb-3">
-                    <div class="col-md-3"><label class="form-label">Opname Date</label><input type="date" class="form-control" name="opname_date" value="<?= date('Y-m-d') ?>" required></div>
-                    <div class="col-md-6"><label class="form-label">Notes</label><input type="text" class="form-control" name="notes" placeholder="Optional notes"></div>
+                    <div class="col-md-3"><label class="form-label">Tanggal Opname</label><input type="date" class="form-control" name="opname_date" value="<?= date('Y-m-d') ?>" required></div>
+                    <div class="col-md-6"><label class="form-label">Catatan</label><input type="text" class="form-control" name="notes" placeholder="Optional notes"></div>
                 </div>
                 <table class="table table-striped">
-                    <thead><tr><th>Product Code</th><th>Product Name</th><th>System Qty</th><th>Physical Qty</th><th>Difference</th></tr></thead>
+                    <thead><tr><th>Kode Produk</th><th>Nama Produk</th><th>Jml Sistem</th><th>Jml Fisik</th><th>Selisih</th></tr></thead>
                     <tbody>
                         <?php foreach ($products as $p): ?>
                             <?php $sysQty = $stockData[$p['id']] ?? 0; ?>
@@ -76,7 +71,7 @@ renderNav('stock-opname');
                         <?php endforeach; ?>
                     </tbody>
                 </table>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle"></i> Create Opname</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle"></i> Buat Opname</button>
             </form>
         </div>
     </div>

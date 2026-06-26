@@ -1,21 +1,27 @@
 <?php
 require_once 'config.php';
 
-$sensorsResp = apiCall('/iot/sensors');
-$sensors = $sensorsResp['body']['data'] ?? [];
+$d = db();
 
-$alertsResp = apiCall('/iot/alerts');
-$alerts = $alertsResp['body']['data'] ?? [];
+$sensors = [];
+try {
+    $sensors = $d->query("SELECT * FROM iot_sensors ORDER BY id DESC")->fetchAll();
+} catch (Exception $e) {
+    $sensors = [];
+}
+
+$alerts = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (($_POST['action'] ?? '') === 'register_sensor') {
-        $result = apiCall('/iot/sensors', 'POST', [
-            'sensor_id' => $_POST['sensor_id'],
-            'name' => $_POST['name'],
-            'type' => $_POST['type'],
-            'location' => $_POST['location'] ?? null,
-        ]);
-        header('Location: iot.php?msg=' . ($result['code'] === 201 ? 'registered' : 'error'));
+        $now = date('Y-m-d H:i:s');
+        try {
+            $stmt = $d->prepare("INSERT INTO iot_sensors (sensor_id, name, type, location, is_active, created_at, updated_at) VALUES (?,?,?,?,1,?,?)");
+            $stmt->execute([$_POST['sensor_id'], $_POST['name'], $_POST['type'], $_POST['location'] ?? null, $now, $now]);
+            header('Location: iot.php?msg=registered');
+        } catch (Exception $e) {
+            header('Location: iot.php?msg=error');
+        }
         exit;
     }
 }
@@ -32,7 +38,7 @@ renderNav('iot');
 
     <?php if ($msg): ?>
     <div class="alert alert-<?= $msg==='error'?'danger':'success' ?> alert-dismissible fade show">
-        <?= $msg==='registered'?'Sensor registered successfully':'Error' ?>
+        <?= $msg==='registered'?'Sensor berhasil terdaftar':'Error' ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     <?php endif; ?>
@@ -50,7 +56,7 @@ renderNav('iot');
 
     <div class="card"><div class="card-body">
         <table class="table table-striped">
-            <thead><tr><th>Sensor ID</th><th>Name</th><th>Type</th><th>Location</th><th>Last Reading</th><th>Status</th></tr></thead>
+            <thead><tr><th>Sensor ID</th><th>Nama</th><th>Type</th><th>Location</th><th>Last Reading</th><th>Status</th></tr></thead>
             <tbody>
             <?php if (!empty($sensors)): foreach ($sensors as $s): ?>
                 <?php $lastReading = $s['readings'][0] ?? null; ?>
@@ -59,11 +65,11 @@ renderNav('iot');
                 <td><?= htmlspecialchars($s['name']) ?></td>
                 <td><span class="badge bg-info"><?= ucfirst($s['type']) ?></span></td>
                 <td><?= htmlspecialchars($s['location'] ?? '-') ?></td>
-                <td><?= $lastReading ? htmlspecialchars($lastReading['value']) . ' ' . htmlspecialchars($lastReading['unit'] ?? '') : 'No data' ?></td>
+                <td><?= $lastReading ? htmlspecialchars($lastReading['value']) . ' ' . htmlspecialchars($lastReading['unit'] ?? '') : 'Tidak ada data' ?></td>
                 <td><span class="badge bg-<?= $s['is_active']?'success':'danger' ?>"><?= $s['is_active']?'Active':'Inactive' ?></span></td>
             </tr>
             <?php endforeach; else: ?>
-            <tr><td colspan="6" class="text-center text-muted">No sensors registered</td></tr>
+            <tr><td colspan="6" class="text-center text-muted">Belum ada sensor terdaftar</td></tr>
             <?php endif; ?>
             </tbody>
         </table>
@@ -85,7 +91,7 @@ renderNav('iot');
             </select></div>
             <div class="mb-3"><label class="form-label">Location</label><input type="text" class="form-control" name="location" placeholder="e.g. Warehouse A - Rack 3"></div>
         </div>
-        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Register</button></div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Daftar</button></div>
     </form>
 </div></div></div>
 <?php renderFoot(); ?>

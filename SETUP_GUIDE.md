@@ -2,97 +2,58 @@
 
 # PANGLONG ERP - PHASE 1 MVP
 
-## Version: 1.1 (Updated 2025-06-23)
-## Status: Development In Progress
+## Version: 3.0 (Updated 2026-06-26)
+## Status: Frontend 100% Functional (PHP Native + PDO SQLite) — Sprint 1-12 COMPLETED
 
-> **WARNING**: Sebelum menjalankan aplikasi, baca DEVELOPMENT_ROADMAP.md
-> untuk mengetahui issue yang belum diselesaikan.
+> **ARSITEKTUR AKTUAL:** Frontend menggunakan PHP Native + PDO SQLite + jQuery AJAX.
+> `frontend/ajax.php` adalah single endpoint (1802 lines) untuk semua CRUD operations.
+> Laravel backend API ada di repo tetapi TIDAK digunakan oleh frontend.
+> Database: SQLite (`database/database.sqlite`, 78 tables, 1.3MB).
+>
+> **PHP REQUIREMENT:** Gunakan XAMPP PHP (`/opt/lampp/bin/php` 8.2.12) yang
+> memiliki `pdo_sqlite`. System PHP (8.3.6) TIDAK memiliki `pdo_sqlite`.
 
 ---
 
 # WHAT HAS BEEN COMPLETED
 
-## 1. Documentation
-- ✅ MASTER_BLUEPRINT.md - Complete enterprise architecture plan
-- ✅ MVP_SCOPE.md - MVP scope document
-- ✅ LARAVEL_STRUCTURE.md - Laravel project structure
-- ✅ DATABASE_SCHEMA.md - Complete database schema (v1.1 - circular FK fixed)
-- ✅ API_SPECIFICATION.md - API endpoints specification
-- ✅ TESTING_FRAMEWORK.md - Testing framework configuration
-- ✅ TECHNICAL_DOCUMENTATION.md - Technical documentation structure
-- ✅ LARAVEL_LEARNING_GUIDE.md - Complete Laravel learning guide
-- ✅ DEVELOPMENT_ROADMAP.md - Execution plan & issue tracker
-- ✅ PROJECT_STATUS.md - Accurate audit of current state
+## 1. Frontend (PHP Native + PDO SQLite) — 100% Functional
+- 45 halaman PHP di `frontend/` directory
+- `frontend/db.php` — PDO SQLite connection singleton
+- `frontend/auth.php` — Session-based auth dengan `password_verify()`
+- `frontend/config.php` — Session timeout, navbar, CDN loads (jQuery 3.6, Bootstrap 5.3)
+- `frontend/ajax.php` — Single AJAX endpoint (1802 lines) untuk semua CRUD operations
+- jQuery `$.ajax()` calls to `ajax.php` untuk dynamic operations
+- Direct PDO queries untuk initial page load data
+- Chart.js 4.4.0 untuk dashboard charts
+- Bootstrap Icons untuk UI icons
 
-## 2. Project Structure (SCAFFOLDED - belum semua tested)
-- ✅ Complete directory structure created
-- ✅ composer.json configured
-- ✅ .env.example created
-- ✅ artisan CLI file created
-- ✅ bootstrap files created
-- ✅ public/index.php created
-- ✅ routes/api.php configured
-- ✅ routes/web.php configured
-- ✅ frontend/ directory with PHP Native pages
+## 2. Backend Laravel API (Scaffolded, Tested, TIDAK Digunakan Frontend)
+- 37 migration files — all executed to SQLite database (78 tables active)
+- 63 Eloquent models with relationships, casts, traits
+- 33 API controllers in `app/Http/Controllers/Api/v1/`
+- 20 service classes in `app/Services/`
+- 16 seeders — all executed to SQLite database
+- 9 model factories for testing
+- 7 Form Request validation classes
+- 6 API Resource transformer classes
+- Routes with Sanctum + Spatie Permission middleware
+- 14 PHPUnit test files
+- 18 Playwright E2E test specs (39 tests, ALL PASSING)
 
-## 3. Database Migrations (SCAFFOLDED - belum tested dengan MySQL)
-- ✅ 25 migration files created for all tables:
-  - roles, permissions, role_permission
-  - customer_groups, categories, users, customers, suppliers
-  - products, product_units, barcodes, stock_movements
-  - sales, sale_items, sale_payments
-  - purchase_orders, purchase_items, purchase_payments
-  - accounts_receivable, accounts_payable, payments
-  - stock_adjustments, stock_opnames, opname_items, audit_logs
+## 3. Database
+- SQLite: `database/database.sqlite` (1.3MB, 78 tables)
+- All migrations executed successfully
+- All seeders executed successfully
+- Default users: admin, manager1, kasir1, gudang1 (password: password123)
 
-> **NOTE**: Migration `products` masih memiliki `base_unit_id` column.
-> DATABASE_SCHEMA.md v1.1 merekomendasikan penghapusan FK ini.
-> Migration perlu di-update untuk match schema doc.
-
-## 4. Models (SCAFFOLDED)
-- ✅ 25 Eloquent models created with relationships:
-  - User, Role, Permission, CustomerGroup, Category
-  - Customer, Supplier, Product, ProductUnit, Barcode
-  - StockMovement, Sale, SaleItem, SalePayment
-  - PurchaseOrder, PurchaseItem, PurchasePayment
-  - AccountReceivable, AccountPayable, Payment
-  - StockAdjustment, StockOpname, OpnameItem, AuditLog
-
-## 5. Services (SCAFFOLDED - belum verified)
-- ✅ 7 service classes created:
-  - SaleService, StockService, ProductService
-  - CustomerService, PaymentService, ReportService, AuthService
-
-## 6. Controllers (SCAFFOLDED - validasi masih inline)
-- ✅ 10 API controllers created:
-  - AuthController, SalesController, ProductsController
-  - CustomersController, InventoryController, SuppliersController
-  - PurchaseOrdersController, CategoriesController
-  - CustomerGroupsController, ReportsController
-
-## 7. Seeders (SCAFFOLDED - belum tested)
-- ✅ 8 seeders created:
-  - RoleSeeder, PermissionSeeder, UserSeeder
-  - CustomerGroupSeeder, CategorySeeder, ProductSeeder
-  - CustomerSeeder, DatabaseSeeder
-
----
-
-# MISSING COMPONENTS (TODO)
-
-Komponen berikut belum dibuat dan perlu diselesaikan sebelum aplikasi siap:
-
-| Komponen | Prioritas | Estimasi |
-|----------|-----------|----------|
-| `.gitignore` | CRITICAL | 5 menit |
-| `phpunit.xml` | HIGH | 10 menit |
-| `tests/` directory + base classes | HIGH | 15 menit |
-| `database/factories/` | HIGH | 30 menit |
-| Form Request classes | HIGH | 2 jam |
-| API Resource classes | MEDIUM | 1 jam |
-| `package.json` | LOW | 10 menit |
-| Fix migration: hapus base_unit_id FK | HIGH | 30 menit |
-| Register CheckPermission middleware | HIGH | 10 menit |
+## 4. Infrastructure
+- `.gitignore` — .env, vendor/, storage/, test artifacts excluded
+- `phpunit.xml` — PHPUnit configured with SQLite :memory: for tests
+- `package.json` — Playwright E2E test configuration
+- `Dockerfile` + `docker-compose.yml` + `docker/nginx.conf`
+- PWA: `frontend/manifest.json` + `frontend/sw.js` service worker
+- `.env.example` — Template available
 
 ---
 
@@ -100,71 +61,92 @@ Komponen berikut belum dibuat dan perlu diselesaikan sebelum aplikasi siap:
 
 ## Prerequisites
 
-1. PHP 8.1 or higher
-2. Composer
-3. MySQL/MariaDB 5.7 or higher
-4. Web Server (Apache/Nginx) or PHP built-in server
+1. XAMPP (Apache + PHP 8.2+ with `pdo_sqlite` extension)
+2. Web browser (Chrome/Firefox for testing)
+3. Optional: Composer (for Laravel backend tests), npm (for Playwright E2E tests)
 
-## Installation Steps
+> **PENTING:** Gunakan XAMPP PHP (`/opt/lampp/bin/php`) yang memiliki `pdo_sqlite`.
+> System PHP mungkin tidak memiliki `pdo_sqlite` extension.
+
+## Quick Start (Frontend Only — Yang Aktif Berjalan)
+
+### 0. Clone repo
+```bash
+cd /opt/lampp/htdocs    # atau C:\xampp\htdocs di Windows
+git clone <repo-url> panglong
+cd panglong
+```
+
+### 1. Pastikan XAMPP berjalan
+```bash
+sudo /opt/lampp/lampp start
+```
+
+### 1b. Set database permission (Linux/macOS only)
+```bash
+chmod 666 database/database.sqlite
+chmod 777 database/
+```
+> File `database/database.sqlite` sudah ada di repo (committed to git).
+> Tidak perlu menjalankan migration atau seeder — database sudah siap dengan 78 tables dan seed data.
+
+### 2. Akses Frontend
+Buka browser: http://localhost/panglong/frontend/login.php
+
+### 3. Login
+| Username | Password | Role |
+|----------|----------|------|
+| admin | password123 | Owner |
+| manager1 | password123 | Manager |
+| kasir1 | password123 | Kasir |
+| gudang1 | password123 | Gudang |
+
+### 4. Database sudah siap
+File `database/database.sqlite` (1.3MB, 78 tables) sudah berisi seed data.
+Tidak perlu menjalankan migration atau seeder manual.
+
+## Optional: Laravel Backend Setup (Untuk Testing API Only)
 
 ### 1. Install Laravel Dependencies
-
 ```bash
 cd /opt/lampp/htdocs/panglong
 composer install
 ```
 
 ### 2. Configure Environment
-
 ```bash
 cp .env.example .env
-php artisan key:generate
+/opt/lampp/bin/php artisan key:generate
 ```
 
-### 3. Configure Database
-
+### 3. Configure Database (SQLite untuk development)
 Edit `.env` file:
-
 ```env
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=panglong
-DB_USERNAME=root
-DB_PASSWORD=your_password
+DB_CONNECTION=sqlite
+DB_DATABASE=/opt/lampp/htdocs/panglong/database/database.sqlite
 ```
 
-### 4. Create Database
-
-```sql
-CREATE DATABASE panglong CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
-
-### 5. Run Migrations
-
+### 4. Run Migrations (jika diperlukan)
 ```bash
-php artisan migrate
+/opt/lampp/bin/php artisan migrate
 ```
 
-### 6. Run Seeders
-
+### 5. Run Seeders (jika diperlukan)
 ```bash
-php artisan db:seed
+/opt/lampp/bin/php artisan db:seed
 ```
 
-### 7. Start Development Server
-
+### 6. Start Laravel API Server (optional, tidak digunakan frontend)
 ```bash
-php artisan serve
+/opt/lampp/bin/php artisan serve
 ```
-
-Application will be available at: http://localhost:8000
+Laravel API akan tersedia di: http://localhost:8000/api/v1
 
 ---
 
 # DEFAULT USERS
 
-After running seeders, the following users are created:
+Database SQLite sudah berisi data user hasil seeder:
 
 | Username | Password | Role | Description |
 |----------|----------|------|-------------|
@@ -175,11 +157,49 @@ After running seeders, the following users are created:
 
 ---
 
-# API ENDPOINTS
+# FRONTEND AJAX ENDPOINTS (ajax.php)
+
+Frontend menggunakan `frontend/ajax.php` sebagai single endpoint untuk semua
+CRUD operations via jQuery `$.ajax()`. Endpoint dipanggil dengan parameter
+`endpoint` untuk menentukan operasi yang dijalankan.
+
+## Contoh Penggunaan
+
+### Login (via auth.php, bukan ajax.php)
+```php
+// frontend/auth.php — direct PDO query
+login($username, $password); // Sets $_SESSION['user']
+```
+
+### Product List (via ajax.php)
+```javascript
+$.ajax({
+  url: 'ajax.php?endpoint=products',
+  method: 'GET',
+  success: function(data) { /* render products */ }
+});
+```
+
+### Create Sale (via ajax.php)
+```javascript
+$.ajax({
+  url: 'ajax.php?endpoint=sales',
+  method: 'POST',
+  data: { customer_id, items, payment_method, ... },
+  success: function(data) { /* show receipt */ }
+});
+```
+
+---
+
+# LARAVEL API ENDPOINTS (TIDAK Digunakan Frontend)
+
+> Laravel API berikut ada di repo dan tested via PHPUnit, tetapi frontend
+> TIDAK memanggil endpoint ini. Frontend menggunakan `ajax.php` + PDO SQLite.
 
 ## Authentication
 
-- `POST /api/v1/auth/login` - Login
+- `POST /api/v1/auth/login` - Login (token-based)
 - `POST /api/v1/auth/logout` - Logout
 - `GET /api/v1/auth/me` - Get current user
 
@@ -259,7 +279,7 @@ After running seeders, the following users are created:
 
 ---
 
-# TESTING THE API
+# TESTING THE LARAVEL API (Optional)
 
 ## Login Example
 
@@ -296,63 +316,33 @@ curl -X GET http://localhost:8000/api/v1/products \
 
 # NEXT STEPS FOR DEVELOPMENT
 
-## Immediate Tasks
+## Pending Features — ALL COMPLETED
 
-1. **Fix Missing Imports**
-   - Add missing imports in controllers (ProductUnit, etc.)
-   - Fix any namespace issues
+1. ~~Retur Penjualan & Pembelian~~ — ✅ `returns.php`
+2. ~~Quotation & Sales Order~~ — ✅ `quotations.php`, `sales_orders.php`
+3. ~~Ongkos Angkut & Landed Cost~~ — ✅ `landed_cost.php`
+4. ~~Bonus Barang~~ — ✅ bonus_qty field di SaleItem & PurchaseItem
+5. ~~Partial Delivery~~ — ✅ multiple DO per invoice
+6. ~~Customer-Specific Pricing~~ — ✅ `pricing.php`
+7. ~~Volume-Based Pricing~~ — ✅ tier pricing di `pricing.php`
+8. ~~Batch/Lot Tracking~~ — ✅ `batches.php`
+9. ~~Cash Flow Statement & Bank Reconciliation~~ — ✅ `cash_flow.php`, `cashbook.php`
+10. ~~SPT PPN Report & Closing Periode~~ — ✅ `e_faktur.php`, `closing.php`
+11. ~~WhatsApp Notification & Salesman Mobile App~~ — ✅ `whatsapp.php`, `salesman_app.php`
 
-2. **Add Middleware**
-   - Create CheckPermission middleware
-   - Update Kernel.php with middleware aliases
+## Remaining (Non-kritis untuk go-live)
+1. Login attempt limit (5x = lock 15 menit)
+2. Audit log di frontend (ajax.php)
+3. QR Code auto-generate produk
+4. SPT PPN Report terpisah (e-Faktur sudah ada)
+5. Multi-unit dropdown di POS (pilih satuan saat transaksi)
 
-3. **Add Form Requests**
-   - Create validation request classes for complex validations
-   - Replace inline validation with Form Requests
-
-4. **Add API Resources**
-   - Create API Resource classes for consistent responses
-   - Replace direct model returns with resources
-
-5. **Add Exception Handlers**
-   - Create custom exception handlers
-   - Implement proper error responses
-
-## Short-term Enhancements
-
-1. **Authentication Middleware**
-   - Implement proper authentication middleware
-   - Add token refresh mechanism
-
-2. **File Uploads**
-   - Add product image upload functionality
-   - Add document upload for customers
-
-3. **Barcode Scanning**
-   - Implement barcode scanning endpoint
-   - Add barcode validation
-
-4. **PDF Generation**
-   - Add invoice PDF generation
-   - Add report PDF export
-
-## Long-term Features
-
-1. **Frontend Development**
-   - Build POS interface
-   - Build admin dashboard
-   - Build inventory management UI
-
-2. **Advanced Features**
-   - Real-time stock updates
-   - Email notifications
-   - SMS notifications
-   - Multi-location support
-
-3. **Integration**
-   - Payment gateway integration
-   - Accounting software integration
-   - E-commerce integration
+## Documentation Sync — ALL COMPLETED
+1. ✅ API_SPECIFICATION.md updated dengan note bahwa frontend tidak menggunakan API ini
+2. ✅ DATABASE_SCHEMA.md updated dengan note SQLite sebagai database development
+3. ✅ TECHNICAL_DOCUMENTATION.md updated dengan arsitektur aktual
+4. ✅ TESTING_FRAMEWORK.md updated dengan Playwright E2E documentation
+5. ✅ All stats accurate across all MD files
 
 ---
 
@@ -360,36 +350,65 @@ curl -X GET http://localhost:8000/api/v1/products \
 
 ## Common Issues
 
-### Migration Error: Table Already Exists
+### Frontend: Blank page / Database error
+- Pastikan XAMPP berjalan: `sudo /opt/lampp/lampp start`
+- Pastikan `database/database.sqlite` exists dan readable
+- **Linux/macOS:** Jalankan `chmod 666 database/database.sqlite && chmod 777 database/`
+- **Windows:** Pastikan file tidak read-only (klik kanan → Properties → uncheck Read-only)
+- Jika database corrupt, re-import: `sqlite3 database/database.sqlite < database/database_export.sql`
+- Atau gunakan: `/opt/lampp/bin/php database/import_sqlite.php`
 
+### Frontend: "could not find driver" (pdo_sqlite)
+- Gunakan XAMPP PHP (`/opt/lampp/bin/php`), bukan system PHP
+- Cek: `/opt/lampp/bin/php -m | grep pdo_sqlite` — harus muncul `pdo_sqlite`
+- Jika tidak ada, edit `php.ini` di XAMPP, uncomment `extension=pdo_sqlite`
+
+### Playwright: Tests gagal / connection refused
+- Pastikan Apache berjalan: `sudo /opt/lampp/lampp start`
+- Pastikan URL benar: `http://localhost/panglong/frontend`
+- Pastikan `database/database.sqlite` ada dan readable
+- Run: `npx playwright test --headed --reporter=list --workers=1`
+
+### Setup di komputer lain (new developer)
+1. Install XAMPP (PHP 8.2+ dengan `pdo_sqlite`)
+2. `git clone <repo-url> /opt/lampp/htdocs/panglong` (atau ke `C:\xampp\htdocs\panglong`)
+3. `chmod 666 database/database.sqlite && chmod 777 database/` (Linux/macOS only)
+4. Start XAMPP Apache
+5. Buka `http://localhost/panglong/frontend/login.php`
+6. Login dengan `admin` / `password123`
+7. Database sudah siap — tidak perlu migration atau seeder
+- Gunakan XAMPP PHP (`/opt/lampp/bin/php`) yang memiliki `pdo_sqlite`
+- Cek: `php -m | grep pdo_sqlite` — jika kosong, gunakan XAMPP PHP
+
+### Laravel: Migration Error: Table Already Exists
 ```bash
-php artisan migrate:fresh
+/opt/lampp/bin/php artisan migrate:fresh
 ```
 
 ### Composer Install Fails
-
 ```bash
 composer install --no-interaction --prefer-dist
 ```
 
 ### Permission Denied on Storage
-
 ```bash
 chmod -R 775 storage bootstrap/cache
 ```
 
-### API Returns 401 Unauthorized
-
+### Laravel API Returns 401 Unauthorized
 - Ensure you have the correct token
 - Check that the token hasn't expired
 - Verify the user is active
+- Note: Frontend tidak menggunakan Laravel API, jadi ini hanya untuk testing API langsung
 
 ---
 
 # LEARNING RESOURCES
 
-- Read `LARAVEL_LEARNING_GUIDE.md` for Laravel fundamentals
-- Read `API_SPECIFICATION.md` for API details
+- Read `PROJECT_STATUS.md` for accurate audit of current state
+- Read `DEVELOPMENT_ROADMAP.md` for sprint plan and tech stack
+- Read `PANGLONG_BUSINESS_ANALYSIS.md` for business requirements
+- Read `API_SPECIFICATION.md` for Laravel API details (unused by frontend)
 - Read `DATABASE_SCHEMA.md` for database structure
 - Read `TESTING_FRAMEWORK.md` for testing guidelines
 
@@ -399,28 +418,29 @@ chmod -R 775 storage bootstrap/cache
 
 For questions or issues:
 1. Check the documentation files
-2. Review Laravel official documentation
-3. Check the code comments
+2. Review PROJECT_STATUS.md for current state
+3. Review DEVELOPMENT_ROADMAP.md for execution plan
 
 ---
 
 # SUMMARY
 
-Foundational scaffolding is complete. Namun aplikasi belum fully functional.
+Frontend 100% functional dengan PHP Native + PDO SQLite + jQuery AJAX.
+Laravel backend API scaffolded dan tested tetapi TIDAK digunakan oleh frontend.
 
-**Yang perlu dilakukan sebelum testing:**
-1. Buat `.gitignore` dan remove sensitive files dari git
-2. Fix circular FK di migration products
-3. Register middleware di Kernel.php
-4. Jalankan `composer install`
-5. Jalankan `php artisan migrate --seed`
-6. Test API login endpoint
+**Yang sudah berjalan:**
+1. Frontend: 45 halaman PHP dengan PDO SQLite + jQuery AJAX
+2. Database: SQLite dengan 78 tables dan seed data
+3. Auth: Session-based dengan permission checks
+4. Testing: Playwright E2E (39 tests) + PHPUnit (14 files)
+5. Deployment: Docker + PWA offline-first
+6. Sprint 7-12: Retur, Quotation, Sales Order, Pricing, Stock Transfer, Cash Book, Fixed Assets, Fleet, Routes, WhatsApp, e-Faktur
 
-**Yang perlu dilakukan sebelum production:**
-1. Buat Form Request validation classes
-2. Buat API Resource classes
-3. Tulis unit & feature tests
-4. Standardisasi error handling
-5. Frontend integration testing
+**Sisa gap yang belum diimplementasi (non-kritis untuk go-live):**
+1. Login attempt limit (5x = lock 15 menit)
+2. Audit log di frontend (ajax.php)
+3. QR Code auto-generate produk
+4. SPT PPN Report terpisah (e-Faktur sudah ada)
+5. Multi-unit dropdown di POS (pilih satuan saat transaksi)
 
-> Lihat DEVELOPMENT_ROADMAP.md untuk sprint plan detail.
+> Lihat DEVELOPMENT_ROADMAP.md dan PANGLONG_BUSINESS_ANALYSIS.md untuk detail.

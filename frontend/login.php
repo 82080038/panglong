@@ -1,101 +1,90 @@
 <?php
-session_start();
-
-define('API_URL', 'http://127.0.0.1:8000/api/v1');
+require_once __DIR__ . '/auth.php';
 
 $error = '';
 $msg = $_GET['msg'] ?? '';
 if ($msg === 'timeout') {
-    $error = 'Session expired. Please login again.';
+    $error = 'Sesi berakhir. Silakan masuk kembali.';
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $_POST['username'];
-    $password = $_POST['password'];
+    $username = $_POST['username'] ?? '';
+    $password = $_POST['password'] ?? '';
     
-    // Call API login
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, API_URL . '/auth/login');
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-        'username' => $username,
-        'password' => $password
-    ]));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json'
-    ]);
+    $result = login($username, $password);
     
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    
-    $result = json_decode($response, true);
-    
-    if ($httpCode === 200 && isset($result['success']) && $result['success'] && isset($result['data']['token'])) {
-        $_SESSION['token'] = $result['data']['token'];
-        $_SESSION['user'] = $result['data']['user'];
+    if ($result['success']) {
         header('Location: index.php');
         exit;
     } else {
-        $error = isset($result['message']) ? $result['message'] : 'Login failed';
+        $error = $result['message'] ?? 'Gagal masuk. Periksa nama pengguna dan kata sandi.';
     }
 }
 ?>
+<?php
+$theme = $_SESSION['theme'] ?? 'light';
+?>
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-bs-theme="<?= htmlspecialchars($theme) ?>">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Panglong ERP</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Masuk - Panglong ERP</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+      body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a4d8f 0%,#0d6efd 50%,#1a4d8f 100%);padding:1rem}
+      .login-card{max-width:400px;width:100%;border:none;border-radius:1rem;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+      .login-card .card-body{padding:2rem}
+      .login-logo{width:64px;height:64px;margin:0 auto 1rem;background:linear-gradient(135deg,#0d6efd,#1a4d8f);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.75rem}
+      [data-bs-theme="dark"] body{background:linear-gradient(135deg,#0d1117 0%,#1a1d24 50%,#0d1117 100%)}
+      [data-bs-theme="dark"] .login-card{background:#232730;color:#d8dde6}
+      [data-bs-theme="dark"] .form-control{background:#2a2f3a;border-color:#3a3f4a;color:#d8dde6}
+      [data-bs-theme="eyecare"] body{background:linear-gradient(135deg,#5a4a2a 0%,#8a6a3a 50%,#5a4a2a 100%)}
+      [data-bs-theme="eyecare"] .login-card{background:#faf3e3}
+      [data-bs-theme="eyecare"] .form-control{background:#fff8e8;border-color:#d4c4a0}
+      .quick-btn{font-size:.8rem}
+      @media(max-width:575.98px){.login-card .card-body{padding:1.5rem}.login-logo{width:56px;height:56px;font-size:1.5rem}}
+    </style>
 </head>
-<body class="bg-light">
-    <div class="container">
-        <div class="row justify-content-center align-items-center" style="min-height: 100vh;">
-            <div class="col-md-4">
-                <div class="card shadow">
-                    <div class="card-body p-4">
-                        <h3 class="text-center mb-4">Panglong ERP</h3>
-                        
-                        <?php if ($error): ?>
-                            <div class="alert alert-danger">
-                                <?php echo htmlspecialchars($error); ?>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <form method="POST">
-                            <div class="mb-3">
-                                <label class="form-label">Username</label>
-                                <input type="text" name="username" class="form-control" required autocomplete="username">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Password</label>
-                                <input type="password" name="password" class="form-control" required autocomplete="current-password">
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100 mb-3">Login</button>
-                        </form>
-                        
-                        <hr>
-                        <p class="text-muted small text-center mb-3">Quick Login:</p>
-                        <div class="d-grid gap-2 mb-3">
-                            <button onclick="quickLogin('admin', 'password123')" class="btn btn-outline-primary btn-sm">Admin</button>
-                            <button onclick="quickLogin('manager1', 'password123')" class="btn btn-outline-success btn-sm">Manager</button>
-                            <button onclick="quickLogin('kasir1', 'password123')" class="btn btn-outline-warning btn-sm">Kasir</button>
-                            <button onclick="quickLogin('gudang1', 'password123')" class="btn btn-outline-info btn-sm">Gudang</button>
-                        </div>
-                        
-                        <hr>
-                        <p class="text-muted small text-center">
-                            Default users:<br>
-                            admin / password123<br>
-                            manager1 / password123<br>
-                            kasir1 / password123<br>
-                            gudang1 / password123
-                        </p>
-                    </div>
+<body>
+    <div class="card login-card">
+        <div class="card-body">
+            <div class="login-logo"><i class="bi bi-box-seam-fill"></i></div>
+            <h3 class="text-center mb-1 fw-bold">Panglong ERP</h3>
+            <p class="text-center text-muted mb-4 small">Sistem Manajemen Distribusi</p>
+            
+            <?php if ($error): ?>
+                <div class="alert alert-danger py-2">
+                    <i class="bi bi-exclamation-circle"></i> <?php echo htmlspecialchars($error); ?>
                 </div>
+            <?php endif; ?>
+            
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label"><i class="bi bi-person"></i> Nama Pengguna</label>
+                    <input type="text" name="username" class="form-control form-control-lg" required autocomplete="username" autofocus>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label"><i class="bi bi-lock"></i> Kata Sandi</label>
+                    <input type="password" name="password" class="form-control form-control-lg" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg w-100 mb-3"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
+            </form>
+            
+            <hr>
+            <p class="text-muted small text-center mb-2">Login Cepat (Demo):</p>
+            <div class="row g-2 mb-3">
+                <div class="col-6"><button onclick="quickLogin('admin', 'password123')" class="btn btn-outline-primary btn-sm quick-btn w-100"><i class="bi bi-shield-check"></i> Admin</button></div>
+                <div class="col-6"><button onclick="quickLogin('manager1', 'password123')" class="btn btn-outline-success btn-sm quick-btn w-100"><i class="bi bi-person-badge"></i> Manager</button></div>
+                <div class="col-6"><button onclick="quickLogin('kasir1', 'password123')" class="btn btn-outline-warning btn-sm quick-btn w-100"><i class="bi bi-cash-stack"></i> Kasir</button></div>
+                <div class="col-6"><button onclick="quickLogin('gudang1', 'password123')" class="btn btn-outline-info btn-sm quick-btn w-100"><i class="bi bi-box-seam"></i> Gudang</button></div>
             </div>
+            
+            <hr>
+            <p class="text-muted small text-center mb-0">
+                <i class="bi bi-info-circle"></i> Pengguna default: admin / password123
+            </p>
         </div>
     </div>
 

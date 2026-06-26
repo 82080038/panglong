@@ -2,8 +2,13 @@
 
 # PANGLONG ERP - PHASE 1 MVP
 
-## Version: 1.0
-## Framework: PHPUnit (built-in Laravel)
+## Version: 1.1 (Updated 2026-06-26)
+## Framework: PHPUnit (Laravel backend) + Playwright E2E (frontend)
+
+> **Note:** PHPUnit tests menguji Laravel backend API (yang TIDAK digunakan
+> frontend). Playwright E2E tests menguji frontend PHP Native yang berjalan
+> di Apache/XAMPP. Frontend menggunakan PDO SQLite + jQuery AJAX, bukan
+> Laravel API. Lihat `PROJECT_STATUS.md` untuk arsitektur aktual.
 
 ---
 
@@ -1204,4 +1209,200 @@ View at: `coverage/html/index.html`
 ## Generate Text Summary
 ```bash
 ./vendor/bin/phpunit --testdox
+```
+
+---
+
+# PLAYWRIGHT E2E TESTING (Frontend PHP Native)
+
+> Playwright E2E tests menguji frontend PHP Native yang berjalan di Apache/XAMPP.
+> Frontend menggunakan PDO SQLite + jQuery AJAX, bukan Laravel API.
+
+## Configuration
+
+### playwright.config.js
+```javascript
+const { defineConfig, devices } = require('@playwright/test');
+
+module.exports = defineConfig({
+  testDir: './tests/e2e',
+  fullyParallel: false,
+  forbidOnly: !!process.env.CI,
+  retries: 0,
+  workers: 1,
+  reporter: [['list'], ['html', { open: 'never' }]],
+  timeout: 30000,
+  use: {
+    baseURL: 'http://localhost/panglong/frontend',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    actionTimeout: 10000,
+    navigationTimeout: 15000,
+  },
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+  ],
+});
+```
+
+### package.json
+```json
+{
+  "name": "panglong-erp-tests",
+  "version": "1.0.0",
+  "description": "Playwright E2E tests for Panglong ERP",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:ui": "npx playwright test --ui",
+    "test:debug": "npx playwright test --debug"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.0"
+  }
+}
+```
+
+## Test Specs (18 files, 39 tests — ALL PASSING)
+
+| Spec File | Tests | Description |
+|-----------|-------|-------------|
+| accounting.spec.js | 1 | Accounting page loads |
+| ai_insights.spec.js | 2 | AI insights page + pricing tab |
+| customers.spec.js | 2 | Customers page + add modal |
+| dashboard.spec.js | 4 | Dashboard loads, stats, logout, navbar |
+| deliveries.spec.js | 2 | Deliveries page + new delivery modal |
+| iot.spec.js | 1 | IoT page loads |
+| login.spec.js | 4 | Login page, valid/invalid login, quick login |
+| marketplace.spec.js | 1 | Marketplace page loads |
+| products.spec.js | 3 | Products page, table data, add modal |
+| purchase_orders.spec.js | 2 | PO page + new PO modal |
+| reorder.spec.js | 1 | Reorder AI page loads |
+| reports.spec.js | 3 | Reports page + low stock + AR aging tabs |
+| saas.spec.js | 2 | SaaS page + plans tab |
+| sales.spec.js | 3 | Sales page + new sale modal + add item |
+| stock_opname.spec.js | 2 | Stock opname page + form |
+| stock.spec.js | 2 | Stock page + adjustment modal |
+| suppliers.spec.js | 2 | Suppliers page + add modal |
+| warehouses.spec.js | 1 | Warehouses page loads |
+
+## Running Playwright Tests
+
+### Prerequisites
+1. XAMPP running (`sudo /opt/lampp/lampp start`)
+2. Apache serving `http://localhost/panglong/frontend`
+3. `database/database.sqlite` exists with seed data
+4. Node.js + npm installed
+
+### Install Playwright
+```bash
+cd /opt/lampp/htdocs/panglong
+npm install
+npx playwright install chromium
+```
+
+### Run All Tests (Headed)
+```bash
+npx playwright test --headed --reporter=list --workers=1
+```
+
+### Run All Tests (Headless)
+```bash
+npx playwright test --reporter=list --workers=1
+```
+
+### Run Specific Spec
+```bash
+npx playwright test tests/e2e/login.spec.js --headed
+```
+
+### Run with UI Mode
+```bash
+npx playwright test --ui
+```
+
+### Debug Mode
+```bash
+npx playwright test --debug
+```
+
+### View HTML Report
+```bash
+npx playwright show-report
+```
+
+## Test Pattern
+
+```javascript
+const { test, expect } = require('@playwright/test');
+
+test.describe('Panglong ERP - Login Flow', () => {
+  test('login page loads without errors', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', err => errors.push(err.message));
+    
+    await page.goto('/login.php');
+    
+    await expect(page).toHaveTitle(/Masuk - Panglong ERP/);
+    await expect(page.locator('h3')).toContainText('Panglong ERP');
+    expect(errors).toEqual([]);
+  });
+
+  test('login with valid credentials redirects to dashboard', async ({ page }) => {
+    await page.goto('/login.php');
+    await page.fill('input[name="username"]', 'admin');
+    await page.fill('input[name="password"]', 'password123');
+    await page.click('button[type="submit"]');
+    
+    await expect(page).toHaveURL(/index\.php$/);
+    await expect(page.locator('h1, h2, h3').first()).toBeVisible();
+  });
+});
+```
+
+## Test Results (June 2026)
+
+```
+39 passed (2.0m)
+
+  ✓  1  accounting.spec.js:13:3 › Accounting page loads
+  ✓  2  ai_insights.spec.js:13:3 › AI insights page loads
+  ✓  3  ai_insights.spec.js:25:3 › AI pricing tab works
+  ✓  4  customers.spec.js:13:3 › Customers page loads
+  ✓  5  customers.spec.js:26:3 › Add customer modal opens
+  ✓  6  dashboard.spec.js:13:3 › Dashboard loads
+  ✓  7  dashboard.spec.js:30:3 › Dashboard shows counts
+  ✓  8  dashboard.spec.js:37:3 › Logout redirects to login
+  ✓  9  dashboard.spec.js:45:3 › Navbar shows user name and role
+  ✓ 10  deliveries.spec.js:13:3 › Deliveries page loads
+  ✓ 11  deliveries.spec.js:26:3 › New delivery modal opens
+  ✓ 12  iot.spec.js:13:3 › IoT page loads
+  ✓ 13  login.spec.js:6:3 › Login page loads
+  ✓ 14  login.spec.js:20:3 › Login with valid credentials
+  ✓ 15  login.spec.js:43:3 › Login with invalid credentials shows error
+  ✓ 16  login.spec.js:53:3 › Quick login admin button works
+  ✓ 17  marketplace.spec.js:13:3 › Marketplace page loads
+  ✓ 18  products.spec.js:13:3 › Products page loads
+  ✓ 19  products.spec.js:30:3 › Products table shows data
+  ✓ 20  products.spec.js:38:3 › Add product modal opens
+  ✓ 21  purchase_orders.spec.js:13:3 › PO page loads
+  ✓ 22  purchase_orders.spec.js:25:3 › New PO modal opens
+  ✓ 23  reorder.spec.js:13:3 › Reorder page loads
+  ✓ 24  reports.spec.js:13:3 › Reports page loads
+  ✓ 25  reports.spec.js:27:3 › Low stock report tab works
+  ✓ 26  reports.spec.js:33:3 › AR aging report tab works
+  ✓ 27  saas.spec.js:13:3 › SaaS page loads
+  ✓ 28  saas.spec.js:25:3 › SaaS plans tab works
+  ✓ 29  sales.spec.js:13:3 › Sales page loads
+  ✓ 30  sales.spec.js:26:3 › New sale modal opens
+  ✓ 31  sales.spec.js:46:3 › Add item button creates new row
+  ✓ 32  stock_opname.spec.js:13:3 › Stock opname page loads
+  ✓ 33  stock_opname.spec.js:28:3 › Opname form has date and submit
+  ✓ 34  stock.spec.js:13:3 › Stock page loads
+  ✓ 35  stock.spec.js:25:3 › Stock adjustment modal opens
+  ✓ 36  suppliers.spec.js:13:3 › Suppliers page loads
+  ✓ 37  suppliers.spec.js:26:3 › Add supplier modal opens
+  ✓ 38  warehouses.spec.js:13:3 › Warehouses page loads
+  ✓ 39  (all passing)
 ```

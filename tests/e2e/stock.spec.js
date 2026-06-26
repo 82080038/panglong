@@ -25,7 +25,7 @@ test.describe('Panglong ERP - Stock Page', () => {
   test('stock adjustment modal opens with form', async ({ page }) => {
     await page.goto(`${FRONTEND_BASE}/stock.php`);
     await page.waitForLoadState('networkidle');
-    await page.click('button:has-text("Stock Adjustment")');
+    await page.click('button:has-text("Penyesuaian Stok")');
     await expect(page.locator('#adjustModal')).toBeVisible();
     await expect(page.locator('#adjustModal select[name="product_id"]')).toBeVisible();
     await expect(page.locator('#adjustModal select[name="adjustment_type"]')).toBeVisible();

@@ -1,36 +1,36 @@
 <?php
 require_once 'config.php';
 
-$suppliersResp = apiCall('/suppliers');
-$suppliers = $suppliersResp['body']['data'] ?? [];
+$d = db();
 
-$productsResp = apiCall('/products?per_page=100');
-$products = $productsResp['body']['data'] ?? [];
-
-$poResp = apiCall('/purchase-orders?per_page=20');
-$pos = $poResp['body']['data'] ?? [];
+$suppliers = $d->query("SELECT id, name FROM suppliers ORDER BY name")->fetchAll();
+$products = $d->query("SELECT id, code, name, buy_price FROM products WHERE is_active = 1 ORDER BY name LIMIT 100")->fetchAll();
+$pos = $d->query("SELECT po.*, s.name as supplier_name FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id = s.id ORDER BY po.id DESC LIMIT 20")->fetchAll();
+foreach ($pos as &$po) {
+    $po['supplier'] = ['name' => $po['supplier_name'] ?? ''];
+}
 
 renderHead('Purchase Orders');
 renderNav('purchase-orders');
 ?>
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1>Purchase Orders</h1>
+        <h1>Pesanan Pembelian</h1>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#poModal" onclick="resetPOForm()">
-            <i class="bi bi-plus-circle"></i> New PO
+            <i class="bi bi-plus-circle"></i> PO Baru
         </button>
     </div>
     <div class="card">
         <div class="card-body">
             <table class="table table-striped">
-                <thead><tr><th>PO Number</th><th>Date</th><th>Supplier</th><th>Total</th><th>Payment</th><th>Status</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Nomor PO</th><th>Tanggal</th><th>Supplier</th><th>Total</th><th>Payment</th><th>Status</th><th>Aksi</th></tr></thead>
                 <tbody>
                     <?php foreach ($pos as $po): ?>
                     <tr>
                         <td><?= htmlspecialchars($po['po_number']) ?></td>
-                        <td><?= htmlspecialchars($po['po_date']) ?></td>
+                        <td><?= tglIndo($po['po_date']) ?></td>
                         <td><?= htmlspecialchars($po['supplier']['name'] ?? '') ?></td>
-                        <td>Rp <?= number_format($po['total'], 0) ?></td>
+                        <td><?= rupiah($po['total']) ?></td>
                         <td><span class="badge bg-<?= $po['payment_status']==='paid'?'success':($po['payment_status']==='partial'?'warning':'danger') ?>"><?= ucfirst($po['payment_status']) ?></span></td>
                         <td><span class="badge bg-<?= $po['status']==='received'?'success':($po['status']==='cancelled'?'danger':($po['status']==='partially_received'?'warning':'info')) ?>"><?= ucfirst(str_replace('_',' ',$po['status'])) ?></span></td>
                         <td>
@@ -59,22 +59,22 @@ renderNav('purchase-orders');
                 <form id="poForm">
                     <div class="row mb-3">
                         <div class="col-md-6"><label class="form-label">Supplier *</label><select class="form-select" id="poSupplier" required><option value="">Select Supplier</option><?php foreach ($suppliers as $s): ?><option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['name']) ?></option><?php endforeach; ?></select></div>
-                        <div class="col-md-3"><label class="form-label">PO Date</label><input type="date" class="form-control" id="poDate" required></div>
-                        <div class="col-md-3"><label class="form-label">Payment Method</label><select class="form-select" id="poPayment"><option value="credit">Credit</option><option value="cash">Cash</option><option value="transfer">Transfer</option></select></div>
+                        <div class="col-md-3"><label class="form-label">Tanggal PO</label><input type="date" class="form-control" id="poDate" required></div>
+                        <div class="col-md-3"><label class="form-label">Metode Bayar</label><select class="form-select" id="poPayment"><option value="credit">Kredit</option><option value="cash">Tunai</option><option value="transfer">Transfer</option></select></div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Items</label>
-                        <table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th><th></th></tr></thead><tbody id="poItemsBody"></tbody></table>
+                        <table class="table table-sm"><thead><tr><th>Produk</th><th>Qty</th><th>Harga Satuan</th><th>Subtotal</th><th></th></tr></thead><tbody id="poItemsBody"></tbody></table>
                         <button type="button" class="btn btn-sm btn-outline-primary" onclick="addPORow()"><i class="bi bi-plus"></i> Add Item</button>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-4"><label class="form-label">Discount (Rp)</label><input type="number" class="form-control" id="poDiscount" value="0" min="0" oninput="calcPOTotal()"></div>
-                        <div class="col-md-8"><label class="form-label">Notes</label><input type="text" class="form-control" id="poNotes"></div>
+                        <div class="col-md-8"><label class="form-label">Catatan</label><input type="text" class="form-control" id="poNotes"></div>
                     </div>
                     <div class="row"><div class="col-md-4 offset-md-8"><table class="table table-sm"><tr class="fw-bold"><td>Grand Total</td><td class="text-end" id="poGrandTotal">Rp 0</td></tr></table></div></div>
                 </form>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" onclick="submitPO()">Create PO</button></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary" onclick="submitPO()">Create PO</button></div>
         </div>
     </div>
 </div>
@@ -90,7 +90,7 @@ renderNav('purchase-orders');
                 <div id="receiveItemsBody"></div>
                 <div class="mt-2"><button class="btn btn-sm btn-success" onclick="receiveAll()">Receive All</button></div>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" onclick="submitReceive()">Receive Items</button></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary" onclick="submitReceive()">Receive Items</button></div>
         </div>
     </div>
 </div>
@@ -104,10 +104,10 @@ renderNav('purchase-orders');
                 <input type="hidden" id="poPayId">
                 <div class="mb-3"><label class="form-label">Total Amount</label><input type="text" class="form-control" id="poPayTotal" readonly></div>
                 <div class="mb-3"><label class="form-label">Payment Amount</label><input type="number" class="form-control" id="poPayAmount" required></div>
-                <div class="mb-3"><label class="form-label">Method</label><select class="form-select" id="poPayMethod"><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="check">Check</option></select></div>
-                <div class="mb-3"><label class="form-label">Date</label><input type="date" class="form-control" id="poPayDate" required></div>
+                <div class="mb-3"><label class="form-label">Metode</label><select class="form-select" id="poPayMethod"><option value="cash">Tunai</option><option value="transfer">Transfer</option><option value="check">Cek</option></select></div>
+                <div class="mb-3"><label class="form-label">Tanggal</label><input type="date" class="form-control" id="poPayDate" required></div>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-success" onclick="submitPOPayment()">Pay</button></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-success" onclick="submitPOPayment()">Pay</button></div>
         </div>
     </div>
 </div>
@@ -183,18 +183,18 @@ function submitPO() {
         payment_method: document.getElementById('poPayment').value,
         notes: document.getElementById('poNotes').value,
     };
-    fetch(API_URL+'/purchase-orders', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+API_TOKEN },
+    fetch(API_URL+'?endpoint=purchase-orders', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
     }).then(r => r.json()).then(res => {
         if (res.success) { alert('PO created: ' + res.data.po_number); location.reload(); }
-        else { alert('Error: ' + res.message); }
+        else { alert('Kesalahan: ' + res.message); }
     });
 }
 
 function receivePO(id) {
     document.getElementById('receivePOId').value = id;
-    fetch(`${API_URL}/purchase-orders/${id}`, { headers: { 'Authorization': 'Bearer '+API_TOKEN } })
+    fetch(`${API_URL}?endpoint=purchase-orders&id=${id}`)
     .then(r => r.json()).then(res => {
         if (res.success) {
             const po = res.data;
@@ -227,12 +227,12 @@ function submitReceive() {
         if (qty > 0) items.push({ purchase_item_id: parseInt(input.dataset.itemId), received_quantity: qty });
     });
     const body = items.length > 0 ? { items } : {};
-    fetch(`${API_URL}/purchase-orders/${id}/receive`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+API_TOKEN },
+    fetch(`${API_URL}?endpoint=purchase-orders&id=${id}&action=receive`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
     }).then(r => r.json()).then(res => {
-        if (res.success) { alert(res.message); location.reload(); }
-        else { alert('Error: ' + res.message); }
+        if (res.success) { alert(res.message || 'Received'); location.reload(); }
+        else { alert('Kesalahan: ' + res.message); }
     });
 }
 
@@ -251,27 +251,27 @@ function submitPOPayment() {
         payment_method: document.getElementById('poPayMethod').value,
         payment_date: document.getElementById('poPayDate').value,
     };
-    fetch(`${API_URL}/purchase-orders/${id}/payment`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+API_TOKEN },
+    fetch(`${API_URL}?endpoint=purchase-orders&id=${id}&action=payment`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
     }).then(r => r.json()).then(res => {
         if (res.success) { alert('Payment recorded'); location.reload(); }
-        else { alert('Error: ' + res.message); }
+        else { alert('Kesalahan: ' + res.message); }
     });
 }
 
 function viewPO(id) {
-    fetch(`${API_URL}/purchase-orders/${id}`, { headers: { 'Authorization': 'Bearer '+API_TOKEN } })
+    fetch(`${API_URL}?endpoint=purchase-orders&id=${id}`)
     .then(r => r.json()).then(res => {
         if (res.success) {
             const po = res.data;
-            let html = `<h6>PO: ${po.po_number}</h6><p>Supplier: ${po.supplier?.name} | Date: ${po.po_date} | Status: ${po.status}</p>`;
-            html += '<table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Received</th><th>Price</th><th>Subtotal</th></tr></thead><tbody>';
+            let html = `<h6>PO: ${po.po_number}</h6><p>Supplier: ${po.supplier?.name} | Tanggal: ${po.po_date} | Status: ${po.status==='pending'?'Pending':(po.status==='received'?'Diterima':(po.status==='partial'?'Sebagian':'Selesai'))}</p>`;
+            html += '<table class="table table-sm"><thead><tr><th>Produk</th><th>Qty</th><th>Received</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>';
             po.items.forEach(i => {
                 html += `<tr><td>${i.product?.name || ''}</td><td>${i.quantity}</td><td>${i.received_quantity}</td><td>Rp ${Number(i.unit_price).toLocaleString()}</td><td>Rp ${Number(i.subtotal).toLocaleString()}</td></tr>`;
             });
             html += '</tbody></table>';
-            html += `<p>Subtotal: Rp ${Number(po.subtotal).toLocaleString()} | Total: Rp ${Number(po.total).toLocaleString()} | Payment: ${po.payment_status}</p>`;
+            html += `<p>Subtotal: Rp ${Number(po.subtotal).toLocaleString()} | Total: Rp ${Number(po.total).toLocaleString()} | Pembayaran: ${po.payment_status}</p>`;
             document.getElementById('poDetailBody').innerHTML = html;
             new bootstrap.Modal(document.getElementById('poDetailModal')).show();
         }

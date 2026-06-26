@@ -17,7 +17,7 @@ test.describe('Panglong ERP - Deliveries Page', () => {
 
     await page.goto(`${FRONTEND_BASE}/deliveries.php`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('h1')).toHaveText('Deliveries (Surat Jalan)');
+    await expect(page.locator('h1')).toContainText('Pengiriman');
     await expect(page.locator('table.table-striped')).toBeVisible();
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
@@ -26,7 +26,7 @@ test.describe('Panglong ERP - Deliveries Page', () => {
   test('new delivery modal opens with form fields', async ({ page }) => {
     await page.goto(`${FRONTEND_BASE}/deliveries.php`);
     await page.waitForLoadState('networkidle');
-    await page.click('button:has-text("New Delivery")');
+    await page.click('button:has-text("Pengiriman Baru")');
     await expect(page.locator('#deliveryModal')).toBeVisible();
     await expect(page.locator('#delCustomerName')).toBeVisible();
     await expect(page.locator('#delDate')).toBeVisible();

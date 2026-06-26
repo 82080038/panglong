@@ -25,6 +25,6 @@ test.describe('Panglong ERP - AI Insights Page', () => {
   test('ai pricing tab works', async ({ page }) => {
     await page.goto(`${FRONTEND_BASE}/ai_insights.php?tab=pricing`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('.nav-tabs .nav-link.active')).toContainText('Price');
+    await expect(page.locator('.nav-tabs .nav-link.active')).toContainText('Harga');
   });
 });

@@ -17,7 +17,7 @@ test.describe('Panglong ERP - Suppliers Page', () => {
 
     await page.goto(`${FRONTEND_BASE}/suppliers.php`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('h1')).toHaveText('Suppliers');
+    await expect(page.locator('h1')).toContainText('Supplier');
     await expect(page.locator('table.table')).toBeVisible();
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
@@ -26,7 +26,7 @@ test.describe('Panglong ERP - Suppliers Page', () => {
   test('add supplier modal opens', async ({ page }) => {
     await page.goto(`${FRONTEND_BASE}/suppliers.php`);
     await page.waitForLoadState('networkidle');
-    await page.click('button:has-text("Add Supplier")');
+    await page.click('button:has-text("Tambah Supplier")');
     await expect(page.locator('#addModal')).toBeVisible();
     await expect(page.locator('#addModal input[name="name"]')).toBeVisible();
   });

@@ -2,9 +2,17 @@
 
 # PANGLONG ERP - PHASE 1 MVP
 
-## Version: 1.1 (Updated 2025-06-23)
-## Database: MySQL 8.0+ / MariaDB 10.6+
+## Version: 1.3 (Updated 2026-06-26)
+## Database: SQLite (development/aktif), MySQL 8.0+ / MariaDB 10.6+ (production target)
+## Tables: 78 (including gap feature tables)
 
+> **ARSITEKTUR AKTUAL:** Database yang berjalan saat ini adalah **SQLite**
+> (`database/database.sqlite`, 1.3MB, 78 tables). Semua 37 Laravel migrations
+> telah dijalankan ke SQLite. Frontend mengakses database langsung via PDO SQLite
+> (`frontend/db.php`), bukan melalui Laravel API. Skema di dokumen ini menggambarkan
+> struktur tabel yang sama, tetapi tipe data MySQL (BIGINT, VARCHAR, dll) menjadi
+> tipe data SQLite (INTEGER, TEXT, REAL) secara otomatis oleh Laravel migration.
+>
 > **v1.1 Change**: Removed `base_unit_id` FK from `products` table to resolve
 > circular dependency with `product_units.product_id`. Base unit is now
 > queried via `WHERE is_base_unit = 1`.
@@ -924,6 +932,90 @@ DELIMITER ;
 
 ---
 
+# GAP FEATURE TABLES (Added June 2026)
+
+## landed_cost_distributions
+Distribusi ongkos angkut ke HPP per produk.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER PK | Primary key |
+| purchase_order_id | INTEGER | FK to purchase_orders |
+| product_id | INTEGER | FK to products |
+| cost_amount | REAL | Distributed cost amount |
+| distribution_method | TEXT | by_value, by_weight, by_qty |
+| created_at | TEXT | Timestamp |
+
+## product_batches
+Batch/Lot tracking untuk FIFO/FEFO stock valuation.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER PK | Primary key |
+| product_id | INTEGER | FK to products |
+| batch_no | TEXT | Batch/Lot number |
+| received_date | TEXT | Date received |
+| quantity | REAL | Initial quantity |
+| remaining_qty | REAL | Remaining quantity |
+| unit_cost | REAL | Cost per unit |
+| expiry_date | TEXT | Expiry date (for FEFO) |
+| status | TEXT | active, exhausted, expired |
+| created_at | TEXT | Timestamp |
+
+## partial_deliveries
+Multiple DO per invoice tracking.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER PK | Primary key |
+| sale_id | INTEGER | FK to sales |
+| delivery_id | INTEGER | FK to deliveries |
+| delivered_qty | REAL | Quantity delivered |
+| remaining_qty | REAL | Quantity remaining |
+| status | TEXT | pending, partial, completed |
+| created_at | TEXT | Timestamp |
+
+## cash_flow_categories
+Categories for cash flow statement.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER PK | Primary key |
+| name | TEXT | Category name |
+| type | TEXT | operating, investing, financing |
+| parent_id | INTEGER | Parent category (nullable) |
+
+## cash_transactions
+Cash flow transactions.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER PK | Primary key |
+| category_id | INTEGER | FK to cash_flow_categories |
+| transaction_date | TEXT | Date |
+| amount | REAL | Amount |
+| direction | TEXT | inflow, outflow |
+| description | TEXT | Description |
+| reference_type | TEXT | sale, purchase, journal, manual |
+| reference_id | INTEGER | Reference ID |
+| created_at | TEXT | Timestamp |
+
+## period_closings
+Closing periode (lock transaksi).
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER PK | Primary key |
+| period_name | TEXT | e.g. "June 2026" |
+| start_date | TEXT | Period start |
+| end_date | TEXT | Period end |
+| status | TEXT | open, closed, locked |
+| closed_by | INTEGER | FK to users |
+| closed_at | TEXT | Closure timestamp |
+| notes | TEXT | Notes |
+
+---
+
 # BACKUP STRATEGY
 
 ## Daily Backup
@@ -938,37 +1030,64 @@ mysqldump --single-transaction --routines --triggers -u root -p panglong > /back
 
 ---
 
-# MIGRATION ORDER
+# MIGRATION ORDER (37 migrations, all executed to SQLite)
 
 Execute in this order:
 1. roles
 2. permissions
 3. role_permission
-4. customer_groups
-5. categories
-6. users
+4. users
+5. personal_access_tokens
+6. customer_groups
 7. customers
-8. suppliers
-9. products
-10. product_units
-11. barcodes
-12. stock_movements
-13. sales
-14. sale_items
-15. sale_payments
-16. purchase_orders
-17. purchase_items
-18. purchase_payments
-19. accounts_receivable
-20. accounts_payable
-21. payments
-22. stock_adjustments
-23. stock_opnames
-24. opname_items
-25. audit_logs
+8. categories
+9. suppliers
+10. products
+11. product_units
+12. barcodes
+13. warehouses
+14. warehouse_locations
+15. stock_movements
+16. stock_adjustments
+17. stock_opnames
+18. opname_items
+19. stock_transfers
+20. stock_transfer_items
+21. sales
+22. sale_items
+23. sale_payments
+24. deliveries
+25. delivery_items
+26. purchase_orders
+27. purchase_items
+28. purchase_payments
+29. accounts_receivable
+30. accounts_payable
+31. payments
+32. audit_logs
+33. quotations + quotation_items
+34. sales_orders + sales_order_items
+35. sales_returns + sales_return_items
+36. purchase_returns + purchase_return_items
+37. customer_product_prices + product_tier_prices + supplier_price_history
 
-Then create:
-- Views
-- Stored Procedures
+Additional tables (gap features + Sprint 11-12):
+- chart_of_accounts, journal_entries, journal_entry_lines
+- bank_statements, cash_transactions, cash_flow_categories
+- fixed_assets, asset_depreciations
+- period_closings
+- vehicles, vehicle_maintenance, delivery_routes, route_stops
+- whatsapp_templates, whatsapp_messages
+- e_faktur
+- landed_cost_distributions
+- product_batches
+- partial_deliveries
+- employees, branches, tenants
+- subscription_plans, subscriptions, subscription_invoices
+- marketplace_integrations, marketplace_product_mappings
+- iot_sensors, iot_sensor_readings
+- demand_forecasts, price_optimizations, reorder_suggestions
+
+Total: 78 tables
 - Triggers
 - Indexes

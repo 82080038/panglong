@@ -1,8 +1,28 @@
 <?php
 require_once 'config.php';
 
-$resp = apiCall('/marketplace');
-$integrations = $resp['body']['data'] ?? [];
+$d = db();
+
+$integrations = [];
+try {
+    $integrations = $d->query("SELECT * FROM marketplace_integrations ORDER BY id DESC")->fetchAll();
+} catch (Exception $e) {
+    $integrations = [];
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (($_POST['action'] ?? '') === '') {
+        $now = date('Y-m-d H:i:s');
+        try {
+            $stmt = $d->prepare("INSERT INTO marketplace_integrations (platform, shop_id, shop_name, access_token, status, created_at, updated_at) VALUES (?,?,?,?,'connected',?,?)");
+            $stmt->execute([$_POST['platform'], $_POST['shop_id'], $_POST['shop_name'], $_POST['access_token'] ?? null, $now, $now]);
+            header('Location: marketplace.php?msg=connected');
+        } catch (Exception $e) {
+            header('Location: marketplace.php?msg=error');
+        }
+        exit;
+    }
+}
 
 renderHead('Marketplace Integration');
 renderNav('marketplace');
@@ -23,7 +43,7 @@ renderNav('marketplace');
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="bi bi-<?= $int['platform']==='tokopedia'?'shop':'shop-window' ?>"></i> <?= ucfirst($int['platform']) ?></h5>
-                    <span class="badge bg-<?= $int['status']==='connected'?'success':($int['status']==='error'?'danger':'secondary') ?>"><?= ucfirst($int['status']) ?></span>
+                    <span class="badge bg-<?= $int['status']==='connected'?'success':($int['status']==='error'?'danger':'secondary') ?>"><?= $int['status'] === 'connected' ? 'Terhubung' : ($int['status'] === 'error' ? 'Error' : 'Pending') ?></span>
                 </div>
                 <div class="card-body">
                     <p><strong><?= htmlspecialchars($int['shop_name']) ?></strong><br><small class="text-muted">Shop ID: <?= htmlspecialchars($int['shop_id']) ?></small></p>
@@ -40,7 +60,7 @@ renderNav('marketplace');
     <?php endforeach; else: ?>
         <div class="col-12"><div class="card"><div class="card-body text-center text-muted py-5">
             <i class="bi bi-shop" style="font-size:3rem"></i>
-            <h5 class="mt-3">No marketplace connected</h5>
+            <h5 class="mt-3">Belum ada marketplace terhubung</h5>
             <p>Connect your marketplace shops to start syncing products and stock.</p>
         </div></div></div>
     <?php endif; ?>
@@ -62,27 +82,19 @@ renderNav('marketplace');
             <div class="mb-3"><label class="form-label">Shop Name</label><input type="text" class="form-control" name="shop_name" required></div>
             <div class="mb-3"><label class="form-label">Access Token (optional)</label><input type="text" class="form-control" name="access_token" placeholder="API token from marketplace"></div>
         </div>
-        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Connect</button></div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Hubungkan</button></div>
     </form>
 </div></div></div>
 
 <?php
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (($_POST['action'] ?? '') === '') {
-        $result = apiCall('/marketplace/connect', 'POST', [
-            'platform' => $_POST['platform'],
-            'shop_id' => $_POST['shop_id'],
-            'shop_name' => $_POST['shop_name'],
-            'access_token' => $_POST['access_token'] ?? null,
-        ]);
-        header('Location: marketplace.php?msg=' . ($result['code'] === 201 ? 'connected' : 'error'));
-        exit;
-    }
-}
-?>
+$msg = $_GET['msg'] ?? '';
+if ($msg): ?>
+<div class="alert alert-<?= $msg==='error'?'danger':'success' ?> alert-dismissible fade show"><?= $msg==='connected'?'Toko terhubung':'Error' ?><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+<?php endif; ?>
+
 <script>
-function syncStock(id){fetch(API_URL+'/marketplace/'+id+'/sync-stock',{method:'POST',headers:{'Authorization':'Bearer '+API_TOKEN}}).then(r=>r.json()).then(d=>alert(d.message||'Synced')).catch(()=>alert('Error'))}
-function syncProducts(id){fetch(API_URL+'/marketplace/'+id+'/sync-products',{method:'POST',headers:{'Authorization':'Bearer '+API_TOKEN}}).then(r=>r.json()).then(d=>alert(d.message||'Synced')).catch(()=>alert('Error'))}
-function disconnect(id){if(!confirm('Disconnect?'))return;fetch(API_URL+'/marketplace/'+id+'/disconnect',{method:'POST',headers:{'Authorization':'Bearer '+API_TOKEN}}).then(r=>r.json()).then(()=>location.reload()).catch(()=>alert('Error'))}
+function syncStock(id){fetch(`${API_URL}?endpoint=marketplace&id=${id}&action=sync-stock`,{method:'POST'}).then(r=>r.json()).then(d=>alert(d.message||'Synced')).catch(()=>alert('Error'))}
+function syncProducts(id){fetch(`${API_URL}?endpoint=marketplace&id=${id}&action=sync-products`,{method:'POST'}).then(r=>r.json()).then(d=>alert(d.message||'Synced')).catch(()=>alert('Error'))}
+function disconnect(id){if(!confirm('Disconnect?'))return;fetch(`${API_URL}?endpoint=marketplace&id=${id}&action=disconnect`,{method:'DELETE'}).then(()=>location.reload()).catch(()=>alert('Error'))}
 </script>
 <?php renderFoot(); ?>

@@ -17,10 +17,10 @@ test.describe('Panglong ERP - Stock Opname Page', () => {
 
     await page.goto(`${FRONTEND_BASE}/stock_opname.php`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('h1')).toHaveText('Stock Opname');
+    await expect(page.locator('h1')).toContainText('Opname');
     await expect(page.locator('table.table-striped')).toBeVisible();
-    await expect(page.locator('th:has-text("Product Code")')).toBeVisible();
-    await expect(page.locator('th:has-text("System Qty")')).toBeVisible();
+    await expect(page.locator('th:has-text("Kode Produk")')).toBeVisible();
+    await expect(page.locator('th:has-text("Jml Sistem")')).toBeVisible();
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
   });
@@ -29,6 +29,6 @@ test.describe('Panglong ERP - Stock Opname Page', () => {
     await page.goto(`${FRONTEND_BASE}/stock_opname.php`);
     await page.waitForLoadState('networkidle');
     await expect(page.locator('input[name="opname_date"]')).toBeVisible();
-    await expect(page.locator('button:has-text("Create Opname")')).toBeVisible();
+    await expect(page.locator('button:has-text("Buat Opname")')).toBeVisible();
   });
 });

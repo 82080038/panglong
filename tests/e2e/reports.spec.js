@@ -17,9 +17,9 @@ test.describe('Panglong ERP - Reports Page', () => {
 
     await page.goto(`${FRONTEND_BASE}/reports.php`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('h1')).toHaveText('Reports');
+    await expect(page.locator('h1')).toContainText('Laporan');
     await expect(page.locator('.nav-tabs')).toBeVisible();
-    await expect(page.locator('.nav-tabs .nav-link.active')).toContainText('Daily Sales');
+    await expect(page.locator('.nav-tabs .nav-link.active')).toContainText('Penjualan Harian');
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
   });
@@ -27,7 +27,7 @@ test.describe('Panglong ERP - Reports Page', () => {
   test('low stock report tab works', async ({ page }) => {
     await page.goto(`${FRONTEND_BASE}/reports.php?tab=lowstock`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('th:has-text("Product")')).toBeVisible();
+    await expect(page.locator('th:has-text("Produk")')).toBeVisible();
   });
 
   test('ar aging report tab works', async ({ page }) => {

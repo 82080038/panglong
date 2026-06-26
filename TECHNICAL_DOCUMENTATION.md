@@ -2,13 +2,78 @@
 
 # PANGLONG ERP - PHASE 1 MVP
 
-## Version: 1.1 (Updated 2025-06-23)
-## Last Updated: 2025-06-23
+## Version: 2.0 (Updated 2026-06-26)
+## Last Updated: 2026-06-26
+## Status: ALL SPRINTS (1-12) + GAP FEATURES + UI/UX COMPLETED
 
-> **Note**: Dokumentasi ini menggambarkan struktur ideal. Implementasi
-> aktual menggunakan PHP Native frontend (bukan Blade templates) yang
-> berkomunikasi dengan Laravel API via cURL. Lihat DEVELOPMENT_ROADMAP.md
-> untuk status implementasi terkini.
+> **ARSITEKTUR AKTUAL (Updated 2026-06-26):** Frontend menggunakan PHP Native
+> + PDO SQLite + jQuery AJAX. `frontend/ajax.php` adalah single endpoint (1802 lines, 34 endpoints) untuk
+> semua CRUD operations. Laravel backend API ada di repo tetapi TIDAK digunakan
+> oleh frontend. Database: SQLite (`database/database.sqlite`, 78 tables).
+> Frontend: 45 PHP pages, 18 Playwright E2E specs (39 tests, ALL PASSING).
+> UI: RBAC nav per role, dark mode, eye-care mode, fullscreen toggle, responsive design.
+> Lihat PROJECT_STATUS.md dan DEVELOPMENT_ROADMAP.md untuk detail.
+
+---
+
+# AKTUAL ARCHITECTURE SUMMARY
+
+## Yang Berjalan Saat Ini
+
+```
+[Browser]
+  ↓
+[PHP Server-Side Rendering] — frontend/*.php (45 pages)
+  ├── Direct PDO SQLite queries untuk initial page load
+  └── jQuery 3.6 $.ajax() → frontend/ajax.php (1802 lines, 34 endpoints) → PDO SQLite
+  ↓
+[database/database.sqlite] — 78 tables
+```
+
+## Komponen Utama
+
+| Komponen | File | Fungsi |
+|----------|------|--------|
+| DB Connection | `frontend/db.php` | PDO SQLite singleton, `PRAGMA foreign_keys = ON` |
+| Auth | `frontend/auth.php` | Session-based, `login()`, `logout()`, `hasPermission()` |
+| Config | `frontend/config.php` | Session timeout 30 min, RBAC navbar, dark mode, fullscreen, CDN |
+| AJAX Endpoint | `frontend/ajax.php` | 1802 lines, 34 endpoints, all CRUD operations |
+| Login | `frontend/login.php` | Login page with quick login buttons |
+| PWA | `frontend/manifest.json`, `frontend/sw.js` | Offline-first service worker |
+
+## Frontend Pages (45 total)
+
+### Core (5)
+`db.php`, `auth.php`, `config.php`, `ajax.php`, `login.php`
+
+### Business Pages (40)
+`index.php` (Dashboard), `products.php`, `product_detail.php`, `customers.php`, `customer_detail.php`,
+`sales.php`, `sale_detail.php`, `deliveries.php`, `stock.php`, `stock_opname.php`, `stock_transfers.php`,
+`suppliers.php`, `purchase-orders.php`, `reports.php`, `settings.php`, `users.php`, `print_nota.php`,
+`accounting.php`, `cashbook.php`, `fixed_assets.php`, `cash_flow.php`, `closing.php`,
+`warehouses.php`, `reorder.php`, `ai_insights.php`, `saas.php`, `marketplace.php`, `iot.php`,
+`quotations.php`, `sales_orders.php`, `returns.php`, `pricing.php`,
+`fleet.php`, `routes.php`, `whatsapp.php`, `e_faktur.php`,
+`landed_cost.php`, `batches.php`, `salesman_app.php`, `logout.php`
+
+## RBAC Navigation per Role
+
+| Role | Menu Count | Key Menus |
+|------|-----------|-----------|
+| Owner | 35 | All menus + Pengguna, Pengaturan, SaaS |
+| Manager | 34 | All except SaaS |
+| Kasir | 9 | Beranda, Pelanggan, Penjualan, SO, Penawaran, Pengiriman, Retur, WhatsApp, Salesman |
+| Gudang | 15 | Beranda, Produk, Stok, Opname, Mutasi, Supplier, PO, Gudang, Landed Cost, Batch/FIFO, IoT, Kendaraan, Rute, Pengiriman, Retur |
+| Accounting | 11 | Beranda, Pelanggan, Laporan, Akuntansi, Kas Buku, Aset Tetap, Arus Kas, Tutup Buku, e-Faktur |
+| Supervisor | 3 | Beranda, Laporan |
+
+## UI/UX Features
+
+- **Dark mode**: `data-bs-theme="dark"`, session-based toggle
+- **Eye-care mode**: `data-bs-theme="eyecare"`, sepia theme for 24-hour usage
+- **Fullscreen toggle**: Fullscreen API, auto-hides navbar
+- **Responsive**: Mobile (<576px), Tablet (768px), Desktop (1200px+), Ultra-wide (1900px+)
+- **Professional UI**: Gradient navbar, card shadows, Bootstrap 5.3 + Bootstrap Icons
 
 ---
 

@@ -25,6 +25,6 @@ test.describe('Panglong ERP - SaaS Management Page', () => {
   test('saas plans tab works', async ({ page }) => {
     await page.goto(`${FRONTEND_BASE}/saas.php?tab=plans`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('.nav-tabs .nav-link.active')).toContainText('Plans');
+    await expect(page.locator('.nav-tabs .nav-link.active')).toContainText('Paket');
   });
 });

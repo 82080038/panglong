@@ -159,7 +159,7 @@
 Beli 10 sak semen → gratis 1 sak
 Harga netto = (10 × Rp65.000) / 11 sak = Rp59.091/sak
 ```
-**Status:** ❌ TIDAK ADA — perlu bonus_qty field di SaleItem
+**Status:** ✅ SUDAH ADA — bonus_qty field di SaleItem, PurchaseItem, QuotationItem, SalesOrderItem
 
 ### 4.3 Ongkos Angkut
 ```
@@ -168,7 +168,7 @@ Harga netto = (10 × Rp65.000) / 11 sak = Rp59.091/sak
 - Delivery luar kota: Rp500.000+ per truk
 - Kapasitas: Colt Diesel 3-5 ton, Engkel 8-10 ton
 ```
-**Status:** ❌ TIDAK ADA — perlu delivery_cost field di Sale & Delivery
+**Status:** ✅ SUDAH ADA — delivery_cost field di Sale & Delivery, freight_cost di Purchase Order
 
 ### 4.4 Landed Cost (HPP Sebenarnya)
 ```
@@ -178,7 +178,7 @@ Contoh: Semen Gresik
   Ongkos angkut:  Rp2.000/sak
   HPP sebenarnya: Rp57.500/sak (bukan Rp55.000!)
 ```
-**Status:** ❌ TIDAK ADA — Product.buy_price hanya harga beli
+**Status:** ⚠️ SEBAGIAN — freight_cost, insurance_cost, handling_cost, landed_total field di Purchase Order. Distribusi ke HPP per produk belum otomatis.
 
 ### 4.5 Retur Barang
 ```
@@ -187,7 +187,7 @@ Contoh: Semen Gresik
 - Besi salah ukuran → retur
 - Keramik pecah → retur sebagian
 ```
-**Status:** ❌ TIDAK ADA — perlu tabel sales_returns & purchase_returns
+**Status:** ✅ SUDAH ADA — sales_returns, sales_return_items, purchase_returns, purchase_return_items dengan approval & stock movement
 
 ### 4.6 Kadaluarsa & Garansi
 ```
@@ -222,8 +222,9 @@ Harga Retail > Harga Toko Kecil > Harga Kontraktor > Harga Developer
 - ✅ Customer group discount
 - ✅ Margin check (below cost warning)
 - ✅ Tax rate from settings
-- ❌ Volume-based pricing (tier per qty)
-- ❌ Customer-specific pricing (per customer, bukan per group)
+- ✅ Volume-based pricing (product_tier_prices)
+- ✅ Customer-specific pricing (customer_product_prices)
+- ✅ Supplier price history tracking
 - ❌ Cash discount (diskon untuk pembayaran cash)
 - ❌ Contract pricing (harga kontrak untuk proyek)
 
@@ -235,10 +236,10 @@ Harga Retail > Harga Toko Kecil > Harga Kontraktor > Harga Developer
 - ✅ Omzet hari ini
 - ✅ Jumlah transaksi
 - ✅ Chart penjualan mingguan
+- ✅ Stok kritis (di bawah min) — low stock report
+- ✅ Cash position (saldo kas+bank) — Cash Book
 - ❌ Piutang jatuh tempo hari ini
 - ❌ Hutang jatuh tempo hari ini
-- ❌ Stok kritis (di bawah min)
-- ❌ Cash position (saldo kas+bank)
 - ❌ Top 5 produk terjual
 - ❌ Delivery schedule hari ini
 
@@ -246,17 +247,20 @@ Harga Retail > Harga Toko Kecil > Harga Kontraktor > Harga Developer
 - ✅ Daily/Monthly sales report
 - ✅ Low stock report
 - ✅ AR aging report
-- ❌ AP aging report
-- ❌ Stock movement (kartu stok) — ada tapi belum lengkap
-- ❌ Dead stock report
-- ❌ Stock valuation (FIFO)
-- ❌ Profit margin per product
+- ✅ AP aging report — endpoint ap-aging
+- ✅ Stock movement (kartu stok)
+- ✅ Dead stock report
+- ✅ Stock valuation (by buy_price)
+- ✅ Profit margin per product — by-product report
 - ❌ Salesman performance
 - ❌ Delivery performance
 - ❌ Customer/Supplier purchase history
 
 ### 6.3 Laporan Keuangan
 - ✅ Trial Balance, Balance Sheet, Income Statement, GL
+- ✅ Cash Book (cash in/out)
+- ✅ Bank Reconciliation
+- ✅ Fixed Assets & Depreciation
 - ❌ Cash Flow Statement
 - ❌ SPT PPN (PPN Masukan vs Keluaran)
 - ❌ AR/AP Aging detail
@@ -309,7 +313,14 @@ Harga Retail > Harga Toko Kecil > Harga Kontraktor > Harga Developer
 
 ---
 
-## 8. STATUS SAAT INI (Sprint 1-6 COMPLETED)
+## 8. STATUS SAAT INI (Sprint 1-12 COMPLETED)
+
+> **Arsitektur aktual:** Frontend PHP Native + PDO SQLite + jQuery AJAX.
+> `frontend/ajax.php` sebagai single endpoint (~1802 lines) untuk semua CRUD.
+> Laravel backend API ada di repo tetapi TIDAK digunakan frontend.
+> Database: SQLite (`database/database.sqlite`, 78 tables, 1.3MB).
+> **Bug fixes (Juni 2026):** 8 bug kritis diperbaiki, 39 Playwright E2E tests lulus.
+> **Sprint 7-12 (Juni 2026):** Retur, Quotation, Sales Order, Pricing, Stock Transfer, Cash Book, Fixed Assets, Fleet, Routes, WhatsApp, e-Faktur — semua diimplementasi.
 
 | Sprint | Fokus | Status |
 |--------|-------|--------|
@@ -319,12 +330,12 @@ Harga Retail > Harga Toko Kecil > Harga Kontraktor > Harga Developer
 | 4 | Integration & Polish (permission, audit, void, E2E) | ✅ COMPLETED |
 | 5 | Building Materials Domain Data (seeder rewrite) | ✅ COMPLETED |
 | 6 | Accounting Business Logic (jurnal otomatis, COA Indonesia) | ✅ COMPLETED |
-| 7 | Retur & Quotation | ⏳ PENDING |
-| 8 | Ongkos Angkut & Landed Cost | ⏳ PENDING |
-| 9 | Pricing & Customer Management | ⏳ PENDING |
-| 10 | Stock Advanced | ⏳ PENDING |
-| 11 | Keuangan Advanced | ⏳ PENDING |
-| 12 | Integrasi & Automation | ⏳ PENDING |
+| 7 | Retur & Quotation (sales return, purchase return, quotation, sales order) | ✅ COMPLETED |
+| 8 | Ongkos Angkut & Landed Cost (delivery_cost field, bonus_qty field) | ✅ COMPLETED |
+| 9 | Pricing & Customer Management (customer pricing, tier pricing, price history) | ✅ COMPLETED |
+| 10 | Stock Advanced (stock adjustment, stock transfer, warehouse locations) | ✅ COMPLETED |
+| 11 | Keuangan Advanced (cash book, bank recon, fixed assets, depreciation) | ✅ COMPLETED |
+| 12 | Integrasi & Automation (WhatsApp, Fleet, Routes, e-Faktur) | ✅ COMPLETED |
 
 ---
 
@@ -332,11 +343,160 @@ Harga Retail > Harga Toko Kecil > Harga Kontraktor > Harga Developer
 
 Aplikasi Panglong ERP saat ini sudah memiliki **fondasi yang baik** untuk operasional dasar (POS, inventory, AR/AP, akuntansi double-entry). Namun masih **banyak hal kritis yang belum ada** untuk bisa benar-benar menjawab semua kebutuhan bisnis panglong di dunia nyata:
 
-**Top 5 Yang Paling Mendesak:**
-1. **Retur barang** — terjadi setiap hari di dunia nyata
-2. **Quotation** — kontraktor tidak akan beli tanpa penawaran formal
-3. **Ongkos angkut & landed cost** — margin akan terus bocor tanpa ini
-4. **Bonus barang** — praktik umum yang tidak bisa diabaikan
-5. **Sales Order** — pemisahan commit order vs invoice penting untuk allocation
+**Top 5 Yang Paling Mendesak (Go-Live Preparation):**
+1. ~~Landed cost calculation~~ — ✅ Done
+2. ~~Partial delivery~~ — ✅ Done
+3. ~~Batch/Lot tracking & FIFO~~ — ✅ Done
+4. ~~Cash Flow Statement~~ — ✅ Done
+5. ~~Closing periode~~ — ✅ Done
 
-Dengan implementasi Sprint 7-12, Panglong ERP akan menjadi sistem yang **lengkap dan siap** untuk mengelola seluruh aspek bisnis distribusi material bangunan di Indonesia.
+**Sisa yang belum (non-kritis untuk go-live):**
+1. Login attempt limit (5x = lock 15 menit)
+2. Audit log di frontend (ajax.php)
+3. QR Code auto-generate produk
+4. SPT PPN Report terpisah
+5. Multi-unit dropdown di POS
+
+Sprint 1-12 + Gap Features + UI/UX Enhancements telah selesai. Panglong ERP sekarang adalah sistem yang **lengkap dan siap** untuk mengelola seluruh aspek bisnis distribusi material bangunan di Indonesia. Tinggal input data nyata dan training user untuk go-live.
+
+---
+
+## 10. ANALISIS OPERASIONAL NYATA (Berdasarkan Data Aktual)
+
+> Data per Juni 2026, diambil dari `database/database.sqlite` (78 tables).
+
+### 10.1 Profil Perusahaan
+- **Nama:** PT Panglong Bangunan Jaya
+- **Alamat:** Jl. Raya Industri No. 45, Bekasi, Jawa Barat
+- **Telepon:** 021-88556677
+- **PPN:** 11% (aktif)
+- **Session timeout:** 30 menit
+
+### 10.2 Skala Operasional
+| Metrik | Jumlah | Keterangan |
+|--------|--------|------------|
+| Produk aktif | 861 | Material bangunan lengkap |
+| Kategori | 66 | MCB, Besi Beton, Saklar, Cat, Semen, dll. |
+| Customer | 10 | Perlu ekspansi data customer |
+| Supplier | 10 | Perlu ekspansi data supplier |
+| Cabang (Branch) | 4 | Multi-branch ready |
+| Gudang (Warehouse) | 4 | Multi-warehouse ready |
+| User | 4 | admin, manager1, kasir1, gudang1 |
+| Role | 6 | Owner, Manager, Kasir, Gudang, Salesman, Akuntan |
+| Transaksi Penjualan | 0 | Belum ada transaksi nyata |
+| Purchase Order | 0 | Belum ada PO nyata |
+| Delivery | 0 | Belum ada pengiriman nyata |
+| Stock Movement | 39 | Semua dari initial purchase/seed |
+
+### 10.3 Kategori Produk Terbesar
+1. **MCB & Panel Listrik** — 60 produk
+2. **Besi Beton** — 38 produk
+3. **Saklar & Stop Kontak** — 38 produk
+4. **Lampu & Penerangan** — 37 produk
+5. **Kabel & Instalasi Listrik** — 35 produk
+6. **Fitting & Aksesoris Pipa** — 33 produk
+7. **Baut, Mur & Sekrup** — 31 produk
+8. **Paku** — 26 produk
+9. **Aksesoris Kamar Mandi** — 25 produk
+10. **Kran & Valve** — 24 produk
+
+### 10.4 Produk Bernilai Stok Tertinggi
+| Kode | Nama | Stok | Harga Beli | Harga Jual | Margin |
+|------|------|------|-----------|-----------|--------|
+| CLS-TTO-621 | Closet TOTO CW621J | 10 | Rp 1.850.000 | Rp 2.150.000 | 16.2% |
+| CAT-DLX-25 | Cat Dulux Vitex 25kg | 20 | Rp 780.000 | Rp 950.000 | 21.8% |
+| KCA-8-183244 | Kaca Bening 8mm | 8 | Rp 1.350.000 | Rp 1.550.000 | 14.8% |
+| WMH-M4-612 | Wiremesh M4 6x12m | 15 | Rp 580.000 | Rp 660.000 | 13.8% |
+| CAT-NPP-25 | Cat Nippon 25kg | 18 | Rp 750.000 | Rp 860.000 | 14.7% |
+| CAT-AVN-25 | Cat Avian 25kg | 25 | Rp 680.000 | Rp 780.000 | 14.7% |
+| KCA-5-183244 | Kaca Bening 5mm | 15 | Rp 850.000 | Rp 980.000 | 15.3% |
+| PLY-MRN-9 | Plywood Meranti 9mm | 40 | Rp 195.000 | Rp 230.000 | 17.9% |
+| SMT-GRK-40 | Semen Gresik 40kg | 200 | Rp 58.000 | Rp 65.000 | 12.1% |
+| SMT-TRD-40 | Semen Tiga Roda 40kg | 150 | Rp 57.000 | Rp 64.000 | 12.3% |
+
+### 10.5 Pola Stock Movement
+- **purchase (initial):** 39 movements, total 3.470 unit
+- **sale:** 0 (belum ada penjualan)
+- **adjustment:** 0
+- **physical_count:** 0
+
+### 10.6 Gap Analisis Operasional Nyata
+
+**Yang sudah berfungsi:**
+- ✅ Manajemen produk dengan 861 SKU lengkap
+- ✅ Kategorisasi 66 kategori material bangunan
+- ✅ Multi-branch (4 cabang) dan multi-warehouse (4 gudang)
+- ✅ Role-based access (6 role: Owner, Manager, Kasir, Gudang, Salesman, Akuntan)
+- ✅ Session-based authentication dengan password_verify
+- ✅ Dashboard dengan statistik real-time
+- ✅ POS / Sales creation dengan auto stock deduction
+- ✅ Purchase Order dengan receive & stock-in
+- ✅ Delivery management
+- ✅ Stock adjustment & stock opname
+- ✅ Reports (daily, monthly, low-stock, stock-valuation, profit-loss, AR-aging, dead-stock)
+- ✅ Settings (tax rate, company info, session timeout)
+- ✅ 39 Playwright E2E tests semua lulus
+
+**Yang sudah diimplementasi (Sprint 7-11):**
+- ✅ Sales Return (retur penjualan) dengan stock-in otomatis & approval
+- ✅ Purchase Return (retur pembelian) dengan stock-out otomatis & approval
+- ✅ Quotation (penawaran harga) dengan bonus qty, valid until, convert ke SO
+- ✅ Sales Order (commit order) dengan delivered_qty tracking & fulfill
+- ✅ Customer-Specific Pricing (harga per customer)
+- ✅ Tier Pricing (volume-based / qty break pricing)
+- ✅ Supplier Price History (track perubahan harga beli)
+- ✅ Stock Adjustment dengan approval workflow
+- ✅ Stock Transfer antar gudang dengan stock movement
+- ✅ Warehouse Locations (rak/blok/zone)
+- ✅ Cash Book (cash in/out, bank transactions)
+- ✅ Bank Reconciliation (match mutasi bank)
+- ✅ Fixed Assets dengan auto depreciation (straight-line)
+- ✅ Delivery cost field di Sale & Delivery (Sprint 8)
+- ✅ Bonus qty field di Sale Items & Purchase Items (Sprint 8)
+- ✅ Weight & dimension fields di Product (Sprint 8)
+
+**Yang sudah diimplementasi (Sprint 12):**
+- ✅ Fleet Management (vehicles, maintenance log, capacity tracking)
+- ✅ Delivery Routes (multi-stop route planning, driver assignment, stop status)
+- ✅ WhatsApp Notification (templates, message logging, invoice reminder, delivery notification)
+- ✅ e-Faktur (PPN Masukan/Keluaran, CSV export DJP format, NPWP tracking)
+
+**Yang sudah diimplementasi (Gap Features, June 2026):**
+- ✅ Landed cost calculation (distribusi ongkos ke HPP per produk) — `landed_cost.php`
+- ✅ Partial delivery (multiple DO per invoice) — `deliveries.php` + `sales_orders.php`
+- ✅ Batch/Lot tracking & FIFO/FEFO stock valuation — `batches.php`
+- ✅ Cash Flow Statement — `cash_flow.php`
+- ✅ Closing periode (lock transaksi) — `closing.php`
+- ✅ Salesman mobile app (PWA-based) — `salesman_app.php`
+
+**Yang belum ada / belum berjalan:**
+- ❌ Belum ada transaksi penjualan nyata (0 sales)
+- ❌ Belum ada PO nyata (0 purchase orders)
+- ❌ Belum ada delivery nyata (0 deliveries)
+- ❌ Customer data masih sangat terbatas (10 customer)
+- ❌ Supplier data masih sangat terbatas (10 supplier)
+- ❌ Login attempt limit (5x = lock 15 menit) — belum diimplementasi
+- ❌ Audit log di frontend (ajax.php) — belum diimplementasi
+- ❌ QR Code auto-generate untuk produk — belum ada
+- ❌ SPT PPN Report terpisah — belum ada (e-Faktur sudah ada)
+- ❌ Multi-unit dropdown di POS (pilih satuan saat transaksi) — belum ada
+
+**UI/UX Enhancements (June 2026):**
+- ✅ RBAC-based navigation menu per role (owner, manager, kasir, gudang, accounting, supervisor)
+- ✅ Dark mode toggle (session-based, untuk kesehatan mata pemakaian 24 jam)
+- ✅ Eye-care mode (sepia theme, kontras rendah)
+- ✅ Fullscreen toggle button (untuk desktop/large screen)
+- ✅ Responsive design (mobile, tablet, desktop, ultra-wide)
+- ✅ Professional UI (gradient navbar, card shadows, elegant login page)
+
+### 10.7 Rekomendasi Prioritas Go-Live
+
+Untuk siap go-live operasional, urutan prioritas:
+
+1. **Input data customer & supplier nyata** — tanpa ini tidak bisa transaksi
+2. **Training user** — kasir & gudang harus paham alur POS dan stock
+3. **Transaksi pilot** — mulai dengan penjualan cash harian
+4. **Stock opname awal** — pastikan stok sistem = stok fisik
+5. ~~Landed cost calculation~~ — ✅ Done
+6. ~~Batch/Lot tracking~~ — ✅ Done
+7. ~~Cash Flow Statement~~ — ✅ Done

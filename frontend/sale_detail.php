@@ -2,13 +2,26 @@
 require_once __DIR__ . '/config.php';
 
 $id = $_GET['id'] ?? 0;
-$resp = apiCall('/sales/' . $id);
-$sale = $resp['body']['data'] ?? null;
+$d = db();
+
+$stmt = $d->prepare("SELECT s.*, c.name as customer_name FROM sales s LEFT JOIN customers c ON s.customer_id = c.id WHERE s.id = ?");
+$stmt->execute([$id]);
+$sale = $stmt->fetch();
 
 if (!$sale) {
     echo "<p>Sale not found</p>";
     exit;
 }
+
+$sale['customer'] = ['name' => $sale['customer_name'] ?? 'Walk-in'];
+
+$items = $d->prepare("SELECT si.*, p.name as product_name FROM sale_items si LEFT JOIN products p ON si.product_id = p.id WHERE si.sale_id = ?");
+$items->execute([$id]);
+$sale['items'] = $items->fetchAll();
+
+$pays = $d->prepare("SELECT * FROM sale_payments WHERE sale_id = ?");
+$pays->execute([$id]);
+$sale['payments'] = $pays->fetchAll();
 ?>
 <table class="table table-sm">
     <tr><td>Invoice</td><td><?php echo htmlspecialchars($sale['invoice_no'] ?? $id); ?></td></tr>
@@ -25,20 +38,20 @@ if (!$sale) {
         <?php if (isset($sale['items'])): ?>
             <?php foreach ($sale['items'] as $item): ?>
                 <tr>
-                    <td><?php echo htmlspecialchars($item['product']['name'] ?? 'Item'); ?></td>
+                    <td><?php echo htmlspecialchars($item['product_name'] ?? 'Item'); ?></td>
                     <td><?php echo $item['quantity']; ?></td>
-                    <td>Rp <?php echo number_format($item['unit_price'], 0, ',', '.'); ?></td>
-                    <td>Rp <?php echo number_format($item['discount'] ?? 0, 0, ',', '.'); ?></td>
-                    <td>Rp <?php echo number_format($item['subtotal'], 0, ',', '.'); ?></td>
+                    <td><?php echo rupiah($item['unit_price']) ?></td>
+                    <td><?php echo rupiah($item['discount'] ?? 0) ?></td>
+                    <td><?php echo rupiah($item['subtotal']) ?></td>
                 </tr>
             <?php endforeach; ?>
         <?php endif; ?>
     </tbody>
     <tfoot>
-        <tr><td colspan="4" class="text-end fw-bold">Subtotal</td><td>Rp <?php echo number_format($sale['subtotal'] ?? 0, 0, ',', '.'); ?></td></tr>
-        <tr><td colspan="4" class="text-end">Discount</td><td>Rp <?php echo number_format($sale['discount'] ?? 0, 0, ',', '.'); ?></td></tr>
-        <tr><td colspan="4" class="text-end">Tax</td><td>Rp <?php echo number_format($sale['tax'] ?? 0, 0, ',', '.'); ?></td></tr>
-        <tr><td colspan="4" class="text-end fw-bold fs-5">Total</td><td class="fw-bold fs-5">Rp <?php echo number_format($sale['total'] ?? 0, 0, ',', '.'); ?></td></tr>
+        <tr><td colspan="4" class="text-end fw-bold">Subtotal</td><td><?php echo rupiah($sale['subtotal'] ?? 0) ?></td></tr>
+        <tr><td colspan="4" class="text-end">Discount</td><td><?php echo rupiah($sale['discount'] ?? 0) ?></td></tr>
+        <tr><td colspan="4" class="text-end">Tax</td><td><?php echo rupiah($sale['tax'] ?? 0) ?></td></tr>
+        <tr><td colspan="4" class="text-end fw-bold fs-5">Total</td><td class="fw-bold fs-5"><?php echo rupiah($sale['total'] ?? 0) ?></td></tr>
     </tfoot>
 </table>
 <?php if (isset($sale['payments']) && count($sale['payments']) > 0): ?>
@@ -47,7 +60,7 @@ if (!$sale) {
     <thead><tr><th>Date</th><th>Amount</th><th>Method</th></tr></thead>
     <tbody>
         <?php foreach ($sale['payments'] as $pay): ?>
-            <tr><td><?php echo htmlspecialchars($pay['payment_date']); ?></td><td>Rp <?php echo number_format($pay['amount'], 0, ',', '.'); ?></td><td><?php echo htmlspecialchars($pay['payment_method']); ?></td></tr>
+            <tr><td><?php echo htmlspecialchars($pay['payment_date']); ?></td><td><?php echo rupiah($pay['amount']) ?></td></tr>
         <?php endforeach; ?>
     </tbody>
 </table>

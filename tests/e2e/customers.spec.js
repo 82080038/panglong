@@ -17,7 +17,7 @@ test.describe('Panglong ERP - Customers Page', () => {
 
     await page.goto(`${FRONTEND_BASE}/customers.php`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('h1')).toHaveText('Customers');
+    await expect(page.locator('h1')).toHaveText('Pelanggan');
     await expect(page.locator('table.table')).toBeVisible();
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
@@ -26,7 +26,7 @@ test.describe('Panglong ERP - Customers Page', () => {
   test('add customer modal opens with form fields', async ({ page }) => {
     await page.goto(`${FRONTEND_BASE}/customers.php`);
     await page.waitForLoadState('networkidle');
-    await page.click('button:has-text("Add Customer")');
+    await page.click('button:has-text("Tambah Pelanggan")');
     await expect(page.locator('#addModal')).toBeVisible();
     await expect(page.locator('#addModal input[name="name"]')).toBeVisible();
     await expect(page.locator('#addModal input[name="phone"]')).toBeVisible();

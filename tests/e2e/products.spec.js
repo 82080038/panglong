@@ -18,10 +18,10 @@ test.describe('Panglong ERP - Products Page', () => {
 
     await page.goto(`${FRONTEND_BASE}/products.php`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('h1')).toHaveText('Products');
+    await expect(page.locator('h1')).toHaveText('Produk');
     await expect(page.locator('table.table-striped')).toBeVisible();
-    await expect(page.locator('th:has-text("Name")')).toBeVisible();
-    await expect(page.locator('button:has-text("Add Product")')).toBeVisible();
+    await expect(page.locator('th:has-text("Nama")')).toBeVisible();
+    await expect(page.locator('button:has-text("Tambah Produk")')).toBeVisible();
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
     expect(networkFailures).toEqual([]);
@@ -38,7 +38,7 @@ test.describe('Panglong ERP - Products Page', () => {
   test('add product modal opens with form fields', async ({ page }) => {
     await page.goto(`${FRONTEND_BASE}/products.php`);
     await page.waitForLoadState('networkidle');
-    await page.click('button:has-text("Add Product")');
+    await page.click('button:has-text("Tambah Produk")');
     const modal = page.locator('#addModal');
     await expect(modal).toBeVisible();
     await expect(page.locator('#addModal input[name="name"]')).toBeVisible();

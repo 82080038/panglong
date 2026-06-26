@@ -1,9 +1,55 @@
 <?php
 require_once 'config.php';
 
-$resp = apiCall('/reorder/suggestions');
-$suggestions = $resp['body']['data'] ?? [];
-$total = $resp['body']['total'] ?? 0;
+$d = db();
+
+$products = $d->query("SELECT id, code, name, min_stock, max_stock, buy_price FROM products WHERE is_active = 1 ORDER BY name LIMIT 200")->fetchAll();
+
+$suggestions = [];
+foreach ($products as $p) {
+    $stmt = $d->prepare("SELECT COALESCE(SUM(quantity),0) as qty FROM stock_movements WHERE product_id = ?");
+    $stmt->execute([$p['id']]);
+    $currentStock = (float)$stmt->fetchColumn();
+
+    $stmt = $d->prepare("SELECT COALESCE(SUM(si.quantity),0) as total_sold FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.product_id = ? AND s.sale_date >= date('now','-30 days') AND s.status != 'voided'");
+    $stmt->execute([$p['id']]);
+    $totalSold30 = (float)$stmt->fetchColumn();
+    $avgDaily = $totalSold30 / 30;
+
+    $daysOfSupply = $avgDaily > 0 ? (int)($currentStock / $avgDaily) : 999;
+    $minStock = (float)($p['min_stock'] ?? 0);
+    $maxStock = (float)($p['max_stock'] ?? 0);
+
+    if ($currentStock <= $minStock || $daysOfSupply < 14) {
+        $suggestedQty = max(0, $maxStock - $currentStock);
+        if ($suggestedQty <= 0 && $currentStock <= $minStock) $suggestedQty = $minStock * 2;
+
+        $priority = 'low';
+        $reason = 'Below minimum stock';
+        if ($currentStock <= 0) { $priority = 'critical'; $reason = 'Out of stock'; }
+        elseif ($daysOfSupply < 7) { $priority = 'critical'; $reason = 'Less than 7 days supply'; }
+        elseif ($daysOfSupply < 14) { $priority = 'high'; $reason = 'Less than 14 days supply'; }
+        elseif ($currentStock <= $minStock) { $priority = 'medium'; $reason = 'Below minimum stock'; }
+
+        $suggestions[] = [
+            'priority' => $priority,
+            'product_code' => $p['code'],
+            'product_name' => $p['name'],
+            'current_stock' => $currentStock,
+            'avg_daily_usage' => round($avgDaily, 2),
+            'days_of_supply' => $daysOfSupply,
+            'suggested_order_qty' => (int)$suggestedQty,
+            'reason' => $reason
+        ];
+    }
+}
+
+usort($suggestions, function($a, $b) {
+    $order = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3];
+    return $order[$a['priority']] <=> $order[$b['priority']];
+});
+
+$total = count($suggestions);
 
 renderHead('Reorder AI Suggestions');
 renderNav('reorder');
@@ -21,7 +67,7 @@ renderNav('reorder');
 
     <div class="card"><div class="card-body">
         <table class="table table-striped" id="reorderTable">
-            <thead><tr><th>Priority</th><th>Code</th><th>Product</th><th>Current Stock</th><th>Avg Daily Usage</th><th>Days of Supply</th><th>Suggested Order Qty</th><th>Reason</th></tr></thead>
+            <thead><tr><th>Priority</th><th>Kode</th><th>Product</th><th>Stok Saat Ini</th><th>Avg Daily Usage</th><th>Hari Persediaan</th><th>Suggested Order Qty</th><th>Reason</th></tr></thead>
             <tbody>
             <?php if (count($suggestions) > 0): ?>
                 <?php foreach ($suggestions as $s): ?>

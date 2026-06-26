@@ -1,10 +1,12 @@
-const CACHE_NAME = 'panglong-erp-v1';
+const CACHE_NAME = 'panglong-erp-v2';
 const STATIC_ASSETS = [
   '/panglong/frontend/',
+  '/panglong/frontend/login.php',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css',
   'https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js',
+  'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
 ];
 
 self.addEventListener('install', (event) => {

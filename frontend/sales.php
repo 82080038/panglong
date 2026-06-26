@@ -1,30 +1,33 @@
 <?php
 require_once 'config.php';
 
-$customersResp = apiCall('/customers');
-$customers = $customersResp['body']['data'] ?? [];
+$d = db();
 
-$productsResp = apiCall('/products?per_page=100');
-$products = $productsResp['body']['data'] ?? [];
+$customers = $d->query("SELECT id, name, group_id FROM customers ORDER BY name LIMIT 200")->fetchAll();
 
-$salesResp = apiCall('/sales?per_page=20');
-$sales = $salesResp['body']['data'] ?? [];
+$products = $d->query("SELECT id, code, name, sell_price FROM products WHERE is_active = 1 ORDER BY name LIMIT 200")->fetchAll();
+
+$sales = $d->query("SELECT s.*, c.name as customer_name FROM sales s LEFT JOIN customers c ON s.customer_id = c.id ORDER BY s.id DESC LIMIT 20")->fetchAll();
+foreach ($sales as &$s) {
+    $s['customer'] = ['name' => $s['customer_name'] ?? 'Pelanggan Umum'];
+    $s['customer_name_snapshot'] = $s['customer_name'] ?? 'Pelanggan Umum';
+}
 
 renderHead('Sales');
 renderNav('sales');
 ?>
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1>Sales</h1>
+        <h1>Penjualan</h1>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#saleModal" onclick="resetSaleForm()">
-            <i class="bi bi-plus-circle"></i> New Sale
+            <i class="bi bi-plus-circle"></i> Penjualan Baru
         </button>
     </div>
 
     <div class="card mb-3">
         <div class="card-body">
             <div class="row">
-                <div class="col-md-8"><input type="text" class="form-control" id="saleSearch" placeholder="Search by invoice or customer..."></div>
+                <div class="col-md-8"><input type="text" class="form-control" id="saleSearch" placeholder="Cari berdasarkan faktur atau pelanggan..."></div>
                 <div class="col-md-4"><button class="btn btn-outline-primary w-100" onclick="loadSales()"><i class="bi bi-search"></i> Search</button></div>
             </div>
         </div>
@@ -34,15 +37,15 @@ renderNav('sales');
         <div class="card-body">
             <table class="table table-striped">
                 <thead>
-                    <tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Total</th><th>Payment</th><th>Status</th><th>Actions</th></tr>
+                    <tr><th>Invoice</th><th>Tanggal</th><th>Pelanggan</th><th>Total</th><th>Payment</th><th>Status</th><th>Aksi</th></tr>
                 </thead>
                 <tbody id="salesTableBody">
                     <?php foreach ($sales as $sale): ?>
                     <tr>
                         <td><?= htmlspecialchars($sale['invoice_no']) ?></td>
-                        <td><?= htmlspecialchars($sale['sale_date']) ?></td>
-                        <td><?= htmlspecialchars($sale['customer_name_snapshot'] ?? ($sale['customer']['name'] ?? 'Walk-in')) ?></td>
-                        <td>Rp <?= number_format($sale['total'], 0) ?></td>
+                        <td><?= tglIndo($sale['sale_date']) ?></td>
+                        <td><?= htmlspecialchars($sale['customer_name_snapshot'] ?? ($sale['customer']['name'] ?? 'Pelanggan Umum')) ?></td>
+                        <td><?= rupiah($sale['total']) ?></td>
                         <td><span class="badge bg-<?= $sale['payment_status']==='paid'?'success':($sale['payment_status']==='partial'?'warning':'danger') ?>"><?= ucfirst($sale['payment_status']) ?></span></td>
                         <td><span class="badge bg-<?= $sale['status']==='completed'?'success':($sale['status']==='voided'?'danger':'secondary') ?>"><?= ucfirst($sale['status']) ?></span></td>
                         <td>
@@ -50,7 +53,7 @@ renderNav('sales');
                             <?php if ($sale['status'] !== 'voided'): ?>
                             <button class="btn btn-sm btn-warning" onclick="recordPayment(<?= $sale['id'] ?>, <?= $sale['total'] ?>)"><i class="bi bi-cash"></i></button>
                             <button class="btn btn-sm btn-danger" onclick="voidSale(<?= $sale['id'] ?>)"><i class="bi bi-x-circle"></i></button>
-                            <button class="btn btn-sm btn-secondary" onclick="createDelivery(<?= $sale['id'] ?>, '<?= htmlspecialchars($sale['customer_name_snapshot'] ?? $sale['customer']['name'] ?? 'Walk-in', ENT_QUOTES) ?>')"><i class="bi bi-truck"></i></button>
+                            <button class="btn btn-sm btn-secondary" onclick="createDelivery(<?= $sale['id'] ?>, '<?= htmlspecialchars($sale['customer_name_snapshot'] ?? $sale['customer']['name'] ?? 'Pelanggan Umum', ENT_QUOTES) ?>')"><i class="bi bi-truck"></i></button>
                             <?php endif; ?>
                             <a href="print_nota.php?id=<?= $sale['id'] ?>" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-printer"></i></a>
                         </td>
@@ -69,12 +72,12 @@ renderNav('sales');
     </div>
 </div>
 
-<!-- New Sale Modal -->
+<!-- Penjualan Baru Modal -->
 <div class="modal fade" id="saleModal" tabindex="-1">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">New Sale</h5>
+                <h5 class="modal-title">Penjualan Baru</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -90,20 +93,20 @@ renderNav('sales');
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-4">
-                            <label class="form-label">Customer (optional)</label>
-                            <select class="form-select" id="customerSelect" onchange="onCustomerChange()">
-                                <option value="">Walk-in Customer</option>
+                            <label class="form-label">Pelanggan (optional)</label>
+                            <select class="form-select" id="customerSelect" onchange="onPelangganChange()">
+                                <option value="">Pelanggan Umum Pelanggan</option>
                                 <?php foreach ($customers as $c): ?>
                                 <option value="<?= $c['id'] ?>" data-group="<?= $c['group_id'] ?? '' ?>"><?= htmlspecialchars($c['name']) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Sale Date</label>
+                            <label class="form-label">Tanggal Jual</label>
                             <input type="date" class="form-control" id="saleDate" required>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Payment Method</label>
+                            <label class="form-label">Metode Bayar</label>
                             <select class="form-select" id="paymentMethod" required>
                                 <option value="cash">Cash</option>
                                 <option value="transfer">Transfer</option>
@@ -112,32 +115,32 @@ renderNav('sales');
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Delivery Address (optional)</label>
+                        <label class="form-label">Alamat Kirim (optional)</label>
                         <textarea class="form-control" id="deliveryAddress" rows="1"></textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Items</label>
                         <table class="table table-sm" id="itemsTable">
-                            <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Discount</th><th>Subtotal</th><th></th></tr></thead>
+                            <thead><tr><th>Produk</th><th>Qty</th><th>Unit Price</th><th>Diskon</th><th>Subtotal</th><th></th></tr></thead>
                             <tbody id="itemsBody"></tbody>
                         </table>
                         <button type="button" class="btn btn-sm btn-outline-primary" id="addItemBtn" onclick="addItemRow()"><i class="bi bi-plus"></i> Add Item</button>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label">Global Discount (Rp)</label>
+                            <label class="form-label">Diskon Global (Rp)</label>
                             <input type="number" class="form-control" id="globalDiscount" value="0" min="0" oninput="calcTotal()">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Notes</label>
-                            <input type="text" class="form-control" id="saleNotes">
+                            <label class="form-label">Catatan</label>
+                            <input type="text" class="form-control" id="saleCatatan">
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-4 offset-md-8">
                             <table class="table table-sm">
                                 <tr><td>Subtotal</td><td class="text-end" id="subtotalDisplay">Rp 0</td></tr>
-                                <tr><td>Discount</td><td class="text-end" id="discountDisplay">Rp 0</td></tr>
+                                <tr><td>Diskon</td><td class="text-end" id="discountDisplay">Rp 0</td></tr>
                                 <tr><td>Tax (PPN)</td><td class="text-end" id="taxDisplay">Rp 0</td></tr>
                                 <tr class="fw-bold"><td>Grand Total</td><td class="text-end" id="grandTotalDisplay">Rp 0</td></tr>
                             </table>
@@ -146,7 +149,7 @@ renderNav('sales');
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                 <button type="button" class="btn btn-primary" onclick="submitSale()">Create Sale</button>
             </div>
         </div>
@@ -164,10 +167,10 @@ renderNav('sales');
                     <div class="mb-3"><label class="form-label">Outstanding Amount</label><input type="text" class="form-control" id="outstandingAmt" readonly></div>
                     <div class="mb-3"><label class="form-label">Payment Amount</label><input type="number" class="form-control" id="paymentAmount" required></div>
                     <div class="mb-3"><label class="form-label">Method</label><select class="form-select" id="paymentMethodType"><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="check">Check</option></select></div>
-                    <div class="mb-3"><label class="form-label">Date</label><input type="date" class="form-control" id="paymentDate" required></div>
+                    <div class="mb-3"><label class="form-label">Tanggal</label><input type="date" class="form-control" id="paymentDate" required></div>
                 </form>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-success" onclick="submitPayment()">Record</button></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-success" onclick="submitPayment()">Record</button></div>
         </div>
     </div>
 </div>
@@ -181,7 +184,7 @@ renderNav('sales');
                 <input type="hidden" id="voidSaleId">
                 <div class="mb-3"><label class="form-label">Reason</label><textarea class="form-control" id="voidReason" rows="3" required></textarea></div>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-danger" onclick="submitVoid()">Void Sale</button></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-danger" onclick="submitVoid()">Void Sale</button></div>
         </div>
     </div>
 </div>
@@ -205,20 +208,20 @@ renderNav('sales');
                 <form id="deliveryForm">
                     <input type="hidden" id="deliverySaleId">
                     <div class="row mb-3">
-                        <div class="col-md-6"><label class="form-label">Customer Name</label><input type="text" class="form-control" id="deliveryCustomerName" readonly></div>
-                        <div class="col-md-6"><label class="form-label">Phone</label><input type="text" class="form-control" id="deliveryPhone"></div>
+                        <div class="col-md-6"><label class="form-label">Pelanggan Name</label><input type="text" class="form-control" id="deliveryPelangganName" readonly></div>
+                        <div class="col-md-6"><label class="form-label">Telepon</label><input type="text" class="form-control" id="deliveryPhone"></div>
                     </div>
-                    <div class="mb-3"><label class="form-label">Delivery Address</label><textarea class="form-control" id="deliveryAddr" rows="2"></textarea></div>
+                    <div class="mb-3"><label class="form-label">Alamat Kirim</label><textarea class="form-control" id="deliveryAddr" rows="2"></textarea></div>
                     <div class="row mb-3">
                         <div class="col-md-4"><label class="form-label">Delivery Date</label><input type="date" class="form-control" id="deliveryDate" required></div>
                         <div class="col-md-4"><label class="form-label">Time</label><input type="time" class="form-control" id="deliveryTime"></div>
                         <div class="col-md-4"><label class="form-label">Vehicle Plate</label><input type="text" class="form-control" id="deliveryPlate"></div>
                     </div>
                     <div class="mb-3"><label class="form-label">Driver Name</label><input type="text" class="form-control" id="deliveryDriver"></div>
-                    <div class="mb-3"><label class="form-label">Notes</label><textarea class="form-control" id="deliveryNotes" rows="2"></textarea></div>
+                    <div class="mb-3"><label class="form-label">Catatan</label><textarea class="form-control" id="deliveryCatatan" rows="2"></textarea></div>
                 </form>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" onclick="submitDelivery()">Create Delivery</button></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary" onclick="submitDelivery()">Create Delivery</button></div>
         </div>
     </div>
 </div>
@@ -239,9 +242,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function lookupBarcode() {
     const barcode = document.getElementById('barcodeInput').value.trim();
     if (!barcode) return;
-    fetch(API_URL+'/barcode/lookup?barcode=' + encodeURIComponent(barcode), {
-        headers: { 'Authorization': 'Bearer '+API_TOKEN }
-    })
+    fetch(API_URL+'?endpoint=barcode-lookup&barcode=' + encodeURIComponent(barcode))
     .then(r => r.json())
     .then(res => {
         if (res.success && res.data) {
@@ -315,7 +316,7 @@ function onProductChange(sel) {
     calcTotal();
 }
 
-function onCustomerChange() {
+function onPelangganChange() {
     const customerId = document.getElementById('customerSelect').value;
     document.querySelectorAll('.item-row').forEach(row => {
         const productId = row.querySelector('.productSelect').value;
@@ -325,9 +326,7 @@ function onCustomerChange() {
 
 function fetchPrice(customerId, productId, row) {
     const unitId = row.querySelector('.productSelect').value;
-    fetch(`${API_URL}/sales/price?product_id=${productId}&unit_id=${unitId || productId}&customer_id=${customerId || ''}`, {
-        headers: { 'Authorization': 'Bearer '+API_TOKEN }
-    })
+    fetch(`${API_URL}?endpoint=sales-price&product_id=${productId}&unit_id=${unitId || productId}&customer_id=${customerId || ''}`)
     .then(r => r.json())
     .then(data => {
         if (data.success && data.data.unit_price) {
@@ -386,25 +385,25 @@ function submitSale() {
         items: items,
         discount: parseFloat(document.getElementById('globalDiscount').value) || 0,
         payment_method: document.getElementById('paymentMethod').value,
-        notes: document.getElementById('saleNotes').value,
+        notes: document.getElementById('saleCatatan').value,
         delivery_address: document.getElementById('deliveryAddress').value,
     };
-    fetch(API_URL+'/sales', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+API_TOKEN },
+    fetch(API_URL+'?endpoint=sales', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
     }).then(r => r.json()).then(res => {
         if (res.success) { alert('Sale created: ' + res.data.invoice_no); location.reload(); }
-        else { alert('Error: ' + res.message); }
+        else { alert('Kesalahan: ' + res.message); }
     });
 }
 
 function viewSale(id) {
-    fetch(`${API_URL}/sales/${id}`, { headers: { 'Authorization': 'Bearer '+API_TOKEN } })
+    fetch(`${API_URL}?endpoint=sales&id=${id}`)
     .then(r => r.json()).then(res => {
         if (res.success) {
             const s = res.data;
-            let html = `<h6>Invoice: ${s.invoice_no}</h6><p>Date: ${s.sale_date} | Customer: ${s.customer_name_snapshot || 'Walk-in'}</p>`;
-            html += '<table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Disc</th><th>Subtotal</th></tr></thead><tbody>';
+            let html = `<h6>Invoice: ${s.invoice_no}</h6><p>Date: ${s.sale_date} | Pelanggan: ${s.customer_name_snapshot || 'Pelanggan Umum'}</p>`;
+            html += '<table class="table table-sm"><thead><tr><th>Produk</th><th>Qty</th><th>Harga</th><th>Disc</th><th>Subtotal</th></tr></thead><tbody>';
             s.items.forEach(i => {
                 html += `<tr><td>${i.product?.name || ''}</td><td>${i.quantity}</td><td>Rp ${Number(i.unit_price).toLocaleString()}</td><td>Rp ${Number(i.discount).toLocaleString()}</td><td>Rp ${Number(i.subtotal).toLocaleString()}</td></tr>`;
             });
@@ -436,12 +435,12 @@ function submitPayment() {
         payment_method: document.getElementById('paymentMethodType').value,
         payment_date: document.getElementById('paymentDate').value,
     };
-    fetch(`${API_URL}/sales/${id}/payment`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+API_TOKEN },
+    fetch(`${API_URL}?endpoint=sale-payment&id=${id}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
     }).then(r => r.json()).then(res => {
         if (res.success) { alert('Payment recorded'); location.reload(); }
-        else { alert('Error: ' + res.message); }
+        else { alert('Kesalahan: ' + res.message); }
     });
 }
 
@@ -455,18 +454,18 @@ function submitVoid() {
     const id = document.getElementById('voidSaleId').value;
     const reason = document.getElementById('voidReason').value;
     if (!reason) { alert('Reason required'); return; }
-    fetch(`${API_URL}/sales/${id}`, {
-        method: 'DELETE', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+API_TOKEN },
+    fetch(`${API_URL}?endpoint=sales&id=${id}`, {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason })
     }).then(r => r.json()).then(res => {
         if (res.success) { alert('Sale voided'); location.reload(); }
-        else { alert('Error: ' + res.message); }
+        else { alert('Kesalahan: ' + res.message); }
     });
 }
 
 function createDelivery(saleId, customerName) {
     document.getElementById('deliverySaleId').value = saleId;
-    document.getElementById('deliveryCustomerName').value = customerName;
+    document.getElementById('deliveryPelangganName').value = customerName;
     document.getElementById('deliveryDate').value = new Date().toISOString().split('T')[0];
     new bootstrap.Modal(document.getElementById('deliveryModal')).show();
 }
@@ -474,35 +473,35 @@ function createDelivery(saleId, customerName) {
 function submitDelivery() {
     const data = {
         sale_id: document.getElementById('deliverySaleId').value,
-        customer_name: document.getElementById('deliveryCustomerName').value,
+        customer_name: document.getElementById('deliveryPelangganName').value,
         delivery_address: document.getElementById('deliveryAddr').value,
         phone: document.getElementById('deliveryPhone').value,
         delivery_date: document.getElementById('deliveryDate').value,
         delivery_time: document.getElementById('deliveryTime').value,
         driver_name: document.getElementById('deliveryDriver').value,
         vehicle_plate: document.getElementById('deliveryPlate').value,
-        notes: document.getElementById('deliveryNotes').value,
+        notes: document.getElementById('deliveryCatatan').value,
     };
-    fetch(API_URL+'/deliveries', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+API_TOKEN },
+    fetch(API_URL+'?endpoint=deliveries', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
     }).then(r => r.json()).then(res => {
         if (res.success) { alert('Delivery created: ' + res.data.delivery_no); bootstrap.Modal.getInstance(document.getElementById('deliveryModal')).hide(); }
-        else { alert('Error: ' + res.message); }
+        else { alert('Kesalahan: ' + res.message); }
     });
 }
 
 function loadSales() {
     const search = document.getElementById('saleSearch').value;
-    let url = `API_URL+'/sales?per_page=20&page=${currentPage}`;
+    let url = `${API_URL}?endpoint=sales&per_page=20&page=${currentPage}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
-    fetch(url, { headers: { 'Authorization': 'Bearer '+API_TOKEN } })
+    fetch(url)
     .then(r => r.json()).then(res => {
         if (res.success) {
             const tbody = document.getElementById('salesTableBody');
             tbody.innerHTML = res.data.map(s => `<tr>
                 <td>${s.invoice_no}</td><td>${s.sale_date}</td>
-                <td>${s.customer_name_snapshot || s.customer?.name || 'Walk-in'}</td>
+                <td>${s.customer_name_snapshot || s.customer?.name || 'Pelanggan Umum'}</td>
                 <td>Rp ${Number(s.total).toLocaleString()}</td>
                 <td><span class="badge bg-${s.payment_status==='paid'?'success':(s.payment_status==='partial'?'warning':'danger')}">${s.payment_status}</span></td>
                 <td><span class="badge bg-${s.status==='completed'?'success':(s.status==='voided'?'danger':'secondary')}">${s.status}</span></td>

@@ -17,7 +17,7 @@ test.describe('Panglong ERP - Warehouses Page', () => {
 
     await page.goto(`${FRONTEND_BASE}/warehouses.php`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('h1')).toContainText('Warehouse');
+    await expect(page.locator('h1')).toContainText('Gudang');
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
   });

@@ -1,47 +1,53 @@
 <?php
 require_once __DIR__ . '/config.php';
 
-$stock = apiCall('/stock');
-$products = apiCall('/products');
+$d = db();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     
     if ($action === 'adjustment') {
-        $data = [
-            'product_id' => (int)$_POST['product_id'],
-            'quantity' => (float)$_POST['quantity'],
-            'adjustment_type' => $_POST['adjustment_type'],
-            'reason' => $_POST['reason'],
-        ];
-        $result = apiCall('/stock/adjustments', 'POST', $data);
-        if ($result['code'] === 201) {
-            header('Location: stock.php?msg=adjustment_created');
-            exit;
-        } else {
-            $err = $result['body']['message'] ?? 'Failed';
-            header('Location: stock.php?msg=error&err=' . urlencode($err));
-            exit;
-        }
+        $now = date('Y-m-d H:i:s');
+        $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, movement_type, notes, created_at) VALUES (?,?,?,?,?)");
+        $stmt->execute([
+            (int)$_POST['product_id'], (float)$_POST['quantity'],
+            $_POST['adjustment_type'], $_POST['reason'], $now
+        ]);
+        header('Location: stock.php?msg=adjustment_created');
+        exit;
     }
 }
+
+$stockItems = $d->query("SELECT p.id, p.name as product_name, p.code as product_code, p.min_stock, p.max_stock,
+    COALESCE((SELECT SUM(quantity) FROM stock_movements WHERE product_id=p.id),0) as current_stock,
+    pu.unit_name as base_unit
+    FROM products p LEFT JOIN product_units pu ON pu.product_id = p.id AND pu.is_base_unit = 1
+    WHERE p.is_active = 1 ORDER BY p.id DESC LIMIT 200")->fetchAll();
+
+foreach ($stockItems as &$item) {
+    $item['status'] = 'normal';
+    if ((float)$item['current_stock'] <= (float)$item['min_stock'] && (float)$item['min_stock'] > 0) $item['status'] = 'low_stock';
+    elseif ((float)$item['current_stock'] >= (float)$item['max_stock'] && (float)$item['max_stock'] > 0) $item['status'] = 'overstock';
+}
+
+$products = $d->query("SELECT id, name, code FROM products WHERE is_active = 1 ORDER BY name LIMIT 200")->fetchAll();
 
 $msg = $_GET['msg'] ?? '';
 $errMsg = $_GET['err'] ?? '';
 ?>
-<?php renderHead('Stock - Panglong ERP'); ?>
+<?php renderHead('Stok'); ?>
 <?php renderNav('stock'); ?>
 
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Stock Inventory</h1>
+        <h1>Inventaris Stok/h1>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#adjustModal">
-            <i class="bi bi-plus"></i> Stock Adjustment
+            <i class="bi bi-plus"></i> Penyesuaian Stok
         </button>
     </div>
 
     <?php if ($msg === 'adjustment_created'): ?>
-        <div class="alert alert-success alert-dismissible fade show">Stock adjustment created (pending approval). <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+        <div class="alert alert-success alert-dismissible fade show">Penyesuaian stok dibuat (menunggu persetujuan). <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
     <?php elseif ($msg === 'error'): ?>
         <div class="alert alert-danger alert-dismissible fade show"><?php echo htmlspecialchars($errMsg); ?> <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
     <?php endif; ?>
@@ -49,10 +55,10 @@ $errMsg = $_GET['err'] ?? '';
     <div class="card">
         <div class="card-body">
             <table class="table table-striped">
-                <thead><tr><th>Product</th><th>Code</th><th>Current Stock</th><th>Unit</th><th>Min</th><th>Max</th><th>Status</th></tr></thead>
+                <thead><tr><th>Produk</th><th>Kode</th><th>Current Stock</th><th>Unit</th><th>Min</th><th>Max</th><th>Status</th></tr></thead>
                 <tbody>
-                    <?php if (isset($stock['body']['data']) && is_array($stock['body']['data'])): ?>
-                        <?php foreach ($stock['body']['data'] as $item): ?>
+                    <?php if (is_array($stockItems)): ?>
+                        <?php foreach ($stockItems as $item): ?>
                             <tr>
                                 <td><?php echo htmlspecialchars($item['product_name']); ?></td>
                                 <td><?php echo htmlspecialchars($item['product_code']); ?></td>
@@ -85,21 +91,21 @@ $errMsg = $_GET['err'] ?? '';
         <div class="modal-content">
             <form method="POST" action="stock.php">
                 <input type="hidden" name="action" value="adjustment">
-                <div class="modal-header"><h5 class="modal-title">Stock Adjustment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-header"><h5 class="modal-title">Penyesuaian Stok</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Product *</label>
                         <select name="product_id" class="form-select" required>
                             <option value="">Select Product</option>
-                            <?php if (isset($products['body']['data'])): ?>
-                                <?php foreach ($products['body']['data'] as $p): ?>
+                            <?php if (is_array($products)): ?>
+                                <?php foreach ($products as $p): ?>
                                     <option value="<?php echo $p['id']; ?>"><?php echo htmlspecialchars($p['name']); ?> (<?php echo htmlspecialchars($p['code']); ?>)</option>
                                 <?php endforeach; ?>
                             <?php endif; ?>
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Adjustment Type *</label>
+                        <label class="form-label">Jenis Penyesuaian *</label>
                         <select name="adjustment_type" class="form-select" required>
                             <option value="physical_count">Physical Count</option>
                             <option value="damage">Damage</option>
@@ -114,7 +120,7 @@ $errMsg = $_GET['err'] ?? '';
                     </div>
                     <div class="mb-3"><label class="form-label">Reason *</label><textarea name="reason" class="form-control" rows="3" required></textarea></div>
                 </div>
-                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Submit</button></div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Kirim</button></div>
             </form>
         </div>
     </div>

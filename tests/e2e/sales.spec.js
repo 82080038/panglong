@@ -18,7 +18,7 @@ test.describe('Panglong ERP - Sales Page', () => {
 
     await page.goto(`${FRONTEND_BASE}/sales.php`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('h1')).toHaveText('Sales');
+    await expect(page.locator('h1')).toContainText('Penjualan');
     await expect(page.locator('table.table-striped')).toBeVisible();
     await expect(page.locator('th:has-text("Invoice")')).toBeVisible();
     await expect(page.locator('th', { hasText: /^Total$/ })).toBeVisible();
@@ -30,7 +30,7 @@ test.describe('Panglong ERP - Sales Page', () => {
   test('new sale modal opens with customer and product dropdowns', async ({ page }) => {
     await page.goto(`${FRONTEND_BASE}/sales.php`);
     await page.waitForLoadState('networkidle');
-    await page.click('button:has-text("New Sale")');
+    await page.click('button:has-text("Penjualan Baru")');
     await expect(page.locator('#saleModal')).toBeVisible();
     const customerSelect = page.locator('#customerSelect');
     await expect(customerSelect).toBeVisible();
@@ -46,7 +46,7 @@ test.describe('Panglong ERP - Sales Page', () => {
   test('add item button creates new row in sale form', async ({ page }) => {
     await page.goto(`${FRONTEND_BASE}/sales.php`);
     await page.waitForLoadState('networkidle');
-    await page.click('button:has-text("New Sale")');
+    await page.click('button:has-text("Penjualan Baru")');
     await expect(page.locator('#saleModal')).toBeVisible();
     const initialRows = await page.locator('.item-row').count();
     expect(initialRows).toBe(1);

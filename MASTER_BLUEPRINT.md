@@ -4,22 +4,25 @@
 
 ## COMPLETE ENTERPRISE ARCHITECTURE PLAN
 
-Versi: 1.1 (Updated 2025-06-23)
+Versi: 1.3 (Updated 2026-06-26)
+Status: ALL SPRINTS (1-12) + GAP FEATURES + UI/UX COMPLETED — 45 pages, 39 E2E tests, 78 tables
 Target Teknologi:
 
-* Backend: Laravel 10.x (PHP 8.1+) - REST API
-* Frontend: PHP Native (procedural, konsumsi API via cURL)
-* Database: MySQL 8.0+ / MariaDB 10.6+ (production), SQLite (dev)
-* jQuery 3.6.x
-* Bootstrap 5.3.x
-* Auth: Laravel Sanctum (token-based)
-* Permission: spatie/laravel-permission
+* Backend: Laravel 10.x (PHP 8.1+) - REST API (scaffolded, tested, TIDAK digunakan frontend)
+* Frontend: PHP Native (procedural, PDO SQLite langsung, jQuery AJAX ke ajax.php)
+* Database: SQLite (dev/aktif: database/database.sqlite), MySQL 8.0+ (production target)
+* jQuery 3.6.x (CDN) — `$.ajax()` calls to `frontend/ajax.php`
+* Bootstrap 5.3.x (CDN)
+* Auth: Session-based (`frontend/auth.php` dengan `password_verify()`)
+* Laravel Sanctum (token-based, untuk Laravel API yang TIDAK digunakan frontend)
+* Permission: spatie/laravel-permission (Laravel), `hasPermission()` (frontend)
 * Offline First Hybrid (Phase 3)
 * Multi Tenant SaaS (Phase 3)
 
-> Catatan: Blueprint ini adalah vision document. Implementasi Phase 1 MVP
-> menggunakan Laravel sebagai backend API dan PHP Native sebagai frontend.
-> Lihat DEVELOPMENT_ROADMAP.md untuk eksekusi plan detail.
+> **ARSITEKTUR AKTUAL:** Frontend PHP Native mengakses database SQLite
+> langsung via PDO. `frontend/ajax.php` adalah single endpoint untuk semua
+> CRUD operations. Laravel backend API ada di repo tetapi TIDAK digunakan
+> oleh frontend. Lihat DEVELOPMENT_ROADMAP.md dan PROJECT_STATUS.md.
 
 ---
 
@@ -196,26 +199,27 @@ Yang mengontrol:
 Browser (User)
 ↓
 PHP Native Frontend (frontend/*.php)
-↓ cURL / API Call
-Laravel API (public/index.php)
-↓
-Router (routes/api.php)
-↓
-Controller (app/Http/Controllers/Api/v1/)
-↓
-Service Layer (app/Services/)
-↓
-Model / Eloquent (app/Models/)
-↓
-Database (MySQL / SQLite)
+↓ jQuery $.ajax()
+frontend/ajax.php (single AJAX endpoint, 1802 lines)
+↓ PDO SQLite
+Database (database/database.sqlite, 78 tables)
+
+---
+
+Laravel Backend API (TIDAK DIGUNAKAN FRONTEND):
+  app/Http/Controllers/Api/v1/ → app/Services/ → app/Models/ → Database
+  routes/api.php (Sanctum + Spatie Permission middleware)
+  Tested via PHPUnit, tapi tidak dipanggil oleh frontend
 ```
 
 ### Catatan Arsitektur
 - Frontend dan Backend adalah kode terpisah dalam satu repo
-- Frontend: `frontend/` directory (PHP Native, session-based)
-- Backend: `app/`, `routes/`, `config/` (Laravel framework)
-- Komunikasi via REST API (JSON over HTTP)
-- Authentication via Sanctum token
+- Frontend: `frontend/` directory (PHP Native, session-based, PDO SQLite)
+- Backend: `app/`, `routes/`, `config/` (Laravel framework, TIDAK digunakan frontend)
+- Frontend komunikasi: jQuery AJAX ke `frontend/ajax.php` → PDO SQLite
+- Laravel API komunikasi: REST API (JSON over HTTP, Sanctum token) — tidak aktif
+- Authentication frontend: Session-based (`password_verify()` + `$_SESSION`)
+- Authentication Laravel: Sanctum token (tidak digunakan frontend)
 
 ---
 
@@ -1479,7 +1483,7 @@ Sistem harus tetap berjalan.
 
 # 113. SCALABILITY ROADMAP
 
-> Status: Phase 1 MVP - IN PROGRESS
+> Status: Sprint 1-12 ALL COMPLETED
 > Lihat DEVELOPMENT_ROADMAP.md untuk detail sprint plan
 
 Tahapan:

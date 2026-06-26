@@ -1,17 +1,58 @@
 <?php
 require_once 'config.php';
 
+$d = db();
+
 $tab = $_GET['tab'] ?? 'forecast';
 
-$productsResp = apiCall('/products?per_page=100');
-$products = $productsResp['body']['data'] ?? [];
+$products = $d->query("SELECT id, code, name, sell_price, buy_price FROM products WHERE is_active = 1 ORDER BY name LIMIT 100")->fetchAll();
+
+$forecasts = [];
+$optimizations = [];
 
 if ($tab === 'forecast') {
-    $resp = apiCall('/ai/demand-forecast/batch');
-    $forecasts = $resp['body']['data'] ?? [];
+    foreach ($products as $p) {
+        $stmt = $d->prepare("SELECT COALESCE(SUM(si.quantity),0) as total_sold FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.product_id = ? AND s.sale_date >= date('now','-90 days') AND s.status != 'voided'");
+        $stmt->execute([$p['id']]);
+        $totalSold = (float)$stmt->fetchColumn();
+        $avgDaily = $totalSold / 90;
+        $predicted = round($avgDaily * 30, 1);
+        $Konfidensi = $totalSold > 10 ? 0.75 : ($totalSold > 0 ? 0.45 : 0.2);
+        $forecasts[] = [
+            'product_name' => $p['name'],
+            'Prakiraan' => $predicted,
+            'Konfidensi' => $Konfidensi,
+            'method' => 'Moving Average 90 Hari'
+        ];
+    }
 } elseif ($tab === 'pricing') {
-    $resp = apiCall('/ai/price-optimization/batch');
-    $optimizations = $resp['body']['data'] ?? [];
+    foreach ($products as $p) {
+        $currentPrice = (float)($p['sell_price'] ?? 0);
+        $buyPrice = (float)($p['buy_price'] ?? 0);
+        if ($currentPrice <= 0 || $buyPrice <= 0) continue;
+        $currentMargin = (($currentPrice - $buyPrice) / $currentPrice) * 100;
+        $suggestedPrice = $currentPrice;
+        $suggestedMargin = $currentMargin;
+        $reasoning = 'Price is optimal';
+        if ($currentMargin < 15) {
+            $suggestedPrice = round($buyPrice * 1.25);
+            $suggestedMargin = 20;
+            $reasoning = 'Margin too low, suggest 25% markup';
+        } elseif ($currentMargin > 50) {
+            $suggestedPrice = round($buyPrice * 1.4);
+            $suggestedMargin = 28.6;
+            $reasoning = 'Margin very high, may reduce sales volume';
+        }
+        $optimizations[] = [
+            'product_name' => $p['name'],
+            'current_price' => $currentPrice,
+            'suggested_price' => $suggestedPrice,
+            'current_margin' => $currentMargin,
+            'suggested_margin' => $suggestedMargin,
+            'estimated_revenue_change' => 0,
+            'reasoning' => $reasoning
+        ];
+    }
 }
 
 renderHead('AI Insights');
@@ -27,8 +68,8 @@ renderNav('ai_insights');
     </div>
 
     <ul class="nav nav-tabs mb-3">
-        <li class="nav-item"><a class="nav-link <?= $tab==='forecast'?'active':'' ?>" href="?tab=forecast">Demand Forecast</a></li>
-        <li class="nav-item"><a class="nav-link <?= $tab==='pricing'?'active':'' ?>" href="?tab=pricing">Price Optimization</a></li>
+        <li class="nav-item"><a class="nav-link <?= $tab==='forecast'?'active':'' ?>" href="?tab=forecast">Prakiraan Permintaan</a></li>
+        <li class="nav-item"><a class="nav-link <?= $tab==='pricing'?'active':'' ?>" href="?tab=pricing">Optimasi Harga</a></li>
     </ul>
 
     <?php if ($tab === 'forecast'): ?>
@@ -42,17 +83,17 @@ renderNav('ai_insights');
             <?php if (!empty($forecasts)): foreach ($forecasts as $f): ?>
             <tr>
                 <td><?= htmlspecialchars($f['product_name']) ?></td>
-                <td class="fw-bold"><?= number_format($f['predicted_demand'], 1) ?></td>
+                <td class="fw-bold"><?= number_format($f['Prakiraan'], 1) ?></td>
                 <td>
                     <div class="progress" style="height:20px">
-                        <div class="progress-bar bg-<?= $f['confidence']>0.7?'success':($f['confidence']>0.4?'warning':'danger') ?>" style="width:<?= $f['confidence']*100 ?>%"><?= round($f['confidence']*100) ?>%</div>
+                        <div class="progress-bar bg-<?= $f['Konfidensi']>0.7?'success':($f['Konfidensi']>0.4?'warning':'danger') ?>" style="width:<?= $f['Konfidensi']*100 ?>%"><?= round($f['Konfidensi']*100) ?>%</div>
                     </div>
                 </td>
-                <td><?= round($f['confidence']*100) ?>%</td>
+                <td><?= round($f['Konfidensi']*100) ?>%</td>
                 <td><small><?= htmlspecialchars($f['method']) ?></small></td>
             </tr>
             <?php endforeach; else: ?>
-            <tr><td colspan="5" class="text-center text-muted">No forecast data. Generate forecasts first.</td></tr>
+            <tr><td colspan="5" class="text-center text-muted">Belum ada data prakiraan. Jalankan generate terlebih dahulu.</td></tr>
             <?php endif; ?>
             </tbody>
         </table>
@@ -69,11 +110,11 @@ renderNav('ai_insights');
             <?php if (!empty($optimizations)): foreach ($optimizations as $o): ?>
             <tr class="<?= $o['suggested_price']>$o['current_price']?'table-success':($o['suggested_price']<$o['current_price']?'table-warning':'') ?>">
                 <td><?= htmlspecialchars($o['product_name']) ?></td>
-                <td>Rp <?= number_format($o['current_price'], 0) ?></td>
-                <td class="fw-bold">Rp <?= number_format($o['suggested_price'], 0) ?></td>
+                <td><?= rupiah($o['current_price']) ?></td>
+                <td class="fw-bold"><?= rupiah($o['suggested_price']) ?></td>
                 <td><?= number_format($o['current_margin'], 1) ?>%</td>
                 <td><?= number_format($o['suggested_margin'], 1) ?>%</td>
-                <td class="<?= $o['estimated_revenue_change']>0?'text-success':'text-danger' ?>">Rp <?= number_format($o['estimated_revenue_change'], 0) ?></td>
+                <td class="<?= $o['estimated_revenue_change']>0?'text-success':'text-danger' ?>"><?= rupiah($o['estimated_revenue_change']) ?></td>
                 <td><small class="text-muted"><?= htmlspecialchars($o['reasoning']) ?></small></td>
             </tr>
             <?php endforeach; else: ?>

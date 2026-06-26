@@ -19,10 +19,12 @@ storage/app/*
 !storage/framework/cache/.gitkeep
 !storage/app/.gitkeep
 
-# Database
-database/database.sqlite
-database/*.sqlite
+# Database — COMMITTED to repo so other developers have working database
+# Only ignore backup files and SQLite journals (temporary runtime files)
 database/*.sqlite-journal
+database/*.sqlite-wal
+database/*.sqlite-shm
+database/*.sqlite.backup.*
 
 # IDE
 .idea/

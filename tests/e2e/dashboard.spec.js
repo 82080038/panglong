@@ -17,11 +17,11 @@ test.describe('Panglong ERP - Dashboard', () => {
 
     await page.goto(`${FRONTEND_BASE}/index.php`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('h1')).toHaveText('Dashboard');
-    await expect(page.locator('.card-title:has-text("Products")')).toBeVisible();
-    await expect(page.locator('.card-title:has-text("Customers")')).toBeVisible();
-    await expect(page.locator('.card-title:has-text("Sales Today")')).toBeVisible();
-    await expect(page.locator('.card-title:has-text("Stock Low")')).toBeVisible();
+    await expect(page.locator('h1')).toHaveText('Beranda');
+    await expect(page.locator('.card-title:has-text("Produk")')).toBeVisible();
+    await expect(page.locator('.card-title:has-text("Pelanggan")')).toBeVisible();
+    await expect(page.locator('.card-title:has-text("Penjualan Hari Ini")')).toBeVisible();
+    await expect(page.locator('.card-title:has-text("Stok Menipis")')).toBeVisible();
     await expect(page.locator('canvas#salesChart')).toBeVisible();
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
@@ -39,7 +39,7 @@ test.describe('Panglong ERP - Dashboard', () => {
     await page.waitForLoadState('networkidle');
     await page.click('a[href="logout.php"]');
     await page.waitForURL('**/login.php', { timeout: 10000 });
-    await expect(page).toHaveTitle(/Login/);
+    await expect(page).toHaveTitle(/Masuk/);
   });
 
   test('navbar shows user name and role', async ({ page }) => {
