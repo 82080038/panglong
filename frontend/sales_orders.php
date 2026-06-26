@@ -2,24 +2,44 @@
 require_once 'config.php';
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$customers = $d->query("SELECT id, name FROM customers ORDER BY name LIMIT 200")->fetchAll();
-$products = $d->query("SELECT id, code, name, sell_price FROM products WHERE is_active = 1 ORDER BY name LIMIT 200")->fetchAll();
-$sos = $d->query("SELECT so.*, c.name as customer_name FROM sales_orders so LEFT JOIN customers c ON so.customer_id = c.id ORDER BY so.id DESC LIMIT 20")->fetchAll();
+$customerSql = "SELECT id, name FROM customers";
+if (!$isSuperAdmin && $tenantId) {
+    $customerSql .= " WHERE tenant_id = $tenantId";
+}
+$customerSql .= " ORDER BY name LIMIT 200";
+$customers = $d->query($customerSql)->fetchAll();
+
+$productSql = "SELECT id, code, name, sell_price FROM products WHERE is_active = 1";
+if (!$isSuperAdmin && $tenantId) {
+    $productSql .= " AND tenant_id = $tenantId";
+}
+$productSql .= " ORDER BY name LIMIT 200";
+$products = $d->query($productSql)->fetchAll();
+
+$soSql = "SELECT so.*, c.name as customer_name FROM sales_orders so LEFT JOIN customers c ON so.customer_id = c.id";
+if (!$isSuperAdmin && $tenantId) {
+    $soSql .= " WHERE so.tenant_id = $tenantId";
+}
+$soSql .= " ORDER BY so.id DESC LIMIT 20";
+$sos = $d->query($soSql)->fetchAll();
 
 renderHead('Sales Orders');
 renderNav('sales-orders');
 ?>
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1>Pesanan Penjualan/h1>
+        <h1>Pesanan Penjualan</h1>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#soModal" onclick="resetSOForm()">
             <i class="bi bi-plus-circle"></i> Pesanan Baru
         </button>
     </div>
     <div class="card">
         <div class="card-body">
-            <table class="table table-striped">
+            <div class="table-responsive"><table class="table table-striped">
                 <thead><tr><th>SO Number</th><th>Tanggal</th><th>Customer</th><th>Perkiraan Kirim</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead>
                 <tbody>
                     <?php foreach ($sos as $so): ?>
@@ -39,7 +59,7 @@ renderNav('sales-orders');
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
-            </table>
+            </table></div>
         </div>
     </div>
 </div>
@@ -57,7 +77,7 @@ renderNav('sales-orders');
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Items</label>
-                        <table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Bonus</th><th>Unit Price</th><th>Diskon</th><th>Subtotal</th><th></th></tr></thead><tbody id="soItemsBody"></tbody></table>
+                        <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Bonus</th><th>Unit Price</th><th>Diskon</th><th>Subtotal</th><th></th></tr></thead><tbody id="soItemsBody"></tbody></table></div>
                         <button type="button" class="btn btn-sm btn-outline-primary" onclick="addSORow()"><i class="bi bi-plus"></i> Add Item</button>
                     </div>
                     <div class="row mb-3">
@@ -65,7 +85,7 @@ renderNav('sales-orders');
                         <div class="col-md-4"><label class="form-label">Payment Method</label><select class="form-select" id="soPayment"><option value="cash">Cash</option><option value="credit">Credit</option><option value="transfer">Transfer</option></select></div>
                         <div class="col-md-4"><label class="form-label">Delivery Address</label><input type="text" class="form-control" id="soDeliveryAddress"></div>
                     </div>
-                    <div class="row"><div class="col-md-4 offset-md-8"><table class="table table-sm"><tr class="fw-bold"><td>Grand Total</td><td class="text-end" id="soGrandTotal">Rp 0</td></tr></table></div></div>
+                    <div class="row"><div class="col-md-4 offset-md-8"><div class="table-responsive"><table class="table table-sm"><tr class="fw-bold"><td>Grand Total</td><td class="text-end" id="soGrandTotal">Rp 0</td></tr></table></div></div></div>
                 </form>
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary" onclick="submitSO()">Create SO</button></div>
@@ -170,9 +190,9 @@ function viewSO(id) {
         if (res.success) {
             const so = res.data;
             let html = `<h6>${so.so_number}</h6><p>Customer: ${so.customer_name || 'Pelanggan Umum'} | Date: ${so.order_date} | Status: ${so.status}</p>`;
-            html += '<table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Delivered</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>';
+            html += '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Delivered</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>';
             so.items.forEach(i => { html += `<tr><td>${i.product_name || ''}</td><td>${i.quantity}</td><td>${i.delivered_qty || 0}</td><td>Rp ${Number(i.unit_price).toLocaleString()}</td><td>Rp ${Number(i.subtotal).toLocaleString()}</td></tr>`; });
-            html += '</tbody></table>';
+            html += '</tbody></table></div>';
             html += `<p>Subtotal: Rp ${Number(so.subtotal).toLocaleString()} | Total: Rp ${Number(so.total).toLocaleString()}</p>`;
             document.getElementById('soDetailBody').innerHTML = html;
             new bootstrap.Modal(document.getElementById('soDetailModal')).show();

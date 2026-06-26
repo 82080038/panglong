@@ -15,7 +15,7 @@ renderHead('Pricing Management');
 renderNav('pricing');
 ?>
 <div class="container mt-4">
-    <h1>Manajemen Harga/h1>
+    <h1>Manajemen Harga</h1>
     <ul class="nav nav-tabs mb-3">
         <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#customerPrices">Harga Khusus Pelanggan</a></li>
         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tierPrices">Harga Bertingkat</a></li>
@@ -25,7 +25,7 @@ renderNav('pricing');
         <div class="tab-pane fade show active" id="customerPrices">
             <button class="btn btn-primary btn-sm mb-3" data-bs-toggle="modal" data-bs-target="#cpModal"><i class="bi bi-plus"></i> Tambah Pelanggan Price</button>
             <div class="card"><div class="card-body">
-                <table class="table table-striped">
+                <div class="table-responsive"><table class="table table-striped">
                     <thead><tr><th>Customer</th><th>Product</th><th>Custom Price</th><th>Min. Jumlah</th><th>Aksi</th></tr></thead>
                     <tbody>
                         <?php foreach ($customerPrices as $cp): ?>
@@ -38,13 +38,13 @@ renderNav('pricing');
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
-                </table>
+                </table></div>
             </div></div>
         </div>
         <div class="tab-pane fade" id="tierPrices">
             <button class="btn btn-primary btn-sm mb-3" data-bs-toggle="modal" data-bs-target="#tpModal"><i class="bi bi-plus"></i> Add Tier Price</button>
             <div class="card"><div class="card-body">
-                <table class="table table-striped">
+                <div class="table-responsive"><table class="table table-striped">
                     <thead><tr><th>Product</th><th>Min. Jumlah</th><th>Max Qty</th><th>Unit Price</th><th>Aksi</th></tr></thead>
                     <tbody>
                         <?php foreach ($tierPrices as $tp): ?>
@@ -57,13 +57,13 @@ renderNav('pricing');
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
-                </table>
+                </table></div>
             </div></div>
         </div>
         <div class="tab-pane fade" id="priceHistory">
             <button class="btn btn-primary btn-sm mb-3" data-bs-toggle="modal" data-bs-target="#phModal"><i class="bi bi-plus"></i> Add Price Record</button>
             <div class="card"><div class="card-body">
-                <table class="table table-striped">
+                <div class="table-responsive"><table class="table table-striped">
                     <thead><tr><th>Supplier</th><th>Product</th><th>Unit Price</th><th>Effective Date</th><th>PO Ref</th></tr></thead>
                     <tbody>
                         <?php foreach ($priceHistory as $ph): ?>
@@ -76,7 +76,7 @@ renderNav('pricing');
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
-                </table>
+                </table></div>
             </div></div>
         </div>
     </div>

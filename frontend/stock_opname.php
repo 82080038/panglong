@@ -2,8 +2,16 @@
 require_once 'config.php';
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$products = $d->query("SELECT id, code, name FROM products WHERE is_active = 1 ORDER BY name LIMIT 100")->fetchAll();
+$productSql = "SELECT id, code, name FROM products WHERE is_active = 1";
+if (!$isSuperAdmin && $tenantId) {
+    $productSql .= " AND tenant_id = $tenantId";
+}
+$productSql .= " ORDER BY name LIMIT 100";
+$products = $d->query($productSql)->fetchAll();
 
 $stockData = [];
 foreach ($products as $p) {
@@ -56,7 +64,7 @@ renderNav('stock-opname');
                     <div class="col-md-3"><label class="form-label">Tanggal Opname</label><input type="date" class="form-control" name="opname_date" value="<?= date('Y-m-d') ?>" required></div>
                     <div class="col-md-6"><label class="form-label">Catatan</label><input type="text" class="form-control" name="notes" placeholder="Optional notes"></div>
                 </div>
-                <table class="table table-striped">
+                <div class="table-responsive"><table class="table table-striped">
                     <thead><tr><th>Kode Produk</th><th>Nama Produk</th><th>Jml Sistem</th><th>Jml Fisik</th><th>Selisih</th></tr></thead>
                     <tbody>
                         <?php foreach ($products as $p): ?>
@@ -70,7 +78,7 @@ renderNav('stock-opname');
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
-                </table>
+                </table></div>
                 <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle"></i> Buat Opname</button>
             </form>
         </div>

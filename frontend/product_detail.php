@@ -53,14 +53,14 @@ renderNav('products');
                     </div>
                     <?php if (!empty($product['units'])): ?>
                     <hr><h6>Units</h6>
-                    <table class="table table-sm">
+                    <div class="table-responsive"><table class="table table-sm">
                         <thead><tr><th>Satuan</th><th>Konversi</th><th>Harga/Satuan</th><th>Dasar?</th></tr></thead>
                         <tbody>
                             <?php foreach ($product['units'] as $unit): ?>
                             <tr><td><?= htmlspecialchars($unit['unit_name']) ?></td><td><?= $unit['conversion_factor'] ?></td><td><?= rupiah($unit['price_per_unit'] ?? 0) ?></td><td><?= $unit['is_base_unit'] ? 'Yes' : 'No' ?></td></tr>
                             <?php endforeach; ?>
                         </tbody>
-                    </table>
+                    </table></div>
                     <?php endif; ?>
                     <?php if (!empty($product['barcodes'])): ?>
                     <hr><h6>Barcode</h6>

@@ -2,22 +2,33 @@
 require_once 'config.php';
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$deliveries = $d->query("SELECT * FROM deliveries ORDER BY id DESC LIMIT 50")->fetchAll();
+// Fetch delivery methods for dropdown
+$deliveryMethods = $d->query("SELECT code, name FROM delivery_methods WHERE is_active = 1 ORDER BY name")->fetchAll();
+
+$deliverySql = "SELECT * FROM deliveries";
+if (!$isSuperAdmin && $tenantId) {
+    $deliverySql .= " WHERE tenant_id = $tenantId";
+}
+$deliverySql .= " ORDER BY id DESC LIMIT 50";
+$deliveries = $d->query($deliverySql)->fetchAll();
 
 renderHead('Deliveries');
 renderNav('deliveries');
 ?>
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1>Pengiriman (Surat Jalan)/h1>
+        <h1>Pengiriman (Surat Jalan)</h1>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#deliveryModal" onclick="resetDeliveryForm()">
             <i class="bi bi-plus-circle"></i> Pengiriman Baru
         </button>
     </div>
     <div class="card">
         <div class="card-body">
-            <table class="table table-striped">
+            <div class="table-responsive"><table class="table table-striped">
                 <thead><tr><th>Nomor Kirim</th><th>Tanggal</th><th>Pelanggan</th><th>Alamat</th><th>Driver</th><th>Vehicle</th><th>Status</th><th>Aksi</th></tr></thead>
                 <tbody>
                     <?php foreach ($deliveries as $d): ?>
@@ -32,16 +43,17 @@ renderNav('deliveries');
                         <td>
                             <select class="form-select form-select-sm d-inline-block" style="width:auto" onchange="updateStatus(<?= $d['id'] ?>, this.value)">
                                 <option value="">Update Status</option>
-                                <option value="loaded">Loaded</option>
-                                <option value="in_transit">In Transit</option>
-                                <option value="delivered">Delivered</option>
-                                <option value="failed">Failed</option>
+                                <?php 
+                                $deliveryStatuses = $d->query("SELECT code, name FROM status_codes WHERE module = 'deliveries' AND is_active = 1 ORDER BY name")->fetchAll();
+                                foreach ($deliveryStatuses as $ds): ?>
+                                    <option value="<?= htmlspecialchars($ds['code']) ?>"><?= htmlspecialchars($ds['name']) ?></option>
+                                <?php endforeach; ?>
                             </select>
                         </td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
-            </table>
+            </table></div>
         </div>
     </div>
 </div>
@@ -60,7 +72,7 @@ renderNav('deliveries');
                     <div class="row mb-3">
                         <div class="col-md-4"><label class="form-label">Tanggal Kirim *</label><input type="date" class="form-control" id="delDate" required></div>
                         <div class="col-md-4"><label class="form-label">Time</label><input type="time" class="form-control" id="delTime"></div>
-                        <div class="col-md-4"><label class="form-label">Plat Kendaraan</label><input type="text" class="form-control" id="delPlate"></div>
+                        <div class="col-md-4"><label class="form-label">Metode Pengiriman</label><select class="form-select" id="delMethod"><?php if (is_array($deliveryMethods)): foreach ($deliveryMethods as $dm): ?><option value="<?php echo htmlspecialchars($dm['code']); ?>"><?php echo htmlspecialchars($dm['name']); ?></option><?php endforeach; endif; ?></select></div>
                     </div>
                     <div class="mb-3"><label class="form-label">Nama Sopir</label><input type="text" class="form-control" id="delDriver"></div>
                     <div class="mb-3"><label class="form-label">Catatan</label><textarea class="form-control" id="delNotes" rows="2"></textarea></div>

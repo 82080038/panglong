@@ -2,18 +2,50 @@
 require_once 'config.php';
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$salesReturns = $d->query("SELECT sr.*, c.name as customer_name, s.invoice_no FROM sales_returns sr LEFT JOIN customers c ON sr.customer_id = c.id LEFT JOIN sales s ON sr.sale_id = s.id ORDER BY sr.id DESC LIMIT 20")->fetchAll();
-$purchaseReturns = $d->query("SELECT pr.*, s.name as supplier_name, po.po_number FROM purchase_returns pr LEFT JOIN suppliers s ON pr.supplier_id = s.id LEFT JOIN purchase_orders po ON pr.po_id = po.id ORDER BY pr.id DESC LIMIT 20")->fetchAll();
-$sales = $d->query("SELECT id, invoice_no FROM sales WHERE status != 'voided' ORDER BY id DESC LIMIT 50")->fetchAll();
-$pos = $d->query("SELECT id, po_number FROM purchase_orders ORDER BY id DESC LIMIT 50")->fetchAll();
-$products = $d->query("SELECT id, code, name FROM products WHERE is_active = 1 ORDER BY name LIMIT 200")->fetchAll();
+$salesReturnSql = "SELECT sr.*, c.name as customer_name, s.invoice_no FROM sales_returns sr LEFT JOIN customers c ON sr.customer_id = c.id LEFT JOIN sales s ON sr.sale_id = s.id";
+if (!$isSuperAdmin && $tenantId) {
+    $salesReturnSql .= " WHERE sr.tenant_id = $tenantId";
+}
+$salesReturnSql .= " ORDER BY sr.id DESC LIMIT 20";
+$salesReturns = $d->query($salesReturnSql)->fetchAll();
+
+$purchaseReturnSql = "SELECT pr.*, s.name as supplier_name, po.po_number FROM purchase_returns pr LEFT JOIN suppliers s ON pr.supplier_id = s.id LEFT JOIN purchase_orders po ON pr.po_id = po.id";
+if (!$isSuperAdmin && $tenantId) {
+    $purchaseReturnSql .= " WHERE pr.tenant_id = $tenantId";
+}
+$purchaseReturnSql .= " ORDER BY pr.id DESC LIMIT 20";
+$purchaseReturns = $d->query($purchaseReturnSql)->fetchAll();
+
+$salesSql = "SELECT id, invoice_no FROM sales WHERE status != 'voided'";
+if (!$isSuperAdmin && $tenantId) {
+    $salesSql .= " AND tenant_id = $tenantId";
+}
+$salesSql .= " ORDER BY id DESC LIMIT 50";
+$sales = $d->query($salesSql)->fetchAll();
+
+$poSql = "SELECT id, po_number FROM purchase_orders";
+if (!$isSuperAdmin && $tenantId) {
+    $poSql .= " WHERE tenant_id = $tenantId";
+}
+$poSql .= " ORDER BY id DESC LIMIT 50";
+$pos = $d->query($poSql)->fetchAll();
+
+$productSql = "SELECT id, code, name FROM products WHERE is_active = 1";
+if (!$isSuperAdmin && $tenantId) {
+    $productSql .= " AND tenant_id = $tenantId";
+}
+$productSql .= " ORDER BY name LIMIT 200";
+$products = $d->query($productSql)->fetchAll();
 
 renderHead('Returns');
 renderNav('returns');
 ?>
 <div class="container mt-4">
-    <h1>Retur/h1>
+    <h1>Retur</h1>
     <ul class="nav nav-tabs mb-3">
         <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#salesReturns">Retur Penjualan</a></li>
         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#purchaseReturns">Retur Pembelian</a></li>
@@ -25,7 +57,7 @@ renderNav('returns');
                 <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#srModal" onclick="resetSRForm()"><i class="bi bi-plus"></i> New Sales Return</button>
             </div>
             <div class="card"><div class="card-body">
-                <table class="table table-striped">
+                <div class="table-responsive"><table class="table table-striped">
                     <thead><tr><th>Return No</th><th>Invoice</th><th>Customer</th><th>Tanggal</th><th>Refund</th><th>Status</th><th>Aksi</th></tr></thead>
                     <tbody>
                         <?php foreach ($salesReturns as $sr): ?>
@@ -45,7 +77,7 @@ renderNav('returns');
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
-                </table>
+                </table></div>
             </div></div>
         </div>
         <div class="tab-pane fade" id="purchaseReturns">
@@ -54,7 +86,7 @@ renderNav('returns');
                 <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#prModal" onclick="resetPRForm()"><i class="bi bi-plus"></i> New Purchase Return</button>
             </div>
             <div class="card"><div class="card-body">
-                <table class="table table-striped">
+                <div class="table-responsive"><table class="table table-striped">
                     <thead><tr><th>Return No</th><th>PO</th><th>Supplier</th><th>Tanggal</th><th>Refund</th><th>Status</th><th>Aksi</th></tr></thead>
                     <tbody>
                         <?php foreach ($purchaseReturns as $pr): ?>
@@ -74,7 +106,7 @@ renderNav('returns');
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
-                </table>
+                </table></div>
             </div></div>
         </div>
     </div>

@@ -2,19 +2,42 @@
 require_once 'config.php';
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$transactions = $d->query("SELECT * FROM cash_transactions ORDER BY id DESC LIMIT 50")->fetchAll();
-$bankStatements = $d->query("SELECT * FROM bank_statements ORDER BY transaction_date DESC LIMIT 50")->fetchAll();
+$transactionSql = "SELECT * FROM cash_transactions";
+if (!$isSuperAdmin && $tenantId) {
+    $transactionSql .= " WHERE tenant_id = $tenantId";
+}
+$transactionSql .= " ORDER BY id DESC LIMIT 50";
+$transactions = $d->query($transactionSql)->fetchAll();
 
-$totalIn = $d->query("SELECT COALESCE(SUM(amount),0) as total FROM cash_transactions WHERE type='in'")->fetchColumn();
-$totalOut = $d->query("SELECT COALESCE(SUM(amount),0) as total FROM cash_transactions WHERE type='out'")->fetchColumn();
+$bankStmtSql = "SELECT * FROM bank_statements";
+if (!$isSuperAdmin && $tenantId) {
+    $bankStmtSql .= " WHERE tenant_id = $tenantId";
+}
+$bankStmtSql .= " ORDER BY transaction_date DESC LIMIT 50";
+$bankStatements = $d->query($bankStmtSql)->fetchAll();
+
+$totalInSql = "SELECT COALESCE(SUM(amount),0) as total FROM cash_transactions WHERE type='in'";
+if (!$isSuperAdmin && $tenantId) {
+    $totalInSql .= " AND tenant_id = $tenantId";
+}
+$totalIn = $d->query($totalInSql)->fetchColumn();
+
+$totalOutSql = "SELECT COALESCE(SUM(amount),0) as total FROM cash_transactions WHERE type='out'";
+if (!$isSuperAdmin && $tenantId) {
+    $totalOutSql .= " AND tenant_id = $tenantId";
+}
+$totalOut = $d->query($totalOutSql)->fetchColumn();
 $balance = $totalIn - $totalOut;
 
 renderHead('Cash Book');
 renderNav('cashbook');
 ?>
 <div class="container mt-4">
-    <h1>Kas Buku/h1>
+    <h1>Kas Buku</h1>
     <div class="row mb-4">
         <div class="col-md-4"><div class="card bg-success text-white"><div class="card-body"><h6>Total In</h6><h3><?= rupiah($totalIn) ?></h3></div></div></div>
         <div class="col-md-4"><div class="card bg-danger text-white"><div class="card-body"><h6>Total Out</h6><h3><?= rupiah($totalOut) ?></h3></div></div></div>
@@ -28,7 +51,7 @@ renderNav('cashbook');
         <div class="tab-pane fade show active" id="cashTx">
             <button class="btn btn-primary btn-sm mb-3" data-bs-toggle="modal" data-bs-target="#ctModal"><i class="bi bi-plus"></i> New Transaction</button>
             <div class="card"><div class="card-body">
-                <table class="table table-striped">
+                <div class="table-responsive"><table class="table table-striped">
                     <thead><tr><th>No</th><th>Tanggal</th><th>Type</th><th>Akun</th><th>Amount</th><th>Deskripsi</th><th>Category</th></tr></thead>
                     <tbody>
                         <?php foreach ($transactions as $ct): ?>
@@ -43,13 +66,13 @@ renderNav('cashbook');
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
-                </table>
+                </table></div>
             </div></div>
         </div>
         <div class="tab-pane fade" id="bankStmt">
             <button class="btn btn-primary btn-sm mb-3" data-bs-toggle="modal" data-bs-target="#bsModal"><i class="bi bi-plus"></i> Add Bank Statement</button>
             <div class="card"><div class="card-body">
-                <table class="table table-striped">
+                <div class="table-responsive"><table class="table table-striped">
                     <thead><tr><th>Tanggal</th><th>Akun</th><th>Deskripsi</th><th>Debit</th><th>Kredit</th><th>Saldo</th><th>Rekonsiliasi</th><th>Aksi</th></tr></thead>
                     <tbody>
                         <?php foreach ($bankStatements as $bs): ?>
@@ -65,7 +88,7 @@ renderNav('cashbook');
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
-                </table>
+                </table></div>
             </div></div>
         </div>
     </div>

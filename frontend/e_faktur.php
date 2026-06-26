@@ -6,6 +6,7 @@ $d = db();
 $faktur = $d->query("SELECT * FROM e_faktur ORDER BY transaction_date DESC LIMIT 50")->fetchAll();
 $totalKeluaran = $d->query("SELECT COALESCE(SUM(dpp),0) as dpp, COALESCE(SUM(ppn),0) as ppn FROM e_faktur WHERE faktur_type='keluaran'")->fetch();
 $totalMasukan = $d->query("SELECT COALESCE(SUM(dpp),0) as dpp, COALESCE(SUM(ppn),0) as ppn FROM e_faktur WHERE faktur_type='masukan'")->fetch();
+$eFakturTypes = $d->query("SELECT * FROM e_faktur_types WHERE is_active = 1 ORDER BY name")->fetchAll();
 
 renderHead('e-Faktur');
 renderNav('e-faktur');
@@ -26,7 +27,7 @@ renderNav('e-faktur');
         </div>
     </div>
     <div class="card"><div class="card-body">
-        <table class="table table-striped">
+        <div class="table-responsive"><table class="table table-striped">
             <thead><tr><th>Nomor Faktur</th><th>Type</th><th>Tanggal</th><th>Nama Pihak</th><th>NPWP</th><th>DPP</th><th>PPN</th><th>Status</th><th>Aksi</th></tr></thead>
             <tbody>
                 <?php foreach ($faktur as $f): ?>
@@ -43,14 +44,21 @@ renderNav('e-faktur');
                 </tr>
                 <?php endforeach; ?>
             </tbody>
-        </table>
+        </table></div>
     </div></div>
 </div>
 
 <div class="modal fade" id="fakturModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
     <div class="modal-header"><h5 class="modal-title">Add e-Faktur</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
-        <div class="mb-3"><label class="form-label">Type *</label><select class="form-select" id="fType"><option value="keluaran">Keluaran (Penjualan)</option><option value="masukan">Masukan (Pembelian)</option></select></div>
+        <div class="mb-3"><label class="form-label">Type *</label><select class="form-select" id="fType">
+            <option value="">Pilih Type</option>
+            <?php if (is_array($eFakturTypes)): ?>
+                <?php foreach ($eFakturTypes as $eft): ?>
+                    <option value="<?php echo htmlspecialchars($eft['code']); ?>"><?php echo htmlspecialchars($eft['name']); ?></option>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </select></div>
         <div class="mb-3"><label class="form-label">Transaction Date</label><input type="date" class="form-control" id="fDate" value="<?= date('Y-m-d') ?>"></div>
         <div class="mb-3"><label class="form-label">Nama Pihak Name *</label><input type="text" class="form-control" id="fName" required></div>
         <div class="mb-3"><label class="form-label">NPWP</label><input type="text" class="form-control" id="fNpwp" placeholder="01.234.567.8-901.000"></div>

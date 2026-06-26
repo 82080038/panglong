@@ -2,14 +2,24 @@
 require_once __DIR__ . '/config.php';
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $search = $_GET['search'] ?? '';
 $searchSql = '';
 $searchParams = [];
 if ($search) {
-    $searchSql = "WHERE c.name LIKE ? OR c.phone LIKE ?";
+    $searchSql = "WHERE (c.name LIKE ? OR c.phone LIKE ?)";
     $q = '%' . $search . '%';
     $searchParams = [$q, $q];
+    if (!$isSuperAdmin && $tenantId) {
+        $searchSql .= " AND c.tenant_id = $tenantId";
+    }
+} else {
+    if (!$isSuperAdmin && $tenantId) {
+        $searchSql = "WHERE c.tenant_id = $tenantId";
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -17,11 +27,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($action === 'create') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO customers (name, address, phone, email, group_id, credit_limit, payment_terms, is_active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,1,?,?)");
+        $stmt = $d->prepare("INSERT INTO customers (name, address, phone, email, group_id, credit_limit, payment_terms, is_active, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
         $stmt->execute([
             $_POST['name'], $_POST['address'] ?? null, $_POST['phone'] ?? null,
             $_POST['email'] ?? null, $_POST['group_id'] ?? null,
-            $_POST['credit_limit'] ?? 0, $_POST['payment_terms'] ?? 30, $now, $now
+            $_POST['credit_limit'] ?? 0, $_POST['payment_terms'] ?? 30, $_POST['is_active'] ?? 1, $now, $now, $tenantId
         ]);
         header('Location: customers.php?msg=created');
         exit;
@@ -73,8 +83,8 @@ $msg = $_GET['msg'] ?? '';
 
     <div class="card mb-3">
         <div class="card-body">
-            <form method="GET" class="row g-2">
-                <div class="col-md-8"><input type="text" class="form-control" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Cari berdasarkan nama atau telepon..."></div>
+            <form method="GET" class="row g-2" id="searchForm">
+                <div class="col-md-8"><input type="text" class="form-control" name="search" id="searchInput" value="<?= htmlspecialchars($search) ?>" placeholder="Cari berdasarkan nama atau telepon..." autocomplete="off"></div>
                 <div class="col-md-2"><button type="submit" class="btn btn-outline-primary w-100"><i class="bi bi-search"></i> Search</button></div>
                 <div class="col-md-2"><a href="customers.php" class="btn btn-outline-secondary w-100">Reset</a></div>
             </form>
@@ -83,7 +93,7 @@ $msg = $_GET['msg'] ?? '';
 
     <div class="card">
         <div class="card-body">
-            <table class="table table-striped">
+            <div class="table-responsive"><table class="table table-striped">
                 <thead>
                     <tr>
                         <th>ID</th>
@@ -131,7 +141,7 @@ $msg = $_GET['msg'] ?? '';
                         <tr><td colspan="7" class="text-center">No customers found</td></tr>
                     <?php endif; ?>
                 </tbody>
-            </table>
+            </table></div>
         </div>
     </div>
 </div>
@@ -147,29 +157,47 @@ $msg = $_GET['msg'] ?? '';
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3"><label class="form-label">Name *</label><input type="text" name="name" class="form-control" required></div>
-                    <div class="mb-3"><label class="form-label">Telepon</label><input type="text" name="phone" class="form-control"></div>
-                    <div class="mb-3"><label class="form-label">Email</label><input type="email" name="email" class="form-control"></div>
-                    <div class="mb-3"><label class="form-label">Alamat</label><textarea name="address" class="form-control"></textarea></div>
+                    <!-- Basic Information -->
+                    <h6 class="mb-3">Informasi Dasar</h6>
+                    <div class="mb-3"><label class="form-label">Nama Pelanggan *</label><input type="text" name="name" class="form-control" required id="customerName" onkeydown="handleEnter(event, 'customerPhone')"></div>
+                    <div class="mb-3"><label class="form-label">Telepon</label><input type="text" name="phone" class="form-control" id="customerPhone" onkeydown="handleEnter(event, 'customerEmail')"></div>
+                    <div class="mb-3"><label class="form-label">Email</label><input type="email" name="email" class="form-control" id="customerEmail" onkeydown="handleEnter(event, 'customerAddress')"></div>
+                    <div class="mb-3"><label class="form-label">Alamat</label><textarea name="address" class="form-control" rows="3" id="customerAddress" onkeydown="handleEnter(event, 'groupSelect')"></textarea></div>
+                    
+                    <hr>
+                    
+                    <!-- Group & Credit -->
+                    <h6 class="mb-3">Grup & Kredit</h6>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Group</label>
-                            <select name="group_id" class="form-select">
-                                <option value="">Select Group</option>
-                                <?php if (is_array($groups)): ?>
-                                    <?php foreach ($groups as $g): ?>
-                                        <option value="<?php echo $g['id']; ?>"><?php echo htmlspecialchars($g['name']); ?></option>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
+                            <label class="form-label">Grup</label>
+                            <div class="input-group">
+                                <select name="group_id" class="form-select" id="groupSelect" onchange="handleEnter(event, 'creditLimit')">
+                                    <option value="">Pilih Grup</option>
+                                    <?php if (is_array($groups)): ?>
+                                        <?php foreach ($groups as $g): ?>
+                                            <option value="<?php echo $g['id']; ?>"><?php echo htmlspecialchars($g['name']); ?></option>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </select>
+                                <button type="button" class="btn btn-outline-primary" onclick="openQuickAddModal('group')"><i class="bi bi-plus"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3"><label class="form-label">Limit Kredit (Rp)</label><input type="number" name="credit_limit" class="form-control" value="0" min="0" step="0.01" id="creditLimit" onkeydown="handleEnter(event, 'paymentTerms')"></div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3"><label class="form-label">Terms (hari)</label><input type="number" name="payment_terms" class="form-control" value="30" min="0" id="paymentTerms" onkeydown="handleEnter(event, 'isActive')"></div>
+                        <div class="col-md-6 mb-3"><label class="form-label">Status</label>
+                            <select name="is_active" class="form-select" id="isActive" onchange="handleEnter(event, 'submitCustomerBtn')">
+                                <option value="1">Aktif</option>
+                                <option value="0">Tidak Aktif</option>
                             </select>
                         </div>
-                        <div class="col-md-3 mb-3"><label class="form-label">Limit Kredit</label><input type="number" name="credit_limit" class="form-control" value="0" min="0"></div>
-                        <div class="col-md-3 mb-3"><label class="form-label">Terms (days)</label><input type="number" name="payment_terms" class="form-control" value="30" min="0"></div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary">Simpan</button>
+                    <button type="submit" class="btn btn-primary" id="submitCustomerBtn"><i class="bi bi-save"></i> Simpan Pelanggan</button>
                 </div>
             </form>
         </div>
@@ -221,6 +249,28 @@ $msg = $_GET['msg'] ?? '';
     </div>
 </div>
 
+<!-- Quick Add Modal -->
+<div class="modal fade" id="quickAddModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quickAddModalTitle">Tambah Baru</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label" id="quickAddLabel">Nama</label>
+                    <input type="text" class="form-control" id="quickAddInput" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary" onclick="submitQuickAdd()">Simpan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 $('.edit-btn').click(function() {
     $('#edit_id').val($(this).data('id'));
@@ -234,5 +284,97 @@ $('.edit-btn').click(function() {
     $('#edit_active').prop('checked', $(this).data('active') == 1);
     new bootstrap.Modal($('#editModal')[0]).show();
 });
+
+// Live search with debounce
+var searchTimeout;
+$('#searchInput').on('input', function() {
+    var searchValue = $(this).val();
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(function() {
+        if (searchValue.length >= 2 || searchValue.length === 0) {
+            $('#searchForm').submit();
+        }
+    }, 500);
+});
+
+// Quick add functionality
+var currentQuickAddType = '';
+
+function openQuickAddModal(type) {
+    currentQuickAddType = type;
+    var title = 'Tambah Grup Baru';
+    var label = 'Nama Grup';
+    
+    document.getElementById('quickAddModalTitle').textContent = title;
+    document.getElementById('quickAddLabel').textContent = label;
+    document.getElementById('quickAddInput').value = '';
+    
+    new bootstrap.Modal(document.getElementById('quickAddModal')).show();
+}
+
+function submitQuickAdd() {
+    var value = document.getElementById('quickAddInput').value.trim();
+    if (!value) {
+        alert('Nama tidak boleh kosong');
+        return;
+    }
+    
+    fetch('ajax.php?endpoint=customer-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: value })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            var select = document.getElementById('groupSelect');
+            var option = document.createElement('option');
+            option.value = res.data.id;
+            option.textContent = res.data.name;
+            select.appendChild(option);
+            select.value = option.value;
+            
+            bootstrap.Modal.getInstance(document.getElementById('quickAddModal')).hide();
+            alert('Berhasil ditambahkan');
+            
+            // Return focus to the select element
+            select.focus();
+        } else {
+            alert('Gagal menambahkan: ' + res.message);
+        }
+    })
+    .catch(err => {
+        alert('Terjadi kesalahan: ' + err);
+    });
+}
+
+// Auto focus and enter key navigation
+function handleEnter(event, nextId) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        var nextElement = document.getElementById(nextId);
+        if (nextElement) {
+            nextElement.focus();
+            if (nextElement.tagName === 'SELECT') {
+                nextElement.click();
+            }
+        }
+    }
+}
+
+// Auto focus on modal open
+var addModal = document.getElementById('addModal');
+if (addModal) {
+    addModal.addEventListener('shown.bs.modal', function() {
+        document.getElementById('customerName').focus();
+    });
+}
+
+var editModal = document.getElementById('editModal');
+if (editModal) {
+    editModal.addEventListener('shown.bs.modal', function() {
+        document.getElementById('edit_name').focus();
+    });
+}
 </script>
 <?php renderFoot(); ?>

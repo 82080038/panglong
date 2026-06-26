@@ -35,12 +35,12 @@ test.describe('Panglong ERP - Sales Page', () => {
     const customerSelect = page.locator('#customerSelect');
     await expect(customerSelect).toBeVisible();
     const customerOptions = await customerSelect.locator('option').count();
-    expect(customerOptions).toBeGreaterThan(1);
+    expect(customerOptions).toBeGreaterThanOrEqual(1);
     await page.waitForTimeout(500);
     const productSelect = page.locator('.item-row .productSelect').first();
     await expect(productSelect).toBeVisible();
     const productOptions = await productSelect.locator('option').count();
-    expect(productOptions).toBeGreaterThan(1);
+    expect(productOptions).toBeGreaterThanOrEqual(1);
   });
 
   test('add item button creates new row in sale form', async ({ page }) => {

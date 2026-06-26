@@ -5,12 +5,32 @@ session_start();
 require_once __DIR__ . '/db.php';
 
 function login($username, $password) {
+    // Check for login attempt lockout
+    $lockoutKey = 'login_lockout_' . md5($username);
+    if (isset($_SESSION[$lockoutKey]) && $_SESSION[$lockoutKey] > time()) {
+        $remaining = ceil(($_SESSION[$lockoutKey] - time()) / 60);
+        return ['success' => false, 'message' => "Akun terkunci. Coba lagi dalam {$remaining} menit."];
+    }
+
     $stmt = db()->prepare('SELECT u.*, r.name as role_name, r.slug as role_slug FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.username = ? AND u.is_active = 1');
     $stmt->execute([$username]);
     $user = $stmt->fetch();
 
     if (!$user || !password_verify($password, $user['password'])) {
-        return ['success' => false, 'message' => 'Username atau password salah'];
+        // Track failed attempts
+        $attemptKey = 'login_attempts_' . md5($username);
+        $attempts = ($_SESSION[$attemptKey] ?? 0) + 1;
+        $_SESSION[$attemptKey] = $attempts;
+
+        // Lock after 5 failed attempts for 15 minutes
+        if ($attempts >= 5) {
+            $_SESSION[$lockoutKey] = time() + (15 * 60); // 15 minutes
+            unset($_SESSION[$attemptKey]);
+            return ['success' => false, 'message' => 'Terlalu banyak percobaan gagal. Akun terkunci selama 15 menit.'];
+        }
+
+        $remaining = 5 - $attempts;
+        return ['success' => false, 'message' => "Username atau password salah. Sisa percobaan: {$remaining}"];
     }
 
     $perms = [];
@@ -32,6 +52,10 @@ function login($username, $password) {
         'branch_id' => $user['branch_id'],
         'permissions' => $perms,
     ];
+
+    // Clear failed attempts on successful login
+    $attemptKey = 'login_attempts_' . md5($username);
+    unset($_SESSION[$attemptKey]);
 
     db()->prepare('UPDATE users SET last_login_at = datetime("now") WHERE id = ?')->execute([$user['id']]);
 

@@ -2,24 +2,44 @@
 require_once 'config.php';
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$customers = $d->query("SELECT id, name FROM customers ORDER BY name LIMIT 200")->fetchAll();
-$products = $d->query("SELECT id, code, name, sell_price FROM products WHERE is_active = 1 ORDER BY name LIMIT 200")->fetchAll();
-$quotes = $d->query("SELECT q.*, c.name as customer_name FROM quotations q LEFT JOIN customers c ON q.customer_id = c.id ORDER BY q.id DESC LIMIT 20")->fetchAll();
+$customerSql = "SELECT id, name FROM customers";
+if (!$isSuperAdmin && $tenantId) {
+    $customerSql .= " WHERE tenant_id = $tenantId";
+}
+$customerSql .= " ORDER BY name LIMIT 200";
+$customers = $d->query($customerSql)->fetchAll();
+
+$productSql = "SELECT id, code, name, sell_price FROM products WHERE is_active = 1";
+if (!$isSuperAdmin && $tenantId) {
+    $productSql .= " AND tenant_id = $tenantId";
+}
+$productSql .= " ORDER BY name LIMIT 200";
+$products = $d->query($productSql)->fetchAll();
+
+$quoteSql = "SELECT q.*, c.name as customer_name FROM quotations q LEFT JOIN customers c ON q.customer_id = c.id";
+if (!$isSuperAdmin && $tenantId) {
+    $quoteSql .= " WHERE q.tenant_id = $tenantId";
+}
+$quoteSql .= " ORDER BY q.id DESC LIMIT 20";
+$quotes = $d->query($quoteSql)->fetchAll();
 
 renderHead('Quotations');
 renderNav('quotations');
 ?>
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1>Penawaran/h1>
+        <h1>Penawaran</h1>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#quoteModal" onclick="resetQuoteForm()">
             <i class="bi bi-plus-circle"></i> Penawaran Baru
         </button>
     </div>
     <div class="card">
         <div class="card-body">
-            <table class="table table-striped">
+            <div class="table-responsive"><table class="table table-striped">
                 <thead><tr><th>Quote No</th><th>Tanggal</th><th>Customer</th><th>Berlaku Sampai</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead>
                 <tbody>
                     <?php foreach ($quotes as $q): ?>
@@ -40,7 +60,7 @@ renderNav('quotations');
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
-            </table>
+            </table></div>
         </div>
     </div>
 </div>
@@ -58,14 +78,14 @@ renderNav('quotations');
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Items</label>
-                        <table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Bonus</th><th>Unit Price</th><th>Diskon</th><th>Subtotal</th><th></th></tr></thead><tbody id="quoteItemsBody"></tbody></table>
+                        <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Bonus</th><th>Unit Price</th><th>Diskon</th><th>Subtotal</th><th></th></tr></thead><tbody id="quoteItemsBody"></tbody></table></div>
                         <button type="button" class="btn btn-sm btn-outline-primary" onclick="addQuoteRow()"><i class="bi bi-plus"></i> Add Item</button>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-4"><label class="form-label">Discount (Rp)</label><input type="number" class="form-control" id="quoteDiscount" value="0" min="0" oninput="calcQuoteTotal()"></div>
                         <div class="col-md-8"><label class="form-label">Alamat Pengiriman</label><input type="text" class="form-control" id="quoteDeliveryAddress"></div>
                     </div>
-                    <div class="row"><div class="col-md-4 offset-md-8"><table class="table table-sm"><tr class="fw-bold"><td>Grand Total</td><td class="text-end" id="quoteGrandTotal">Rp 0</td></tr></table></div></div>
+                    <div class="row"><div class="col-md-4 offset-md-8"><div class="table-responsive"><table class="table table-sm"><tr class="fw-bold"><td>Grand Total</td><td class="text-end" id="quoteGrandTotal">Rp 0</td></tr></table></div></div></div>
                 </form>
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary" onclick="submitQuote()">Create Quotation</button></div>
@@ -171,9 +191,9 @@ function viewQuote(id) {
         if (res.success) {
             const q = res.data;
             let html = `<h6>${q.quote_no}</h6><p>Pelanggan: ${q.customer_name || 'Pelanggan Umum'} | Tanggal: ${q.quote_date} | Berlaku: ${q.valid_until} | Status: ${q.status==='draft'?'Draft':(q.status==='accepted'?'Diterima':(q.status==='rejected'?'Ditolak':'Kedaluwarsa'))}</p>`;
-            html += '<table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Bonus</th><th>Harga</th><th>Disc</th><th>Subtotal</th></tr></thead><tbody>';
+            html += '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Bonus</th><th>Harga</th><th>Disc</th><th>Subtotal</th></tr></thead><tbody>';
             q.items.forEach(i => { html += `<tr><td>${i.product_name || i.product_code || ''}</td><td>${i.quantity}</td><td>${i.bonus_qty || 0}</td><td>Rp ${Number(i.unit_price).toLocaleString()}</td><td>Rp ${Number(i.discount).toLocaleString()}</td><td>Rp ${Number(i.subtotal).toLocaleString()}</td></tr>`; });
-            html += '</tbody></table>';
+            html += '</tbody></table></div>';
             html += `<p>Subtotal: Rp ${Number(q.subtotal).toLocaleString()} | Tax: Rp ${Number(q.tax).toLocaleString()} | Total: Rp ${Number(q.total).toLocaleString()}</p>`;
             document.getElementById('quoteDetailBody').innerHTML = html;
             new bootstrap.Modal(document.getElementById('quoteDetailModal')).show();

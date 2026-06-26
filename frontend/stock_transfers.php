@@ -2,21 +2,41 @@
 require_once 'config.php';
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$warehouses = $d->query("SELECT id, name FROM warehouses ORDER BY name")->fetchAll();
-$products = $d->query("SELECT id, code, name FROM products WHERE is_active = 1 ORDER BY name LIMIT 200")->fetchAll();
-$transfers = $d->query("SELECT st.*, wf.name as from_warehouse, wt.name as to_warehouse FROM stock_transfers st LEFT JOIN warehouses wf ON st.from_warehouse_id = wf.id LEFT JOIN warehouses wt ON st.to_warehouse_id = wt.id ORDER BY st.id DESC LIMIT 20")->fetchAll();
+$warehouseSql = "SELECT id, name FROM warehouses";
+if (!$isSuperAdmin && $tenantId) {
+    $warehouseSql .= " WHERE tenant_id = $tenantId";
+}
+$warehouseSql .= " ORDER BY name";
+$warehouses = $d->query($warehouseSql)->fetchAll();
+
+$productSql = "SELECT id, code, name FROM products WHERE is_active = 1";
+if (!$isSuperAdmin && $tenantId) {
+    $productSql .= " AND tenant_id = $tenantId";
+}
+$productSql .= " ORDER BY name LIMIT 200";
+$products = $d->query($productSql)->fetchAll();
+
+$transferSql = "SELECT st.*, wf.name as from_warehouse, wt.name as to_warehouse FROM stock_transfers st LEFT JOIN warehouses wf ON st.from_warehouse_id = wf.id LEFT JOIN warehouses wt ON st.to_warehouse_id = wt.id";
+if (!$isSuperAdmin && $tenantId) {
+    $transferSql .= " WHERE st.tenant_id = $tenantId";
+}
+$transferSql .= " ORDER BY st.id DESC LIMIT 20";
+$transfers = $d->query($transferSql)->fetchAll();
 
 renderHead('Stock Transfers');
 renderNav('stock-transfers');
 ?>
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1>Mutasi Stok/h1>
+        <h1>Mutasi Stok</h1>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#trModal" onclick="resetTRForm()"><i class="bi bi-plus-circle"></i> Mutasi Baru</button>
     </div>
     <div class="card"><div class="card-body">
-        <table class="table table-striped">
+        <div class="table-responsive"><table class="table table-striped">
             <thead><tr><th>Transfer No</th><th>Tanggal</th><th>From</th><th>To</th><th>Status</th><th>Aksi</th></tr></thead>
             <tbody>
                 <?php foreach ($transfers as $tr): ?>
@@ -35,7 +55,7 @@ renderNav('stock-transfers');
                 </tr>
                 <?php endforeach; ?>
             </tbody>
-        </table>
+        </table></div>
     </div></div>
 </div>
 

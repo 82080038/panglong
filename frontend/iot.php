@@ -55,7 +55,7 @@ renderNav('iot');
     <?php endif; ?>
 
     <div class="card"><div class="card-body">
-        <table class="table table-striped">
+        <div class="table-responsive"><table class="table table-striped">
             <thead><tr><th>Sensor ID</th><th>Nama</th><th>Type</th><th>Location</th><th>Last Reading</th><th>Status</th></tr></thead>
             <tbody>
             <?php if (!empty($sensors)): foreach ($sensors as $s): ?>
@@ -72,7 +72,7 @@ renderNav('iot');
             <tr><td colspan="6" class="text-center text-muted">Belum ada sensor terdaftar</td></tr>
             <?php endif; ?>
             </tbody>
-        </table>
+        </table></div>
     </div></div>
 </div>
 

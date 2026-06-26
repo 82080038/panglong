@@ -1,166 +1,288 @@
 <?php
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/auth.php';
 
-// Pastikan user sudah login (requireLogin sudah dipanggil di config.php)
+// Pastikan user sudah login
+requireLogin();
+
 $user = currentUser();
-if (!$user) {
-    header('Location: login.php?msg=timeout');
-    exit;
-}
-
 $d = db();
-$tenantId = $user['tenant_id'] ?? 1;
-$branchId = $user['branch_id'] ?? 1;
 
-// Cek apakah periode bulan ini sudah di-lock
-$periodLocked = false;
-$nowYear = (int)date('Y');
-$nowMonth = (int)date('n');
-$stmt = $d->prepare("SELECT status FROM period_closings WHERE period_year = ? AND period_month = ? AND status = 'closed'");
-$stmt->execute([$nowYear, $nowMonth]);
-$periodLocked = (bool)$stmt->fetchColumn();
+// Dashboard berbeda berdasarkan role
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$productCount = $d->query('SELECT COUNT(*) FROM products')->fetchColumn();
-$customerCount = $d->query('SELECT COUNT(*) FROM customers')->fetchColumn();
-$lowStockCount = $d->query("SELECT COUNT(*) FROM products WHERE CAST(min_stock AS REAL) > 0 AND is_active = 1")->fetchColumn();
+if ($isSuperAdmin) {
+    // Super Admin Dashboard - Platform Level Metrics
+    $tenantCount = $d->query('SELECT COUNT(*) FROM tenants')->fetchColumn();
+    $activeTenants = $d->query("SELECT COUNT(*) FROM tenants WHERE status = 'active'")->fetchColumn();
+    $trialTenants = $d->query("SELECT COUNT(*) FROM tenants WHERE status = 'trial'")->fetchColumn();
+    $suspendedTenants = $d->query("SELECT COUNT(*) FROM tenants WHERE status = 'suspended'")->fetchColumn();
+    
+    $userCount = $d->query('SELECT COUNT(*) FROM users')->fetchColumn();
+    
+    // Tenant growth chart (last 7 days)
+    $chartLabels = [];
+    $chartData = [];
+    for ($i = 6; $i >= 0; $i--) {
+        $date = date('Y-m-d', strtotime("-$i days"));
+        $stmt = $d->prepare("SELECT COUNT(*) FROM tenants WHERE DATE(created_at) = ?");
+        $stmt->execute([$date]);
+        $count = $stmt->fetchColumn();
+        $chartLabels[] = date('d/m', strtotime($date));
+        $chartData[] = (int)$count;
+    }
+} else {
+    // Tenant Dashboard - Tenant Level Metrics
+    $tenantId = $user['tenant_id'];
+    $branchId = $user['branch_id'] ?? null;
 
-$todaySales = 0;
-$todayRevenue = 0;
-$stmt = $d->query("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as rev FROM sales WHERE sale_date = date('now') AND status != 'voided'");
-$row = $stmt->fetch();
-$todaySales = $row['cnt'] ?? 0;
-$todayRevenue = $row['rev'] ?? 0;
+    // Cek apakah periode bulan ini sudah di-lock
+    $periodLocked = false;
+    $nowYear = (int)date('Y');
+    $nowMonth = (int)date('n');
+    $stmt = $d->prepare("SELECT status FROM period_closings WHERE period_year = ? AND period_month = ? AND status = 'closed'");
+    $stmt->execute([$nowYear, $nowMonth]);
+    $periodLocked = (bool)$stmt->fetchColumn();
 
-$monthlyRevenue = 0;
-$monthlySales = 0;
-$stmt = $d->query("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as rev FROM sales WHERE sale_date >= date('now','start of month') AND status != 'voided'");
-$row = $stmt->fetch();
-$monthlySales = $row['cnt'] ?? 0;
-$monthlyRevenue = $row['rev'] ?? 0;
+    $productCount = $d->query('SELECT COUNT(*) FROM products WHERE tenant_id = ' . $tenantId)->fetchColumn();
+    $customerCount = $d->query('SELECT COUNT(*) FROM customers WHERE tenant_id = ' . $tenantId)->fetchColumn();
+    $lowStockCount = $d->query("SELECT COUNT(*) FROM products WHERE tenant_id = $tenantId AND CAST(min_stock AS REAL) > 0 AND is_active = 1")->fetchColumn();
 
-$chartLabels = [];
-$chartData = [];
-$stmt = $d->query("SELECT sale_date, COALESCE(SUM(total),0) as rev FROM sales WHERE sale_date >= date('now','-6 days') AND status != 'voided' GROUP BY sale_date ORDER BY sale_date");
-foreach ($stmt->fetchAll() as $row) {
-    $chartLabels[] = date('d/m', strtotime($row['sale_date']));
-    $chartData[] = (float)$row['rev'];
+    $todaySales = 0;
+    $todayRevenue = 0;
+    $stmt = $d->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as rev FROM sales WHERE tenant_id = ? AND sale_date = date('now') AND status != 'voided'");
+    $stmt->execute([$tenantId]);
+    $row = $stmt->fetch();
+    $todaySales = $row['cnt'] ?? 0;
+    $todayRevenue = $row['rev'] ?? 0;
+
+    $monthlyRevenue = 0;
+    $monthlySales = 0;
+    $stmt = $d->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as rev FROM sales WHERE tenant_id = ? AND sale_date >= date('now','start of month') AND status != 'voided'");
+    $stmt->execute([$tenantId]);
+    $row = $stmt->fetch();
+    $monthlySales = $row['cnt'] ?? 0;
+    $monthlyRevenue = $row['rev'] ?? 0;
+
+    $chartLabels = [];
+    $chartData = [];
+    $stmt = $d->prepare("SELECT sale_date, COALESCE(SUM(total),0) as rev FROM sales WHERE tenant_id = ? AND sale_date >= date('now','-6 days') AND status != 'voided' GROUP BY sale_date ORDER BY sale_date");
+    $stmt->execute([$tenantId]);
+    foreach ($stmt->fetchAll() as $row) {
+        $chartLabels[] = date('d/m', strtotime($row['sale_date']));
+        $chartData[] = (float)$row['rev'];
+    }
 }
 ?>
-<?php renderHead('Beranda'); ?>
-<?php renderNav('dashboard'); ?>
-
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h1>Beranda</h1>
-            <p class="text-muted mb-0">Selamat datang, <strong><?= htmlspecialchars($user['full_name']) ?></strong> — <?= tglIndo(date('Y-m-d'), true) ?></p>
-        </div>
-        <div class="text-end">
-            <span class="badge bg-primary"><?= htmlspecialchars($user['role_name'] ?? 'User') ?></span>
-            <?php if ($periodLocked): ?>
-            <span class="badge bg-danger" data-bs-toggle="tooltip" data-bs-title="Periode bulan ini sudah ditutup. Transaksi tidak dapat diubah.">Periode Terkunci</span>
-            <?php endif; ?>
-        </div>
-    </div>
-
-    <?php if ($periodLocked): ?>
-    <div class="alert alert-warning alert-dismissible fade show">
-        <i class="bi bi-lock-fill"></i> <strong>Periode <?= $nowYear ?>-<?= str_pad($nowMonth, 2, '0', STR_PAD_LEFT) ?> sedang terkunci.</strong> Transaksi pada periode ini tidak dapat ditambah atau diubah. 
-        <a href="closing.php" class="alert-link">Buka kembali periode</a> jika diperlukan.
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    <?php endif; ?>
+<?php
+$theme = $_SESSION['theme'] ?? 'light';
+?>
+<!DOCTYPE html>
+<html lang="id" data-bs-theme="<?= htmlspecialchars($theme) ?>">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Beranda - Panglong ERP</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+      body{background:#f8f9fa}
+      [data-bs-theme="dark"] body{background:#0d1117}
+      [data-bs-theme="eyecare"] body{background:#faf3e3}
+    </style>
+</head>
+<body>
+    <?php renderNav('dashboard'); ?>
     
-    <div class="row mt-4">
-        <div class="col-md-3">
-            <div class="card text-white bg-primary mb-3">
-                <div class="card-body">
-                    <h5 class="card-title">Produk</h5>
-                    <p class="card-text fs-2"><?php echo $productCount; ?></p>
-                </div>
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h1>Beranda</h1>
+                <p class="text-muted mb-0">Selamat datang, <strong><?= htmlspecialchars($user['full_name']) ?></strong> — <?= date('d F Y', strtotime(date('Y-m-d'))) ?></p>
+            </div>
+            <div class="text-end">
+                <span class="badge bg-primary"><?= htmlspecialchars(ucfirst($user['role_slug'])) ?></span>
+                <?php if (!$isSuperAdmin && $periodLocked): ?>
+                <span class="badge bg-danger">Periode Terkunci</span>
+                <?php endif; ?>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card text-white bg-success mb-3">
-                <div class="card-body">
-                    <h5 class="card-title">Pelanggan</h5>
-                    <p class="card-text fs-2"><?php echo $customerCount; ?></p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-white bg-warning mb-3">
-                <div class="card-body">
-                    <h5 class="card-title">Penjualan Hari Ini</h5>
-                    <p class="card-text fs-2"><?php echo $todaySales; ?></p>
-                    <p class="card-text small"><?php echo rupiah($todayRevenue); ?></p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-white bg-info mb-3">
-                <div class="card-body">
-                    <h5 class="card-title">Stok Menipis</h5>
-                    <p class="card-text fs-2"><?php echo $lowStockCount; ?></p>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <div class="row mt-2">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header"><h5>Penjualan 7 Hari Terakhir</h5></div>
-                <div class="card-body">
-                    <canvas id="salesChart" height="200"></canvas>
+        <?php if (!$isSuperAdmin && $periodLocked): ?>
+        <div class="alert alert-warning alert-dismissible fade show">
+            <i class="bi bi-lock-fill"></i> <strong>Periode <?= $nowYear ?>-<?= str_pad($nowMonth, 2, '0', STR_PAD_LEFT) ?> sedang terkunci.</strong> Transaksi pada periode ini tidak dapat ditambah atau diubah. 
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php endif; ?>
+        
+        <?php if ($isSuperAdmin): ?>
+        <!-- Super Admin Dashboard -->
+        <div class="row mt-4">
+            <div class="col-md-3">
+                <div class="card text-white bg-primary mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Tenants</h5>
+                        <p class="card-text fs-2"><?= $tenantCount ?></p>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header"><h5>Ringkasan Bulan Ini</h5></div>
-                <div class="card-body">
-                    <table class="table table-sm">
-                        <tr><td>Total Penjualan Bulan Ini</td><td class="text-end fw-bold"><?php echo $monthlySales; ?></td></tr>
-                        <tr><td>Total Omzet Bulan Ini</td><td class="text-end fw-bold"><?php echo rupiah($monthlyRevenue); ?></td></tr>
-                        <tr><td>Produk Stok Menipis</td><td class="text-end fw-bold"><?php echo $lowStockCount; ?></td></tr>
-                        <tr><td>Total Produk</td><td class="text-end fw-bold"><?php echo $productCount; ?></td></tr>
-                    </table>
+            <div class="col-md-3">
+                <div class="card text-white bg-success mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Active</h5>
+                        <p class="card-text fs-2"><?= $activeTenants ?></p>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <div class="row mt-4">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header"><h5>Akses Cepat</h5></div>
-                <div class="card-body">
-                    <div class="list-group list-group-horizontal flex-wrap">
-                        <a href="products.php" class="list-group-item list-group-item-action"><i class="bi bi-box"></i> Produk</a>
-                        <a href="customers.php" class="list-group-item list-group-item-action"><i class="bi bi-people"></i> Pelanggan</a>
-                        <a href="sales.php" class="list-group-item list-group-item-action"><i class="bi bi-cart"></i> Penjualan</a>
-                        <a href="stock.php" class="list-group-item list-group-item-action"><i class="bi bi-box-seam"></i> Stok</a>
-                        <a href="suppliers.php" class="list-group-item list-group-item-action"><i class="bi bi-truck"></i> Supplier</a>
-                        <a href="purchase-orders.php" class="list-group-item list-group-item-action"><i class="bi bi-bag-check"></i> PO</a>
-                        <a href="reports.php" class="list-group-item list-group-item-action"><i class="bi bi-graph-up"></i> Laporan</a>
+            <div class="col-md-3">
+                <div class="card text-white bg-warning mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Trial</h5>
+                        <p class="card-text fs-2"><?= $trialTenants ?></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-danger mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Suspended</h5>
+                        <p class="card-text fs-2"><?= $suspendedTenants ?></p>
                     </div>
                 </div>
             </div>
         </div>
+
+        <div class="row mt-2">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header"><h5>Pertumbuhan Tenant (7 Hari Terakhir)</h5></div>
+                    <div class="card-body">
+                        <canvas id="salesChart" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header"><h5>Ringkasan Platform</h5></div>
+                    <div class="card-body">
+                        <div class="table-responsive"><table class="table table-sm">
+                            <tr><td>Total Tenants</td><td class="text-end fw-bold"><?= $tenantCount ?></td></tr>
+                            <tr><td>Total Users</td><td class="text-end fw-bold"><?= $userCount ?></td></tr>
+                            <tr><td>Active Tenants</td><td class="text-end fw-bold"><?= $activeTenants ?></td></tr>
+                            <tr><td>Trial Tenants</td><td class="text-end fw-bold"><?= $trialTenants ?></td></tr>
+                        </table></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header"><h5>Akses Cepat - Platform Owner</h5></div>
+                    <div class="card-body">
+                        <div class="list-group list-group-horizontal flex-wrap">
+                            <a href="tenants.php" class="list-group-item list-group-item-action"><i class="bi bi-buildings"></i> Kelola Tenant</a>
+                            <a href="users.php" class="list-group-item list-group-item-action"><i class="bi bi-people"></i> Kelola User</a>
+                            <a href="register.php" class="list-group-item list-group-item-action"><i class="bi bi-person-plus"></i> Daftar Tenant Baru</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php else: ?>
+        <!-- Tenant Dashboard -->
+        <div class="row mt-4">
+            <div class="col-md-3">
+                <div class="card text-white bg-primary mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Produk</h5>
+                        <p class="card-text fs-2"><?= $productCount ?></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-success mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Pelanggan</h5>
+                        <p class="card-text fs-2"><?= $customerCount ?></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-warning mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Penjualan Hari Ini</h5>
+                        <p class="card-text fs-2"><?= $todaySales ?></p>
+                        <p class="card-text small">Rp <?= number_format($todayRevenue, 0, ',', '.') ?></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-info mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Stok Menipis</h5>
+                        <p class="card-text fs-2"><?= $lowStockCount ?></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-2">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header"><h5>Penjualan 7 Hari Terakhir</h5></div>
+                    <div class="card-body">
+                        <canvas id="salesChart" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header"><h5>Ringkasan Bulan Ini</h5></div>
+                    <div class="card-body">
+                        <div class="table-responsive"><table class="table table-sm">
+                            <tr><td>Total Penjualan Bulan Ini</td><td class="text-end fw-bold"><?= $monthlySales ?></td></tr>
+                            <tr><td>Total Omzet Bulan Ini</td><td class="text-end fw-bold">Rp <?= number_format($monthlyRevenue, 0, ',', '.') ?></td></tr>
+                            <tr><td>Produk Stok Menipis</td><td class="text-end fw-bold"><?= $lowStockCount ?></td></tr>
+                            <tr><td>Total Produk</td><td class="text-end fw-bold"><?= $productCount ?></td></tr>
+                        </table></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header"><h5>Akses Cepat</h5></div>
+                    <div class="card-body">
+                        <div class="list-group list-group-horizontal flex-wrap">
+                            <a href="products.php" class="list-group-item list-group-item-action"><i class="bi bi-box"></i> Produk</a>
+                            <a href="customers.php" class="list-group-item list-group-item-action"><i class="bi bi-people"></i> Pelanggan</a>
+                            <a href="sales.php" class="list-group-item list-group-item-action"><i class="bi bi-cart"></i> Penjualan</a>
+                            <a href="stock.php" class="list-group-item list-group-item-action"><i class="bi bi-box-seam"></i> Stok</a>
+                            <a href="suppliers.php" class="list-group-item list-group-item-action"><i class="bi bi-truck"></i> Supplier</a>
+                            <a href="purchase-orders.php" class="list-group-item list-group-item-action"><i class="bi bi-bag-check"></i> PO</a>
+                            <a href="reports.php" class="list-group-item list-group-item-action"><i class="bi bi-graph-up"></i> Laporan</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
-</div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 var ctx = document.getElementById('salesChart').getContext('2d');
 new Chart(ctx, {
     type: 'bar',
     data: {
-        labels: <?php echo json_encode($chartLabels); ?>,
+        labels: <?= json_encode($chartLabels) ?>,
         datasets: [{
-            label: 'Omzet (Rp)',
-            data: <?php echo json_encode($chartData); ?>,
+            label: '<?= $isSuperAdmin ? 'Tenant Baru' : 'Omzet (Rp)' ?>',
+            data: <?= json_encode($chartData) ?>,
             backgroundColor: 'rgba(13, 110, 253, 0.5)',
             borderColor: 'rgba(13, 110, 253, 1)',
             borderWidth: 1
@@ -169,4 +291,5 @@ new Chart(ctx, {
     options: { responsive: true, scales: { y: { beginAtZero: true } } }
 });
 </script>
-<?php renderFoot(); ?>
+</body>
+</html>

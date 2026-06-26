@@ -65,7 +65,7 @@ renderNav('closing');
     <div class="card">
         <div class="card-header"><strong>Riwayat Tutup Buku</strong></div>
         <div class="card-body">
-            <table class="table table-striped table-sm">
+            <div class="table-responsive"><table class="table table-striped table-sm">
                 <thead>
                     <tr>
                         <th>Period</th><th>Status</th><th>Ditutup Oleh</th><th>Waktu Tutup</th><th>Catatan</th><th>Action</th>
@@ -90,7 +90,7 @@ renderNav('closing');
                     <tr><td colspan="6" class="text-center text-muted">Belum ada riwayat tutup buku.</td></tr>
                     <?php endif; ?>
                 </tbody>
-            </table>
+            </table></div>
         </div>
     </div>
 </div>

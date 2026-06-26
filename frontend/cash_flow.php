@@ -3,29 +3,72 @@ require_once 'config.php';
 requirePermission('view_reports');
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $startDate = $_GET['start_date'] ?? date('Y-m-01');
 $endDate = $_GET['end_date'] ?? date('Y-m-t');
 
 // Operating: cash transactions
-$operatingIn = (float)$d->query("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND account_type='cash' AND transaction_date BETWEEN '$startDate' AND '$endDate'")->fetchColumn();
-$operatingOut = (float)$d->query("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND account_type='cash' AND transaction_date BETWEEN '$startDate' AND '$endDate'")->fetchColumn();
-$salesCash = (float)$d->query("SELECT COALESCE(SUM(amount),0) FROM payments WHERE payment_date BETWEEN '$startDate' AND '$endDate'")->fetchColumn();
-$purchaseCash = (float)$d->query("SELECT COALESCE(SUM(amount),0) FROM purchase_payments WHERE payment_date BETWEEN '$startDate' AND '$endDate'")->fetchColumn();
+$operatingInSql = "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND account_type='cash' AND transaction_date BETWEEN '$startDate' AND '$endDate'";
+if (!$isSuperAdmin && $tenantId) {
+    $operatingInSql .= " AND tenant_id = $tenantId";
+}
+$operatingIn = (float)$d->query($operatingInSql)->fetchColumn();
+
+$operatingOutSql = "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND account_type='cash' AND transaction_date BETWEEN '$startDate' AND '$endDate'";
+if (!$isSuperAdmin && $tenantId) {
+    $operatingOutSql .= " AND tenant_id = $tenantId";
+}
+$operatingOut = (float)$d->query($operatingOutSql)->fetchColumn();
+
+$salesCashSql = "SELECT COALESCE(SUM(amount),0) FROM payments WHERE payment_date BETWEEN '$startDate' AND '$endDate'";
+if (!$isSuperAdmin && $tenantId) {
+    $salesCashSql .= " AND tenant_id = $tenantId";
+}
+$salesCash = (float)$d->query($salesCashSql)->fetchColumn();
+
+$purchaseCashSql = "SELECT COALESCE(SUM(amount),0) FROM purchase_payments WHERE payment_date BETWEEN '$startDate' AND '$endDate'";
+if (!$isSuperAdmin && $tenantId) {
+    $purchaseCashSql .= " AND tenant_id = $tenantId";
+}
+$purchaseCash = (float)$d->query($purchaseCashSql)->fetchColumn();
 
 // Investing
-$assetPurchases = (float)$d->query("SELECT COALESCE(SUM(acquisition_cost),0) FROM fixed_assets WHERE acquisition_date BETWEEN '$startDate' AND '$endDate'")->fetchColumn();
+$assetPurchaseSql = "SELECT COALESCE(SUM(acquisition_cost),0) FROM fixed_assets WHERE acquisition_date BETWEEN '$startDate' AND '$endDate'";
+if (!$isSuperAdmin && $tenantId) {
+    $assetPurchaseSql .= " AND tenant_id = $tenantId";
+}
+$assetPurchases = (float)$d->query($assetPurchaseSql)->fetchColumn();
 
 // Financing
-$financingIn = (float)$d->query("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND category LIKE '%loan%' AND transaction_date BETWEEN '$startDate' AND '$endDate'")->fetchColumn();
-$financingOut = (float)$d->query("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND category LIKE '%loan%' AND transaction_date BETWEEN '$startDate' AND '$endDate'")->fetchColumn();
+$financingInSql = "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND category LIKE '%loan%' AND transaction_date BETWEEN '$startDate' AND '$endDate'";
+if (!$isSuperAdmin && $tenantId) {
+    $financingInSql .= " AND tenant_id = $tenantId";
+}
+$financingIn = (float)$d->query($financingInSql)->fetchColumn();
+
+$financingOutSql = "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND category LIKE '%loan%' AND transaction_date BETWEEN '$startDate' AND '$endDate'";
+if (!$isSuperAdmin && $tenantId) {
+    $financingOutSql .= " AND tenant_id = $tenantId";
+}
+$financingOut = (float)$d->query($financingOutSql)->fetchColumn();
 
 $operatingNet = $operatingIn + $salesCash - $operatingOut - $purchaseCash;
 $investingNet = -$assetPurchases;
 $financingNet = $financingIn - $financingOut;
 $netChange = $operatingNet + $investingNet + $financingNet;
 
-$beginningCash = (float)$d->query("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND transaction_date < '$startDate'")->fetchColumn() - (float)$d->query("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND transaction_date < '$startDate'")->fetchColumn();
+$beginningInSql = "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND transaction_date < '$startDate'";
+if (!$isSuperAdmin && $tenantId) {
+    $beginningInSql .= " AND tenant_id = $tenantId";
+}
+$beginningOutSql = "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND transaction_date < '$startDate'";
+if (!$isSuperAdmin && $tenantId) {
+    $beginningOutSql .= " AND tenant_id = $tenantId";
+}
+$beginningCash = (float)$d->query($beginningInSql)->fetchColumn() - (float)$d->query($beginningOutSql)->fetchColumn();
 $endingCash = $beginningCash + $netChange;
 
 renderHead('Laporan Arus Kas');
@@ -56,7 +99,7 @@ renderNav('cash_flow');
             <div class="card mb-3">
                 <div class="card-header bg-light"><strong>Aktivitas Operasi</strong></div>
                 <div class="card-body">
-                    <table class="table table-sm table-borderless">
+                    <div class="table-responsive"><table class="table table-sm table-borderless">
                         <tr>
                             <td>Kas diterima dari pelanggan</td>
                             <td class="text-end text-success"><?= rupiah($operatingIn + $salesCash) ?></td>
@@ -69,14 +112,14 @@ renderNav('cash_flow');
                             <td>Kas Bersih dari Operasi</td>
                             <td class="text-end <?= $operatingNet >= 0 ? 'text-success' : 'text-danger' ?>"><?= rupiah($operatingNet) ?></td>
                         </tr>
-                    </table>
+                    </table></div>
                 </div>
             </div>
 
             <div class="card mb-3">
                 <div class="card-header bg-light"><strong>Aktivitas Investasi</strong></div>
                 <div class="card-body">
-                    <table class="table table-sm table-borderless">
+                    <div class="table-responsive"><table class="table table-sm table-borderless">
                         <tr>
                             <td>Pembelian aset tetap</td>
                             <td class="text-end text-danger">(<?= rupiah($assetPurchases) ?>)</td>
@@ -85,14 +128,14 @@ renderNav('cash_flow');
                             <td>Kas Bersih dari Investasi</td>
                             <td class="text-end <?= $investingNet >= 0 ? 'text-success' : 'text-danger' ?>"><?= rupiah($investingNet) ?></td>
                         </tr>
-                    </table>
+                    </table></div>
                 </div>
             </div>
 
             <div class="card mb-3">
                 <div class="card-header bg-light"><strong>Aktivitas Pendanaan</strong></div>
                 <div class="card-body">
-                    <table class="table table-sm table-borderless">
+                    <div class="table-responsive"><table class="table table-sm table-borderless">
                         <tr>
                             <td>Penerimaan pinjaman</td>
                             <td class="text-end text-success"><?= rupiah($financingIn) ?></td>
@@ -105,14 +148,14 @@ renderNav('cash_flow');
                             <td>Kas Bersih dari Pendanaan</td>
                             <td class="text-end <?= $financingNet >= 0 ? 'text-success' : 'text-danger' ?>"><?= rupiah($financingNet) ?></td>
                         </tr>
-                    </table>
+                    </table></div>
                 </div>
             </div>
 
             <div class="card border-primary">
                 <div class="card-header bg-primary text-white"><strong>Perubahan Kas Bersih</strong></div>
                 <div class="card-body">
-                    <table class="table table-sm table-borderless">
+                    <div class="table-responsive"><table class="table table-sm table-borderless">
                         <tr>
                             <td>Saldo Kas Awal</td>
                             <td class="text-end"><?= rupiah($beginningCash) ?></td>
@@ -125,7 +168,7 @@ renderNav('cash_flow');
                             <td>Saldo Kas Akhir</td>
                             <td class="text-end"><?= rupiah($endingCash) ?></td>
                         </tr>
-                    </table>
+                    </table></div>
                 </div>
             </div>
         </div>

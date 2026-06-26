@@ -86,41 +86,51 @@ if (isset($_GET['set_theme'])) {
 function getNavLinks() {
     $role = userRole();
     $all = [
-        'dashboard'      => ['index.php',           'bi-speedometer2',          'Beranda',          ['owner','manager','kasir','gudang','accounting','supervisor']],
+        'dashboard'      => ['index.php',           'bi-speedometer2',          'Beranda',          ['owner','manager','kasir','gudang','accounting','supervisor','super_admin']],
+        'platform'       => ['dropdown',            'bi-cloud',                 'Platform',         ['super_admin']],
+        'tenants'        => ['tenants.php',         'bi-buildings',              'Tenant',           ['super_admin']],
+        'users'          => ['users.php',           'bi-people',                'User',             ['super_admin','owner','manager']],
+        'master'         => ['dropdown',            'bi-database',              'Master Data',      ['owner','manager','gudang']],
         'products'       => ['products.php',        'bi-box',                   'Produk',           ['owner','manager','gudang']],
         'customers'      => ['customers.php',       'bi-people',                'Pelanggan',        ['owner','manager','kasir','accounting']],
-        'sales'          => ['sales.php',           'bi-cart',                  'Penjualan',        ['owner','manager','kasir']],
-        'sales-orders'   => ['sales_orders.php',    'bi-clipboard-data',        'SO',               ['owner','manager','kasir']],
+        'suppliers'      => ['suppliers.php',       'bi-truck',                 'Supplier',         ['owner','manager','gudang']],
+        'warehouses'     => ['warehouses.php',      'bi-building',              'Gudang',           ['owner','manager','gudang']],
+        'penjualan'      => ['dropdown',            'bi-cart',                  'Penjualan',        ['owner','manager','kasir']],
+        'sales'          => ['sales.php',           'bi-receipt',                'Transaksi',        ['owner','manager','kasir']],
+        'sales-orders'   => ['sales_orders.php',    'bi-clipboard-data',        'Sales Order',      ['owner','manager','kasir']],
         'quotations'     => ['quotations.php',      'bi-file-earmark-text',     'Penawaran',        ['owner','manager','kasir']],
         'deliveries'     => ['deliveries.php',      'bi-truck-front',           'Pengiriman',       ['owner','manager','gudang','kasir']],
-        'returns'        => ['returns.php',         'bi-arrow-left-right',      'Retur',            ['owner','manager','kasir','gudang']],
-        'stock'          => ['stock.php',           'bi-box-seam',              'Stok',             ['owner','manager','gudang']],
+        'whatsapp'       => ['whatsapp.php',        'bi-whatsapp',              'WhatsApp',         ['owner','manager','kasir']],
+        'salesman'       => ['salesman_app.php',    'bi-phone',                 'Salesman',         ['owner','manager','kasir']],
+        'purchase-orders'=> ['purchase-orders.php', 'bi-bag',                   'PO',               ['owner','manager','gudang']],
+        'inventory'      => ['dropdown',            'bi-box-seam',              'Inventaris',       ['owner','manager','gudang']],
+        'stock'          => ['stock.php',           'bi-boxes',                 'Stok',             ['owner','manager','gudang']],
         'stock-opname'   => ['stock_opname.php',    'bi-clipboard-check',       'Opname',           ['owner','manager','gudang']],
         'stock-transfers'=> ['stock_transfers.php', 'bi-arrow-left-right',      'Mutasi',           ['owner','manager','gudang']],
-        'suppliers'      => ['suppliers.php',       'bi-truck',                 'Supplier',         ['owner','manager','gudang']],
-        'purchase-orders'=> ['purchase-orders.php', 'bi-bag-check',             'PO',               ['owner','manager','gudang']],
-        'pricing'        => ['pricing.php',         'bi-tag',                   'Harga',            ['owner','manager']],
-        'reports'        => ['reports.php',         'bi-graph-up',              'Laporan',          ['owner','manager','accounting','supervisor']],
-        'accounting'     => ['accounting.php',      'bi-journal-text',          'Akuntansi',        ['owner','manager','accounting']],
-        'cashbook'       => ['cashbook.php',        'bi-cash-coin',             'Kas Buku',         ['owner','manager','accounting']],
-        'fixed-assets'   => ['fixed_assets.php',    'bi-building-gear',         'Aset Tetap',       ['owner','manager','accounting']],
-        'warehouses'     => ['warehouses.php',      'bi-building',              'Gudang',           ['owner','manager','gudang']],
+        'batches'        => ['batches.php',         'bi-layers',                'Batch/FIFO',       ['owner','manager','gudang']],
         'reorder'        => ['reorder.php',         'bi-lightbulb',             'Reorder AI',       ['owner','manager','gudang']],
+        'iot'            => ['iot.php',             'bi-thermometer-half',      'IoT',              ['owner','manager','gudang']],
+        'logistik'       => ['dropdown',            'bi-truck',                 'Logistik',         ['owner','manager','gudang']],
+        'fleet'          => ['fleet.php',           'bi-car-front',             'Kendaraan',        ['owner','manager','gudang']],
+        'routes'         => ['routes.php',          'bi-map',                   'Rute',             ['owner','manager','gudang']],
+        'keuangan'       => ['dropdown',            'bi-cash-coin',             'Keuangan',         ['owner','manager','accounting']],
+        'accounting'     => ['accounting.php',      'bi-journal-text',          'Akuntansi',        ['owner','manager','accounting']],
+        'cashbook'       => ['cashbook.php',        'bi-wallet2',                'Kas Buku',         ['owner','manager','accounting']],
+        'cash_flow'      => ['cash_flow.php',       'bi-graph-up-arrow',         'Arus Kas',         ['owner','manager','accounting']],
+        'fixed-assets'   => ['fixed_assets.php',    'bi-building-gear',         'Aset Tetap',       ['owner','manager','accounting']],
+        'e-faktur'       => ['e_faktur.php',        'bi-file-earmark-spreadsheet','e-Faktur',       ['owner','manager','accounting']],
+        'closing'        => ['closing.php',         'bi-lock',                  'Tutup Buku',       ['owner','manager','accounting']],
+        'reports'        => ['reports.php',         'bi-graph-up',              'Laporan',          ['owner','manager','accounting','supervisor']],
+        'ai_marketplace' => ['dropdown',            'bi-stars',                 'AI & Marketplace', ['owner','manager']],
         'ai-insights'    => ['ai_insights.php',     'bi-cpu',                   'AI Insights',      ['owner','manager']],
         'marketplace'    => ['marketplace.php',     'bi-shop',                  'Marketplace',      ['owner','manager']],
-        'fleet'          => ['fleet.php',           'bi-truck',                 'Kendaraan',        ['owner','manager','gudang']],
-        'routes'         => ['routes.php',          'bi-map',                   'Rute',             ['owner','manager','gudang']],
-        'whatsapp'       => ['whatsapp.php',        'bi-whatsapp',              'WhatsApp',         ['owner','manager','kasir']],
-        'e-faktur'       => ['e_faktur.php',        'bi-file-earmark-spreadsheet','e-Faktur',       ['owner','manager','accounting']],
-        'iot'            => ['iot.php',             'bi-thermometer-half',      'IoT',              ['owner','manager','gudang']],
         'landed_cost'    => ['landed_cost.php',     'bi-box-seam',              'Landed Cost',      ['owner','manager','gudang']],
-        'batches'        => ['batches.php',         'bi-layers',                'Batch/FIFO',       ['owner','manager','gudang']],
-        'cash_flow'      => ['cash_flow.php',       'bi-cash-coin',             'Arus Kas',         ['owner','manager','accounting']],
-        'closing'        => ['closing.php',         'bi-lock',                  'Tutup Buku',       ['owner','manager','accounting']],
-        'salesman_app'   => ['salesman_app.php',    'bi-phone',                 'Salesman',         ['owner','manager','kasir']],
-        'users'          => ['users.php',           'bi-person-gear',           'Pengguna',         ['owner','manager']],
-        'settings'       => ['settings.php',        'bi-gear',                  'Pengaturan',       ['owner','manager']],
+        'pricing'        => ['pricing.php',         'bi-tag',                   'Harga',            ['owner','manager']],
+        'pengaturan'     => ['dropdown',            'bi-gear',                  'Pengaturan',       ['owner','manager']],
+        'settings'       => ['settings.php',        'bi-sliders',               'Konfigurasi',      ['owner','manager']],
         'saas'           => ['saas.php',            'bi-cloud',                 'SaaS',             ['owner']],
+        'register'       => ['register.php',       'bi-person-plus',            'Daftar Tenant',    ['super_admin']],
+        'returns'        => ['returns.php',         'bi-arrow-left-right',      'Retur',            ['owner','manager','kasir','gudang']],
     ];
 
     $links = [];
@@ -139,11 +149,38 @@ function renderNav($active = '') {
     $roleLabels = [
         'owner'=>'Owner','manager'=>'Manager','kasir'=>'Kasir',
         'gudang'=>'Gudang','accounting'=>'Akuntansi','supervisor'=>'Supervisor',
+        'super_admin'=>'Super Admin',
     ];
     $roleLabel = $roleLabels[$role] ?? ucfirst($role);
 
-    $navHtml = '<nav class="navbar navbar-expand-xl navbar-dark sticky-top app-navbar">
-        <div class="container-fluid px-lg-3">
+    // Define dropdown groups
+    $dropdownGroups = [
+        'platform' => ['tenants', 'users', 'register'],
+        'master' => ['products', 'customers', 'suppliers', 'warehouses'],
+        'penjualan' => ['sales', 'sales-orders', 'quotations', 'deliveries', 'returns', 'whatsapp', 'salesman'],
+        'inventory' => ['stock', 'stock-opname', 'stock-transfers', 'batches', 'reorder', 'iot'],
+        'logistik' => ['fleet', 'routes'],
+        'keuangan' => ['accounting', 'cashbook', 'cash_flow', 'fixed-assets', 'e-faktur', 'closing', 'reports'],
+        'ai_marketplace' => ['ai-insights', 'marketplace', 'landed_cost', 'pricing'],
+        'pengaturan' => ['users', 'settings', 'saas'],
+    ];
+
+    // Role-specific standalone items (items that should be standalone for specific roles even if normally in dropdown)
+    $roleSpecificStandalone = [
+        'kasir' => ['customers', 'purchase-orders', 'returns', 'whatsapp', 'salesman'],
+        'accounting' => ['customers', 'reports'],
+        'supervisor' => ['reports'],
+        'gudang' => ['returns'],
+    ];
+
+    // Get all child keys from dropdown groups
+    $allChildKeys = [];
+    foreach ($dropdownGroups as $group) {
+        $allChildKeys = array_merge($allChildKeys, $group);
+    }
+
+    $navHtml = '<nav class="navbar navbar-expand-lg navbar-dark sticky-top app-navbar">
+        <div class="container-fluid">
             <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="index.php">
                 <i class="bi bi-box-seam-fill fs-4"></i>
                 <span class="d-none d-sm-inline">Panglong ERP</span>
@@ -152,12 +189,40 @@ function renderNav($active = '') {
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navMain">
-                <ul class="navbar-nav me-auto nav-scroll">';
+                <ul class="navbar-nav me-auto">';
 
     foreach ($links as $key => $link) {
-        $activeClass = $active === $key ? 'active' : '';
-        $tip = $link[2];
-        $navHtml .= "<li class=\"nav-item\"><a class=\"nav-link {$activeClass}\" href=\"{$link[0]}\" title=\"{$tip}\"><i class=\"bi {$link[1]}\"></i><span class=\"nav-label d-xl-inline\"> {$link[2]}</span></a></li>";
+        // Check if this is a dropdown parent
+        if ($link[0] === 'dropdown' && isset($dropdownGroups[$key])) {
+            $hasActive = false;
+            $dropdownItems = '';
+            foreach ($dropdownGroups[$key] as $subKey) {
+                if (isset($links[$subKey])) {
+                    // Check if this child should be standalone for current role
+                    $isRoleSpecificStandalone = isset($roleSpecificStandalone[$role]) && in_array($subKey, $roleSpecificStandalone[$role]);
+                    
+                    if (!$isRoleSpecificStandalone) {
+                        $subActive = $active === $subKey ? 'active' : '';
+                        if ($subActive) $hasActive = true;
+                        $dropdownItems .= "<li><a class=\"dropdown-item {$subActive}\" href=\"{$links[$subKey][0]}\"><i class=\"bi {$links[$subKey][1]} me-2\"></i>{$links[$subKey][2]}</a></li>";
+                    }
+                }
+            }
+            if ($dropdownItems) {
+                $dropdownClass = $hasActive ? 'active' : '';
+                $navHtml .= "<li class=\"nav-item dropdown\">
+                    <a class=\"nav-link dropdown-toggle {$dropdownClass}\" href=\"#\" role=\"button\" data-bs-toggle=\"dropdown\" aria-expanded=\"false\">
+                        <i class=\"bi {$link[1]}\"></i><span class=\"nav-label d-xl-inline\"> {$link[2]}</span>
+                    </a>
+                    <ul class=\"dropdown-menu\">{$dropdownItems}</ul>
+                </li>";
+            }
+        } elseif (!in_array($key, $allChildKeys) || (isset($roleSpecificStandalone[$role]) && in_array($key, $roleSpecificStandalone[$role]))) {
+            // Regular menu item (not part of any dropdown as child, OR role-specific standalone)
+            $activeClass = $active === $key ? 'active' : '';
+            $tip = $link[2];
+            $navHtml .= "<li class=\"nav-item\"><a class=\"nav-link {$activeClass}\" href=\"{$link[0]}\" title=\"{$tip}\"><i class=\"bi {$link[1]}\"></i><span class=\"nav-label d-lg-inline\"> {$link[2]}</span></a></li>";
+        }
     }
 
     $navHtml .= '</ul>
@@ -195,30 +260,80 @@ function renderHead($title) {
 <html lang="id" data-bs-theme="' . $themeAttr . '">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>' . htmlspecialchars($title) . ' - Panglong ERP</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>const API_URL="ajax.php";const API_TOKEN="";</script>
+    <script>
+    // Screen detection and dynamic layout adjustment
+    function adjustLayout() {
+        var width = window.innerWidth;
+        var body = document.body;
+        
+        // Remove all view classes
+        body.classList.remove("mobile-view", "tablet-view", "desktop-view");
+        
+        // Add appropriate view class
+        if (width < 768) {
+            body.classList.add("mobile-view");
+        } else if (width < 1200) {
+            body.classList.add("tablet-view");
+        } else {
+            body.classList.add("desktop-view");
+        }
+        
+        // Adjust navbar labels based on screen size
+        adjustNavbarLabels();
+    }
+    
+    function adjustNavbarLabels() {
+        var width = window.innerWidth;
+        var navLabels = document.querySelectorAll(".nav-label");
+        
+        navLabels.forEach(function(label) {
+            if (width < 1200) {
+                label.classList.add("d-none");
+            } else {
+                label.classList.remove("d-none");
+            }
+        });
+    }
+    
+    // Listen for resize
+    window.addEventListener("resize", adjustLayout);
+    window.addEventListener("DOMContentLoaded", adjustLayout);
+    </script>
     <style>
       .tooltip-inner{max-width:300px}
       .app-navbar{background:linear-gradient(135deg,#1a4d8f 0%,#0d6efd 100%);box-shadow:0 2px 8px rgba(0,0,0,.15)}
-      .nav-scroll{overflow-x:auto;scrollbar-width:thin;max-width:100%}
-      .nav-scroll::-webkit-scrollbar{height:4px}
-      .nav-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.3);border-radius:2px}
       .nav-btn-icon{width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center}
+      .dropdown-menu{max-height:400px;overflow-y:auto}
+      .dropdown-item{padding:0.5rem 1rem}
+      .dropdown-item.active{background:rgba(13,110,253,.9)}
       .card{border:none;border-radius:.5rem;box-shadow:0 1px 3px rgba(0,0,0,.08)}
       .card-header{border-radius:.5rem .5rem 0 0!important;font-weight:600}
       .table > :not(caption) > * > *{padding:.6rem .5rem}
+      .table-responsive{margin-bottom:1rem}
       .btn{border-radius:.375rem;font-weight:500}
-      .container{max-width:1400px}
-      @media(min-width:1600px){.container{max-width:1560px}}
-      @media(min-width:1900px){.container{max-width:1800px}}
-      @media(max-width:575.98px){.nav-label{display:inline!important}}
-      @media(min-width:1200px){.nav-label{display:inline!important}}
-      body{font-size:.9rem}
-      @media(min-width:768px){body{font-size:.875rem}}
+      body{font-size:0.925rem;line-height:1.6;overflow-x:hidden}
+      h1{font-size:1.75rem;font-weight:700;margin-bottom:0.5rem}
+      h2{font-size:1.5rem;font-weight:600;margin-bottom:0.5rem}
+      h3{font-size:1.25rem;font-weight:600;margin-bottom:0.5rem}
+      h4{font-size:1.1rem;font-weight:600;margin-bottom:0.5rem}
+      h5{font-size:1rem;font-weight:600;margin-bottom:0.5rem}
+      h6{font-size:0.925rem;font-weight:600;margin-bottom:0.5rem}
+      @media(min-width:768px){
+        body{font-size:0.95rem}
+        h1{font-size:2rem}
+        h2{font-size:1.75rem}
+        h3{font-size:1.5rem}
+      }
+      .nav-label{display:none}
+      @media(min-width:1200px){
+        .nav-label{display:inline}
+      }
       [data-bs-theme="dark"]{--bs-body-bg:#1a1d24;--bs-body-color:#d8dde6}
       [data-bs-theme="dark"] .card{background:#232730;box-shadow:0 1px 3px rgba(0,0,0,.3)}
       [data-bs-theme="dark"] .card-header{background:#2a2f3a;border-bottom:1px solid #3a3f4a}

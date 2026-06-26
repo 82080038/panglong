@@ -66,7 +66,7 @@ renderNav('reorder');
     </div>
 
     <div class="card"><div class="card-body">
-        <table class="table table-striped" id="reorderTable">
+        <div class="table-responsive"><table class="table table-striped" id="reorderTable">
             <thead><tr><th>Priority</th><th>Kode</th><th>Product</th><th>Stok Saat Ini</th><th>Avg Daily Usage</th><th>Hari Persediaan</th><th>Suggested Order Qty</th><th>Reason</th></tr></thead>
             <tbody>
             <?php if (count($suggestions) > 0): ?>
@@ -86,7 +86,7 @@ renderNav('reorder');
                 <tr><td colspan="8" class="text-center text-muted">All products are well-stocked. No reorder needed.</td></tr>
             <?php endif; ?>
             </tbody>
-        </table>
+        </table></div>
     </div></div>
 </div>
 <?php renderFoot(); ?>

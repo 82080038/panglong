@@ -23,16 +23,16 @@ $pays = $d->prepare("SELECT * FROM sale_payments WHERE sale_id = ?");
 $pays->execute([$id]);
 $sale['payments'] = $pays->fetchAll();
 ?>
-<table class="table table-sm">
+<div class="table-responsive"><table class="table table-sm">
     <tr><td>Invoice</td><td><?php echo htmlspecialchars($sale['invoice_no'] ?? $id); ?></td></tr>
     <tr><td>Date</td><td><?php echo htmlspecialchars($sale['sale_date'] ?? ''); ?></td></tr>
     <tr><td>Customer</td><td><?php echo htmlspecialchars($sale['customer']['name'] ?? 'Walk-in'); ?></td></tr>
     <tr><td>Payment Method</td><td><?php echo htmlspecialchars($sale['payment_method'] ?? ''); ?></td></tr>
     <tr><td>Payment Status</td><td><span class="badge bg-<?php echo ($sale['payment_status'] ?? '') === 'paid' ? 'success' : 'warning'; ?>"><?php echo htmlspecialchars($sale['payment_status'] ?? 'unpaid'); ?></span></td></tr>
     <tr><td>Status</td><td><span class="badge bg-<?php echo ($sale['status'] ?? '') === 'completed' ? 'success' : 'warning'; ?>"><?php echo htmlspecialchars($sale['status'] ?? 'completed'); ?></span></td></tr>
-</table>
+</table></div>
 <h6>Items</h6>
-<table class="table table-sm table-bordered">
+<div class="table-responsive"><table class="table table-sm table-bordered">
     <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Discount</th><th>Subtotal</th></tr></thead>
     <tbody>
         <?php if (isset($sale['items'])): ?>
@@ -53,15 +53,15 @@ $sale['payments'] = $pays->fetchAll();
         <tr><td colspan="4" class="text-end">Tax</td><td><?php echo rupiah($sale['tax'] ?? 0) ?></td></tr>
         <tr><td colspan="4" class="text-end fw-bold fs-5">Total</td><td class="fw-bold fs-5"><?php echo rupiah($sale['total'] ?? 0) ?></td></tr>
     </tfoot>
-</table>
+</table></div>
 <?php if (isset($sale['payments']) && count($sale['payments']) > 0): ?>
 <h6>Payments</h6>
-<table class="table table-sm">
+<div class="table-responsive"><table class="table table-sm">
     <thead><tr><th>Date</th><th>Amount</th><th>Method</th></tr></thead>
     <tbody>
         <?php foreach ($sale['payments'] as $pay): ?>
             <tr><td><?php echo htmlspecialchars($pay['payment_date']); ?></td><td><?php echo rupiah($pay['amount']) ?></td></tr>
         <?php endforeach; ?>
     </tbody>
-</table>
+</table></div>
 <?php endif; ?>

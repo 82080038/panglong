@@ -24,7 +24,7 @@ renderNav('landed_cost');
     <div id="tab-pos">
         <div class="card">
             <div class="card-body">
-                <table class="table table-striped table-sm" id="poTable">
+                <div class="table-responsive"><table class="table table-striped table-sm" id="poTable">
                     <thead>
                         <tr>
                             <th>PO Number</th><th>Tanggal</th><th>Supplier</th>
@@ -57,7 +57,7 @@ renderNav('landed_cost');
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
-                </table>
+                </table></div>
             </div>
         </div>
     </div>
@@ -65,7 +65,7 @@ renderNav('landed_cost');
     <div id="tab-history" style="display:none">
         <div class="card">
             <div class="card-body">
-                <table class="table table-striped table-sm" id="distTable">
+                <div class="table-responsive"><table class="table table-striped table-sm" id="distTable">
                     <thead>
                         <tr>
                             <th>PO Number</th><th>Product</th><th>Qty</th>
@@ -90,7 +90,7 @@ renderNav('landed_cost');
                         <tr><td colspan="8" class="text-center text-muted">No distributions yet. Select a PO and click Distribute.</td></tr>
                         <?php endif; ?>
                     </tbody>
-                </table>
+                </table></div>
             </div>
         </div>
     </div>
@@ -125,7 +125,7 @@ function distribute(poId, poNumber) {
         contentType: 'application/json',
         data: JSON.stringify({ po_id: poId }),
         success: function(resp) {
-            let html = '<table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Ongkos Angkut</th><th>Asuransi</th><th>Penanganan</th><th>HPP per Unit</th></tr></thead><tbody>';
+            let html = '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Ongkos Angkut</th><th>Asuransi</th><th>Penanganan</th><th>HPP per Unit</th></tr></thead><tbody>';
             resp.data.distributions.forEach(function(d) {
                 html += '<tr><td>' + d.product_name + '</td><td>' + d.quantity + '</td>';
                 html += '<td>Rp ' + formatNum(d.freight_allocated) + '</td>';
@@ -133,7 +133,7 @@ function distribute(poId, poNumber) {
                 html += '<td>Rp ' + formatNum(d.handling_allocated) + '</td>';
                 html += '<td class="fw-bold text-primary">Rp ' + formatNum(d.landed_unit_cost) + '</td></tr>';
             });
-            html += '</tbody></table>';
+            html += '</tbody></table></div>';
             html += '<div class="alert alert-info">Total Landed Cost: Rp ' + formatNum(resp.data.total_landed_cost) + '</div>';
             $('#resultBody').html(html);
             new bootstrap.Modal($('#resultModal')[0]).show();

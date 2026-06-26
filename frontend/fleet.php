@@ -10,7 +10,7 @@ renderHead('Fleet Management');
 renderNav('fleet');
 ?>
 <div class="container mt-4">
-    <h1>Manajemen Kendaraan/h1>
+    <h1>Manajemen Kendaraan</h1>
     <ul class="nav nav-tabs mb-3">
         <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#vehicles">Vehicles</a></li>
         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#maintenance">Maintenance</a></li>
@@ -19,7 +19,7 @@ renderNav('fleet');
         <div class="tab-pane fade show active" id="vehicles">
             <button class="btn btn-primary btn-sm mb-3" data-bs-toggle="modal" data-bs-target="#vehicleModal"><i class="bi bi-plus"></i> Tambah Kendaraan</button>
             <div class="card"><div class="card-body">
-                <table class="table table-striped">
+                <div class="table-responsive"><table class="table table-striped">
                     <thead><tr><th>Plate No</th><th>Type</th><th>Brand/Model</th><th>Capacity (kg)</th><th>Fuel</th><th>Status</th><th>Aksi</th></tr></thead>
                     <tbody>
                         <?php foreach ($vehicles as $v): ?>
@@ -34,13 +34,13 @@ renderNav('fleet');
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
-                </table>
+                </table></div>
             </div></div>
         </div>
         <div class="tab-pane fade" id="maintenance">
             <button class="btn btn-primary btn-sm mb-3" data-bs-toggle="modal" data-bs-target="#maintModal"><i class="bi bi-plus"></i> Tambah Servis Record</button>
             <div class="card"><div class="card-body">
-                <table class="table table-striped">
+                <div class="table-responsive"><table class="table table-striped">
                     <thead><tr><th>Vehicle</th><th>Tanggal</th><th>Type</th><th>Cost</th><th>Kilometer</th><th>Servis Berikutnya</th><th>Description</th></tr></thead>
                     <tbody>
                         <?php foreach ($maintenance as $m): ?>
@@ -55,7 +55,7 @@ renderNav('fleet');
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
-                </table>
+                </table></div>
             </div></div>
         </div>
     </div>

@@ -2,6 +2,9 @@
 require_once __DIR__ . '/config.php';
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -18,11 +21,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$stockItems = $d->query("SELECT p.id, p.name as product_name, p.code as product_code, p.min_stock, p.max_stock,
+$stockSql = "SELECT p.id, p.name as product_name, p.code as product_code, p.min_stock, p.max_stock,
     COALESCE((SELECT SUM(quantity) FROM stock_movements WHERE product_id=p.id),0) as current_stock,
     pu.unit_name as base_unit
     FROM products p LEFT JOIN product_units pu ON pu.product_id = p.id AND pu.is_base_unit = 1
-    WHERE p.is_active = 1 ORDER BY p.id DESC LIMIT 200")->fetchAll();
+    WHERE p.is_active = 1";
+if (!$isSuperAdmin && $tenantId) {
+    $stockSql .= " AND p.tenant_id = $tenantId";
+}
+$stockSql .= " ORDER BY p.id DESC LIMIT 200";
+$stockItems = $d->query($stockSql)->fetchAll();
+
+$adjustmentTypes = $d->query("SELECT * FROM adjustment_types WHERE is_active = 1 ORDER BY name")->fetchAll();
 
 foreach ($stockItems as &$item) {
     $item['status'] = 'normal';
@@ -30,7 +40,12 @@ foreach ($stockItems as &$item) {
     elseif ((float)$item['current_stock'] >= (float)$item['max_stock'] && (float)$item['max_stock'] > 0) $item['status'] = 'overstock';
 }
 
-$products = $d->query("SELECT id, name, code FROM products WHERE is_active = 1 ORDER BY name LIMIT 200")->fetchAll();
+$productSql = "SELECT id, name, code FROM products WHERE is_active = 1";
+if (!$isSuperAdmin && $tenantId) {
+    $productSql .= " AND tenant_id = $tenantId";
+}
+$productSql .= " ORDER BY name LIMIT 200";
+$products = $d->query($productSql)->fetchAll();
 
 $msg = $_GET['msg'] ?? '';
 $errMsg = $_GET['err'] ?? '';
@@ -40,7 +55,7 @@ $errMsg = $_GET['err'] ?? '';
 
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Inventaris Stok/h1>
+        <h1>Inventaris Stok</h1>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#adjustModal">
             <i class="bi bi-plus"></i> Penyesuaian Stok
         </button>
@@ -54,7 +69,7 @@ $errMsg = $_GET['err'] ?? '';
 
     <div class="card">
         <div class="card-body">
-            <table class="table table-striped">
+            <div class="table-responsive"><table class="table table-striped">
                 <thead><tr><th>Produk</th><th>Kode</th><th>Current Stock</th><th>Unit</th><th>Min</th><th>Max</th><th>Status</th></tr></thead>
                 <tbody>
                     <?php if (is_array($stockItems)): ?>
@@ -81,7 +96,7 @@ $errMsg = $_GET['err'] ?? '';
                         <tr><td colspan="7" class="text-center">No stock data found</td></tr>
                     <?php endif; ?>
                 </tbody>
-            </table>
+            </table></div>
         </div>
     </div>
 </div>
@@ -107,11 +122,12 @@ $errMsg = $_GET['err'] ?? '';
                     <div class="mb-3">
                         <label class="form-label">Jenis Penyesuaian *</label>
                         <select name="adjustment_type" class="form-select" required>
-                            <option value="physical_count">Physical Count</option>
-                            <option value="damage">Damage</option>
-                            <option value="loss">Loss</option>
-                            <option value="theft">Theft</option>
-                            <option value="correction">Correction</option>
+                            <option value="">Pilih Jenis</option>
+                            <?php if (is_array($adjustmentTypes)): ?>
+                                <?php foreach ($adjustmentTypes as $at): ?>
+                                    <option value="<?php echo htmlspecialchars($at['code']); ?>"><?php echo htmlspecialchars($at['name']); ?></option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </select>
                     </div>
                     <div class="mb-3">

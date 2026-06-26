@@ -15,10 +15,7 @@ test.describe('Panglong ERP - Login Flow', () => {
     await expect(page.locator('input[name="username"]')).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
     await expect(page.locator('button[type="submit"]')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Admin' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Manager' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Kasir' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Gudang' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Super Admin (Platform Owner)' })).toBeVisible();
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
   });
@@ -52,7 +49,7 @@ test.describe('Panglong ERP - Login Flow', () => {
 
   test('quick login admin button works', async ({ page }) => {
     await page.goto(`${FRONTEND_BASE}/login.php`);
-    await page.click('button:has-text("Admin")');
+    await page.click('button:has-text("Super Admin")');
     await page.waitForURL('**/index.php', { timeout: 10000 });
     await expect(page).toHaveTitle(/Beranda/);
   });

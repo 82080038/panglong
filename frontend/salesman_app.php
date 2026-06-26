@@ -27,7 +27,7 @@ renderNav('salesman_app');
     <div id="tab-orders">
         <div class="card">
             <div class="card-body">
-                <table class="table table-striped table-sm" id="soTable">
+                <div class="table-responsive"><table class="table table-striped table-sm" id="soTable">
                     <thead>
                         <tr>
                             <th>Nomor SO</th><th>Tanggal</th><th>Customer</th><th>Telepon</th>
@@ -50,7 +50,7 @@ renderNav('salesman_app');
                         <tr><td colspan="7" class="text-center text-muted">Belum ada pesanan.</td></tr>
                         <?php endif; ?>
                     </tbody>
-                </table>
+                </table></div>
             </div>
         </div>
     </div>
@@ -87,7 +87,7 @@ renderNav('salesman_app');
 
                     <hr>
                     <h6>Items</h6>
-                    <table class="table table-sm" id="itemsTable">
+                    <div class="table-responsive"><table class="table table-sm" id="itemsTable">
                         <thead>
                             <tr><th>Product</th><th>Qty</th><th>Harga</th><th>Subtotal</th><th></th></tr>
                         </thead>
@@ -107,17 +107,17 @@ renderNav('salesman_app');
                                 <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-x"></i></button></td>
                             </tr>
                         </tbody>
-                    </table>
+                    </table></div>
                     <button type="button" class="btn btn-sm btn-outline-primary mb-3" onclick="addRow()"><i class="bi bi-plus"></i> Tambah Item</button>
 
                     <div class="row mb-3">
                         <div class="col-md-6 offset-md-6">
-                            <table class="table table-sm">
+                            <div class="table-responsive"><table class="table table-sm">
                                 <tr><td>Subtotal</td><td class="text-end" id="grandSubtotal">Rp 0</td></tr>
                                 <tr><td>Diskon</td><td class="text-end"><input type="number" step="0.01" name="discount" class="form-control form-control-sm d-inline-block" style="width:120px" value="0" onchange="calcTotal()"></td></tr>
                                 <tr><td>PPN (11%)</td><td class="text-end" id="taxAmount">Rp 0</td></tr>
                                 <tr class="table-primary fw-bold"><td>Total</td><td class="text-end" id="grandTotal">Rp 0</td></tr>
-                            </table>
+                            </table></div>
                         </div>
                     </div>
 
@@ -264,11 +264,11 @@ function viewSO(id) {
         html += '<p><strong>Status:</strong> ' + so.status + '</p>';
         html += '<p><strong>Notes:</strong> ' + (so.notes || '-') + '</p>';
         if (so.items) {
-            html += '<table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>';
+            html += '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Product</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>';
             so.items.forEach(function(i) {
                 html += '<tr><td>' + (i.product_name || '') + '</td><td>' + i.quantity + '</td><td>Rp ' + (i.unit_price || 0).toLocaleString('id-ID') + '</td><td>Rp ' + (i.subtotal || 0).toLocaleString('id-ID') + '</td></tr>';
             });
-            html += '</tbody></table>';
+            html += '</tbody></table></div>';
             html += '<p class="fw-bold">Total: Rp ' + (so.total || 0).toLocaleString('id-ID') + '</p>';
         }
         $('#soDetailBody').html(html);

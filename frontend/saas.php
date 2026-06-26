@@ -106,7 +106,7 @@ renderNav('saas');
         </div>
 
     <?php elseif ($tab === 'tenants'): ?>
-        <table class="table table-striped">
+        <div class="table-responsive"><table class="table table-striped">
             <thead><tr><th>Kode</th><th>Nama</th><th>Subdomain</th><th>Status</th><th>Trial Ends</th><th>Subscription Ends</th><th>Aksi</th></tr></thead>
             <tbody>
             <?php foreach ($tenants as $t): ?>
@@ -135,7 +135,7 @@ renderNav('saas');
             <?php endforeach; ?>
             <?php if (empty($tenants)): ?><tr><td colspan="7" class="text-center text-muted">No tenants</td></tr><?php endif; ?>
             </tbody>
-        </table>
+        </table></div>
     <?php endif; ?>
 </div>
 

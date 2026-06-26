@@ -45,13 +45,27 @@ renderNav('customers');
             <div class="card bg-light">
                 <div class="card-body text-center">
                     <h6>Piutang Outstanding</h6>
-                    <h3 class="text-danger">Rp <?= number_format(array_sum(array_map(fn($s) => $s['payment_status'] !== 'paid' ? $s['total'] : 0, $sales)), 0) ?></h3>
+                    <?php
+                    $outstanding = 0;
+                    foreach ($sales as $s) {
+                        if ($s['payment_status'] !== 'paid') {
+                            $outstanding += $s['total'];
+                        }
+                    }
+                    ?>
+                    <h3 class="text-danger">Rp <?= number_format($outstanding, 0) ?></h3>
                     <hr>
                     <h6>Total Penjualan</h6>
                     <h4><?= count($sales) ?></h4>
                     <hr>
                     <h6>Total Omzet</h6>
-                    <h4>Rp <?= number_format(array_sum(array_map(fn($s) => $s['total'], $sales)), 0) ?></h4>
+                    <?php
+                    $totalOmzet = 0;
+                    foreach ($sales as $s) {
+                        $totalOmzet += $s['total'];
+                    }
+                    ?>
+                    <h4>Rp <?= number_format($totalOmzet, 0) ?></h4>
                 </div>
             </div>
         </div>
@@ -60,7 +74,7 @@ renderNav('customers');
     <div class="card">
         <div class="card-header"><h5>Purchase History</h5></div>
         <div class="card-body">
-            <table class="table table-striped">
+            <div class="table-responsive"><table class="table table-striped">
                 <thead><tr><th>Invoice</th><th>Tanggal</th><th>Total</th><th>Payment</th><th>Status</th><th>Aksi</th></tr></thead>
                 <tbody>
                     <?php if (count($sales) > 0): ?>
@@ -78,7 +92,7 @@ renderNav('customers');
                         <tr><td colspan="6" class="text-center text-muted">No sales found</td></tr>
                     <?php endif; ?>
                 </tbody>
-            </table>
+            </table></div>
         </div>
     </div>
 </div>

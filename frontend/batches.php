@@ -45,7 +45,7 @@ renderNav('batches');
     <div id="tab-batches">
         <div class="card">
             <div class="card-body">
-                <table class="table table-striped table-sm" id="batchTable">
+                <div class="table-responsive"><table class="table table-striped table-sm" id="batchTable">
                     <thead>
                         <tr>
                             <th>Nomor Batch</th><th>Product</th><th>Nomor Lot</th><th>Tgl Terima</th><th>Kedaluwarsa</th>
@@ -80,7 +80,7 @@ renderNav('batches');
                         <tr><td colspan="12" class="text-center text-muted">Belum ada batch. Tambah batch untuk mulai melacak.</td></tr>
                         <?php endif; ?>
                     </tbody>
-                </table>
+                </table></div>
             </div>
         </div>
     </div>
@@ -92,7 +92,7 @@ renderNav('batches');
                 <button class="btn btn-sm btn-outline-primary float-end" onclick="exportCSV()"><i class="bi bi-download"></i> CSV</button>
             </div>
             <div class="card-body">
-                <table class="table table-striped table-sm" id="valTable">
+                <div class="table-responsive"><table class="table table-striped table-sm" id="valTable">
                     <thead>
                         <tr>
                             <th>Kode</th><th>Product</th><th>Total Qty</th><th>Harga Rata-rata</th><th>Total Nilai</th>
@@ -120,7 +120,7 @@ renderNav('batches');
                         </tr>
                     </tfoot>
                     <?php endif; ?>
-                </table>
+                </table></div>
             </div>
         </div>
     </div>

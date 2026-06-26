@@ -1,40 +1,266 @@
 <?php
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/auth.php';
 
-$role = userRole();
-if ($role !== 'owner' && $role !== 'manager') {
-    echo '<div class="alert alert-danger m-4">Access denied. Owner/Manager only.</div>';
+// Cek apakah user adalah Tenant Owner atau Super Admin
+if ($_SESSION['user']['role_slug'] !== 'owner' && $_SESSION['user']['role_slug'] !== 'super_admin') {
+    header('Location: index.php');
     exit;
 }
 
-$d = db();
-$roles = $d->query("SELECT * FROM roles ORDER BY id")->fetchAll();
-$users = $d->query("SELECT u.id, u.username, u.full_name, u.email, u.phone, u.is_active, r.name as role_name, r.slug as role_slug FROM users u LEFT JOIN roles r ON u.role_id = r.id ORDER BY u.id")->fetchAll();
-?>
-<?php renderHead('User Management - Panglong ERP'); ?>
-<?php renderNav('users'); ?>
+$db = new PDO('sqlite:' . __DIR__ . '/../database/database.sqlite');
+$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-<div class="container mt-4">
-    <h1>Manajemen Pengguna</h1>
-    <p class="text-muted">Current user: <?php echo htmlspecialchars(userFullName()); ?> (<?php echo ucfirst($role); ?>)</p>
+$tenant_id = $_SESSION['user']['tenant_id'];
+
+// Super Admin bisa akses semua tenant, Owner hanya tenant sendiri
+if ($_SESSION['user']['role_slug'] === 'super_admin') {
+    $tenant_id = $_GET['tenant_id'] ?? null;
+}
+
+// Handle actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
     
-    <div class="card mt-3"><div class="card-body">
-        <h5>Peran Sistem</h5>
-        <table class="table table-sm">
-            <thead><tr><th>Peran</th><th>Slug</th><th>Deskripsi</th></tr></thead>
-            <tbody>
-                <?php if (is_array($roles)): ?>
-                    <?php foreach ($roles as $r): ?>
-                        <tr><td><?php echo htmlspecialchars($r['name']); ?></td><td><code><?php echo htmlspecialchars($r['slug']); ?></code></td><td><?php echo htmlspecialchars($r['description'] ?? ''); ?></td></tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div></div>
+    if ($action === 'add_user') {
+        $username = $_POST['username'] ?? '';
+        $password = $_POST['password'] ?? '';
+        $full_name = $_POST['full_name'] ?? '';
+        $email = $_POST['email'] ?? '';
+        $phone = $_POST['phone'] ?? '';
+        $role_id = $_POST['role_id'] ?? 0;
+        
+        // Validasi
+        if (empty($username) || empty($password) || empty($full_name) || empty($role_id)) {
+            $error = 'Data wajib diisi lengkap';
+        } else {
+            // Cek username availability
+            $stmt = $db->prepare("SELECT id FROM users WHERE username = ?");
+            $stmt->execute([$username]);
+            if ($stmt->fetch()) {
+                $error = 'Username sudah digunakan';
+            } else {
+                $password_hash = password_hash($password, PASSWORD_DEFAULT);
+                $now = date('Y-m-d H:i:s');
+                
+                $stmt = $db->prepare("
+                    INSERT INTO users (tenant_id, username, password, full_name, email, phone, role_id, is_active, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([$tenant_id, $username, $password_hash, $full_name, $email, $phone, $role_id, 1, $now, $now]);
+                
+                $success = 'User berhasil ditambahkan';
+            }
+        }
+    } elseif ($action === 'delete_user') {
+        $user_id = $_POST['user_id'] ?? 0;
+        
+        // Jangan hapus diri sendiri
+        if ($user_id == $_SESSION['user']['id']) {
+            $error = 'Tidak bisa menghapus akun sendiri';
+        } else {
+            $stmt = $db->prepare("DELETE FROM users WHERE id = ? AND tenant_id = ?");
+            $stmt->execute([$user_id, $tenant_id]);
+            $success = 'User berhasil dihapus';
+        }
+    } elseif ($action === 'toggle_status') {
+        $user_id = $_POST['user_id'] ?? 0;
+        
+        // Jangan nonaktifkan diri sendiri
+        if ($user_id == $_SESSION['user']['id']) {
+            $error = 'Tidak bisa menonaktifkan akun sendiri';
+        } else {
+            $stmt = $db->prepare("UPDATE users SET is_active = NOT is_active WHERE id = ? AND tenant_id = ?");
+            $stmt->execute([$user_id, $tenant_id]);
+            $success = 'Status user berhasil diubah';
+        }
+    }
     
-    <div class="alert alert-info mt-3">
-        <i class="bi bi-info-circle"></i> Full user CRUD requires a User Management API controller. 
-        Currently, users are managed via database seeders. A dedicated UsersController can be added in Sprint 4.
+    header('Location: users.php' . ($tenant_id ? "?tenant_id={$tenant_id}" : ''));
+    exit;
+}
+
+// Get users
+$users = $db->prepare("
+    SELECT u.*, r.name as role_name, r.slug as role_slug
+    FROM users u
+    LEFT JOIN roles r ON u.role_id = r.id
+    WHERE u.tenant_id = ?
+    ORDER BY u.created_at DESC
+");
+$users->execute([$tenant_id]);
+$users = $users->fetchAll(PDO::FETCH_ASSOC);
+
+// Get roles
+$roles = $db->query("SELECT * FROM roles WHERE slug != 'super_admin' ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+?>
+<?php
+$theme = $_SESSION['theme'] ?? 'light';
+?>
+<!DOCTYPE html>
+<html lang="id" data-bs-theme="<?= htmlspecialchars($theme) ?>">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Kelola User - Panglong ERP</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+      body{background:#f8f9fa}
+      [data-bs-theme="dark"] body{background:#0d1117}
+      [data-bs-theme="eyecare"] body{background:#faf3e3}
+    </style>
+</head>
+<body>
+    <?php include __DIR__ . '/navbar.php'; ?>
+    
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-people"></i> Kelola User</h2>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                <i class="bi bi-plus"></i> Tambah User
+            </button>
+        </div>
+        
+        <?php if (isset($error)): ?>
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-circle"></i> <?= htmlspecialchars($error) ?>
+            </div>
+        <?php endif; ?>
+        
+        <?php if (isset($success)): ?>
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle"></i> <?= htmlspecialchars($success) ?>
+            </div>
+        <?php endif; ?>
+        
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Nama Lengkap</th>
+                                <th>Email</th>
+                                <th>No. HP</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Dibuat</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($users as $user): ?>
+                            <tr>
+                                <td><strong><?= htmlspecialchars($user['username']) ?></strong></td>
+                                <td><?= htmlspecialchars($user['full_name']) ?></td>
+                                <td><?= htmlspecialchars($user['email'] ?? '-') ?></td>
+                                <td><?= htmlspecialchars($user['phone'] ?? '-') ?></td>
+                                <td>
+                                    <span class="badge bg-secondary"><?= htmlspecialchars($user['role_name']) ?></span>
+                                </td>
+                                <td>
+                                    <?php if ($user['is_active']): ?>
+                                        <span class="badge bg-success">Active</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-danger">Inactive</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?= date('d/m/Y', strtotime($user['created_at'])) ?></td>
+                                <td>
+                                    <?php if ($user['id'] != $_SESSION['user']['id']): ?>
+                                        <form method="POST" class="d-inline">
+                                            <input type="hidden" name="action" value="toggle_status">
+                                            <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
+                                            <button type="submit" class="btn btn-sm btn-<?= $user['is_active'] ? 'warning' : 'success' ?>" title="<?= $user['is_active'] ? 'Nonaktifkan' : 'Aktifkan' ?>">
+                                                <i class="bi bi-<?= $user['is_active'] ? 'pause' : 'play' ?>"></i>
+                                            </button>
+                                        </form>
+                                        <form method="POST" class="d-inline" onsubmit="return confirm('Hapus user ini?')">
+                                            <input type="hidden" name="action" value="delete_user">
+                                            <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
+                                            <button type="submit" class="btn btn-sm btn-danger" title="Hapus">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    <?php else: ?>
+                                        <span class="text-muted small">(Anda)</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                            
+                            <?php if (empty($users)): ?>
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox"></i> Belum ada user
+                                </td>
+                            </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
-<?php renderFoot(); ?>
+    
+    <!-- Add User Modal -->
+    <div class="modal fade" id="addUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Tambah User Baru</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="add_user">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Username *</label>
+                            <input type="text" name="username" class="form-control" required pattern="[a-zA-Z0-9_]+">
+                            <small class="text-muted">Hanya huruf, angka, dan underscore (_)</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Password *</label>
+                            <input type="password" name="password" class="form-control" required minlength="8">
+                            <small class="text-muted">Minimal 8 karakter</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Nama Lengkap *</label>
+                            <input type="text" name="full_name" class="form-control" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" name="email" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">No. HP</label>
+                            <input type="text" name="phone" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Role *</label>
+                            <select name="role_id" class="form-select" required>
+                                <?php foreach ($roles as $role): ?>
+                                    <option value="<?= $role['id'] ?>"><?= htmlspecialchars($role['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary">Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

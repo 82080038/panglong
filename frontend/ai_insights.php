@@ -77,7 +77,7 @@ renderNav('ai_insights');
             <i class="bi bi-lightbulb"></i> AI memprediksi permintaan 30 hari ke depan berdasarkan riwayat penjualan 90 hari terakhir menggunakan <strong>moving average + trend analysis</strong>.
         </div>
         <div class="card"><div class="card-body">
-        <table class="table table-striped" id="forecastTable">
+        <div class="table-responsive"><table class="table table-striped" id="forecastTable">
             <thead><tr><th>Product</th><th>Predicted Demand (30d)</th><th>Confidence</th><th>Confidence Score</th><th>Method</th></tr></thead>
             <tbody>
             <?php if (!empty($forecasts)): foreach ($forecasts as $f): ?>
@@ -96,7 +96,7 @@ renderNav('ai_insights');
             <tr><td colspan="5" class="text-center text-muted">Belum ada data prakiraan. Jalankan generate terlebih dahulu.</td></tr>
             <?php endif; ?>
             </tbody>
-        </table>
+        </table></div>
         </div></div>
 
     <?php elseif ($tab === 'pricing'): ?>
@@ -104,7 +104,7 @@ renderNav('ai_insights');
             <i class="bi bi-currency-dollar"></i> AI menganalisis margin, sales velocity, dan stock level untuk merekomendasikan harga optimal.
         </div>
         <div class="card"><div class="card-body">
-        <table class="table table-striped" id="pricingTable">
+        <div class="table-responsive"><table class="table table-striped" id="pricingTable">
             <thead><tr><th>Product</th><th>Current Price</th><th>Suggested Price</th><th>Current Margin</th><th>Suggested Margin</th><th>Est. Revenue Change</th><th>Reasoning</th></tr></thead>
             <tbody>
             <?php if (!empty($optimizations)): foreach ($optimizations as $o): ?>
@@ -121,7 +121,7 @@ renderNav('ai_insights');
             <tr><td colspan="7" class="text-center text-muted">No price optimization suggestions. All prices are optimal.</td></tr>
             <?php endif; ?>
             </tbody>
-        </table>
+        </table></div>
         </div></div>
     <?php endif; ?>
 </div>

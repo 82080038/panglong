@@ -2,12 +2,36 @@
 require_once 'config.php';
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$customers = $d->query("SELECT id, name, group_id FROM customers ORDER BY name LIMIT 200")->fetchAll();
+$customerSql = "SELECT id, name, group_id FROM customers";
+if (!$isSuperAdmin && $tenantId) {
+    $customerSql .= " WHERE tenant_id = $tenantId";
+}
+$customerSql .= " ORDER BY name LIMIT 200";
+$customers = $d->query($customerSql)->fetchAll();
 
-$products = $d->query("SELECT id, code, name, sell_price FROM products WHERE is_active = 1 ORDER BY name LIMIT 200")->fetchAll();
+$productSql = "SELECT id, code, name, sell_price FROM products WHERE is_active = 1";
+if (!$isSuperAdmin && $tenantId) {
+    $productSql .= " AND tenant_id = $tenantId";
+}
+$productSql .= " ORDER BY name LIMIT 200";
+$products = $d->query($productSql)->fetchAll();
 
-$sales = $d->query("SELECT s.*, c.name as customer_name FROM sales s LEFT JOIN customers c ON s.customer_id = c.id ORDER BY s.id DESC LIMIT 20")->fetchAll();
+// Fetch payment methods for dropdown
+$paymentMethods = $d->query("SELECT code, name FROM payment_methods WHERE is_active = 1 ORDER BY name")->fetchAll();
+
+// Fetch sales status codes for dropdown
+$salesStatuses = $d->query("SELECT code, name FROM status_codes WHERE module = 'sales' AND is_active = 1 ORDER BY name")->fetchAll();
+
+$salesSql = "SELECT s.*, c.name as customer_name FROM sales s LEFT JOIN customers c ON s.customer_id = c.id";
+if (!$isSuperAdmin && $tenantId) {
+    $salesSql .= " WHERE s.tenant_id = $tenantId";
+}
+$salesSql .= " ORDER BY s.id DESC LIMIT 20";
+$sales = $d->query($salesSql)->fetchAll();
 foreach ($sales as &$s) {
     $s['customer'] = ['name' => $s['customer_name'] ?? 'Pelanggan Umum'];
     $s['customer_name_snapshot'] = $s['customer_name'] ?? 'Pelanggan Umum';
@@ -35,7 +59,7 @@ renderNav('sales');
 
     <div class="card">
         <div class="card-body">
-            <table class="table table-striped">
+            <div class="table-responsive"><table class="table table-striped">
                 <thead>
                     <tr><th>Invoice</th><th>Tanggal</th><th>Pelanggan</th><th>Total</th><th>Payment</th><th>Status</th><th>Aksi</th></tr>
                 </thead>
@@ -47,7 +71,13 @@ renderNav('sales');
                         <td><?= htmlspecialchars($sale['customer_name_snapshot'] ?? ($sale['customer']['name'] ?? 'Pelanggan Umum')) ?></td>
                         <td><?= rupiah($sale['total']) ?></td>
                         <td><span class="badge bg-<?= $sale['payment_status']==='paid'?'success':($sale['payment_status']==='partial'?'warning':'danger') ?>"><?= ucfirst($sale['payment_status']) ?></span></td>
-                        <td><span class="badge bg-<?= $sale['status']==='completed'?'success':($sale['status']==='voided'?'danger':'secondary') ?>"><?= ucfirst($sale['status']) ?></span></td>
+                        <td>
+                            <select class="form-select form-select-sm d-inline-block" style="width:auto" onchange="updateSaleStatus(<?= $sale['id'] ?>, this.value)">
+                                <?php foreach ($salesStatuses as $ss): ?>
+                                    <option value="<?= htmlspecialchars($ss['code']) ?>" <?= $sale['status'] === $ss['code'] ? 'selected' : '' ?>><?= htmlspecialchars($ss['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
                         <td>
                             <button class="btn btn-sm btn-info" onclick="viewSale(<?= $sale['id'] ?>)"><i class="bi bi-eye"></i></button>
                             <?php if ($sale['status'] !== 'voided'): ?>
@@ -60,7 +90,7 @@ renderNav('sales');
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
-            </table>
+            </table></div>
             <div id="salesPagination" class="d-flex justify-content-between align-items-center mt-3">
                 <span id="salesPageInfo" class="text-muted"></span>
                 <div>
@@ -86,7 +116,7 @@ renderNav('sales');
                         <div class="col-md-8">
                             <label class="form-label"><i class="bi bi-upc-scan"></i> Barcode Scanner</label>
                             <div class="input-group">
-                                <input type="text" class="form-control" id="barcodeInput" placeholder="Scan or type barcode..." autocomplete="off">
+                                <input type="text" class="form-control" id="barcodeInput" placeholder="Scan or type barcode..." autocomplete="off" onkeydown="handleEnter(event, 'customerSelect')">
                                 <button type="button" class="btn btn-outline-primary" onclick="lookupBarcode()"><i class="bi bi-search"></i></button>
                             </div>
                         </div>
@@ -94,63 +124,71 @@ renderNav('sales');
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <label class="form-label">Pelanggan (optional)</label>
-                            <select class="form-select" id="customerSelect" onchange="onPelangganChange()">
-                                <option value="">Pelanggan Umum Pelanggan</option>
-                                <?php foreach ($customers as $c): ?>
-                                <option value="<?= $c['id'] ?>" data-group="<?= $c['group_id'] ?? '' ?>"><?= htmlspecialchars($c['name']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                            <div class="input-group">
+                                <select class="form-select" id="customerSelect" onchange="onPelangganChange()" onkeydown="handleEnter(event, 'saleDate')">
+                                    <option value="">Pelanggan Umum Pelanggan</option>
+                                    <?php foreach ($customers as $c): ?>
+                                    <option value="<?= $c['id'] ?>" data-group="<?= $c['group_id'] ?? '' ?>"><?= htmlspecialchars($c['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <button type="button" class="btn btn-outline-primary" onclick="openQuickAddCustomerModal()"><i class="bi bi-plus"></i></button>
+                            </div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Tanggal Jual</label>
-                            <input type="date" class="form-control" id="saleDate" required>
+                            <input type="date" class="form-control" id="saleDate" required onkeydown="handleEnter(event, 'paymentMethod')">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Metode Bayar</label>
-                            <select class="form-select" id="paymentMethod" required>
-                                <option value="cash">Cash</option>
-                                <option value="transfer">Transfer</option>
-                                <option value="credit">Credit (Tempo)</option>
-                            </select>
+                            <div class="input-group">
+                                <select class="form-select" id="paymentMethod" required onkeydown="handleEnter(event, 'addItemBtn')">
+                                    <?php if (is_array($paymentMethods)): ?>
+                                        <?php foreach ($paymentMethods as $pm): ?>
+                                            <option value="<?php echo htmlspecialchars($pm['code']); ?>"><?php echo htmlspecialchars($pm['name']); ?></option>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </select>
+                                <button type="button" class="btn btn-outline-primary" onclick="openQuickAddPaymentModal()"><i class="bi bi-plus"></i></button>
+                            </div>
                         </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Alamat Kirim (optional)</label>
-                        <textarea class="form-control" id="deliveryAddress" rows="1"></textarea>
+                        <textarea class="form-control" id="deliveryAddress" rows="1" onkeydown="handleEnter(event, 'addItemBtn')"></textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Items</label>
-                        <table class="table table-sm" id="itemsTable">
-                            <thead><tr><th>Produk</th><th>Qty</th><th>Unit Price</th><th>Diskon</th><th>Subtotal</th><th></th></tr></thead>
+                        <div class="table-responsive"><table class="table table-sm" id="itemsTable">
+                            <thead><tr><th>Produk</th><th>Qty</th><th>Unit</th><th>Unit Price</th><th>Diskon</th><th>Subtotal</th><th></th></tr></thead>
                             <tbody id="itemsBody"></tbody>
-                        </table>
+                        </table></div>
                         <button type="button" class="btn btn-sm btn-outline-primary" id="addItemBtn" onclick="addItemRow()"><i class="bi bi-plus"></i> Add Item</button>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">Diskon Global (Rp)</label>
-                            <input type="number" class="form-control" id="globalDiscount" value="0" min="0" oninput="calcTotal()">
+                            <input type="number" class="form-control" id="globalDiscount" value="0" min="0" oninput="calcTotal()" onkeydown="handleEnter(event, 'saleCatatan')">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Catatan</label>
-                            <input type="text" class="form-control" id="saleCatatan">
+                            <input type="text" class="form-control" id="saleCatatan" onkeydown="handleEnter(event, 'submitSaleBtn')">
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-4 offset-md-8">
-                            <table class="table table-sm">
+                            <div class="table-responsive"><table class="table table-sm">
                                 <tr><td>Subtotal</td><td class="text-end" id="subtotalDisplay">Rp 0</td></tr>
                                 <tr><td>Diskon</td><td class="text-end" id="discountDisplay">Rp 0</td></tr>
                                 <tr><td>Tax (PPN)</td><td class="text-end" id="taxDisplay">Rp 0</td></tr>
                                 <tr class="fw-bold"><td>Grand Total</td><td class="text-end" id="grandTotalDisplay">Rp 0</td></tr>
-                            </table>
+                            </table></div>
                         </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-primary" onclick="submitSale()">Create Sale</button>
+                <button type="button" class="btn btn-primary" id="submitSaleBtn" onclick="submitSale()">Create Sale</button>
             </div>
         </div>
     </div>
@@ -166,7 +204,7 @@ renderNav('sales');
                     <input type="hidden" id="paymentSaleId">
                     <div class="mb-3"><label class="form-label">Outstanding Amount</label><input type="text" class="form-control" id="outstandingAmt" readonly></div>
                     <div class="mb-3"><label class="form-label">Payment Amount</label><input type="number" class="form-control" id="paymentAmount" required></div>
-                    <div class="mb-3"><label class="form-label">Method</label><select class="form-select" id="paymentMethodType"><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="check">Check</option></select></div>
+                    <div class="mb-3"><label class="form-label">Method</label><select class="form-select" id="paymentMethodType"><?php if (is_array($paymentMethods)): foreach ($paymentMethods as $pm): ?><option value="<?php echo htmlspecialchars($pm['code']); ?>"><?php echo htmlspecialchars($pm['name']); ?></option><?php endforeach; endif; ?></select></div>
                     <div class="mb-3"><label class="form-label">Tanggal</label><input type="date" class="form-control" id="paymentDate" required></div>
                 </form>
             </div>
@@ -195,6 +233,48 @@ renderNav('sales');
         <div class="modal-content">
             <div class="modal-header"><h5 class="modal-title">Sale Detail</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body" id="saleDetailBody"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Add Customer Modal -->
+<div class="modal fade" id="quickAddCustomerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Tambah Pelanggan Baru</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3"><label class="form-label">Nama Pelanggan *</label><input type="text" class="form-control" id="quickCustomerName" required></div>
+                <div class="mb-3"><label class="form-label">Telepon</label><input type="text" class="form-control" id="quickCustomerPhone"></div>
+                <div class="mb-3"><label class="form-label">Email</label><input type="email" class="form-control" id="quickCustomerEmail"></div>
+                <div class="mb-3"><label class="form-label">Alamat</label><textarea class="form-control" id="quickCustomerAddress" rows="2"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary" onclick="submitQuickAddCustomer()">Simpan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Add Payment Method Modal -->
+<div class="modal fade" id="quickAddPaymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Tambah Metode Bayar Baru</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3"><label class="form-label">Kode *</label><input type="text" class="form-control" id="quickPaymentCode" required></div>
+                <div class="mb-3"><label class="form-label">Nama *</label><input type="text" class="form-control" id="quickPaymentName" required></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary" onclick="submitQuickAddPayment()">Simpan</button>
+            </div>
         </div>
     </div>
 </div>
@@ -297,6 +377,7 @@ function addItemRow() {
     const prodOptions = productsJson.map(p => `<option value="${p.id}" data-price="${p.sell_price}">${p.code} - ${p.name}</option>`).join('');
     row.innerHTML = `<td><select class="form-select form-select-sm productSelect" onchange="onProductChange(this)"><option value="">Select Product</option>${prodOptions}</select></td>
         <td><input type="number" class="form-control form-control-sm qtyInput" step="0.001" min="0.001" value="1" oninput="calcRow(this); calcTotal()"></td>
+        <td><select class="form-select form-select-sm unitSelect" onchange="onUnitChange(this)"><option value="">Unit</option></select></td>
         <td><input type="number" class="form-control form-control-sm priceInput" min="0" value="0" oninput="calcRow(this); calcTotal()"></td>
         <td><input type="number" class="form-control form-control-sm discountInput" min="0" value="0" oninput="calcRow(this); calcTotal()"></td>
         <td class="subtotalCell">Rp 0</td>
@@ -309,9 +390,40 @@ function onProductChange(sel) {
     const price = sel.options[sel.selectedIndex].dataset.price || 0;
     row.querySelector('.priceInput').value = price;
     const customerId = document.getElementById('customerSelect').value;
+    const productId = sel.value;
+    
+    // Load product units
+    if (productId) {
+        fetch(`${API_URL}?endpoint=product-units&product_id=${productId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.data) {
+                const unitSelect = row.querySelector('.unitSelect');
+                unitSelect.innerHTML = '<option value="">Unit</option>';
+                data.data.forEach(unit => {
+                    unitSelect.innerHTML += `<option value="${unit.id}" data-conversion="${unit.conversion_factor}" data-price="${unit.price_per_unit}" ${unit.is_base_unit ? 'selected' : ''}>${unit.unit_name}</option>`;
+                });
+            }
+        }).catch(() => {});
+    }
+    
     if (customerId && sel.value) {
         fetchPrice(customerId, sel.value, row);
     }
+    calcRow(row.querySelector('.qtyInput'));
+    calcTotal();
+}
+
+function onUnitChange(sel) {
+    const row = sel.closest('tr');
+    const selectedOption = sel.options[sel.selectedIndex];
+    const conversion = parseFloat(selectedOption.dataset.conversion) || 1;
+    const unitPrice = parseFloat(selectedOption.dataset.price) || 0;
+    
+    if (unitPrice > 0) {
+        row.querySelector('.priceInput').value = unitPrice;
+    }
+    
     calcRow(row.querySelector('.qtyInput'));
     calcTotal();
 }
@@ -403,11 +515,11 @@ function viewSale(id) {
         if (res.success) {
             const s = res.data;
             let html = `<h6>Invoice: ${s.invoice_no}</h6><p>Date: ${s.sale_date} | Pelanggan: ${s.customer_name_snapshot || 'Pelanggan Umum'}</p>`;
-            html += '<table class="table table-sm"><thead><tr><th>Produk</th><th>Qty</th><th>Harga</th><th>Disc</th><th>Subtotal</th></tr></thead><tbody>';
+            html += '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Produk</th><th>Qty</th><th>Harga</th><th>Disc</th><th>Subtotal</th></tr></thead><tbody>';
             s.items.forEach(i => {
                 html += `<tr><td>${i.product?.name || ''}</td><td>${i.quantity}</td><td>Rp ${Number(i.unit_price).toLocaleString()}</td><td>Rp ${Number(i.discount).toLocaleString()}</td><td>Rp ${Number(i.subtotal).toLocaleString()}</td></tr>`;
             });
-            html += '</tbody></table>';
+            html += '</tbody></table></div>';
             html += `<p>Subtotal: Rp ${Number(s.subtotal).toLocaleString()} | Tax: Rp ${Number(s.tax).toLocaleString()} | Total: Rp ${Number(s.total).toLocaleString()}</p>`;
             if (s.payments && s.payments.length) {
                 html += '<h6>Payments</h6><ul>';
@@ -450,6 +562,17 @@ function voidSale(id) {
     new bootstrap.Modal(document.getElementById('voidModal')).show();
 }
 
+function updateSaleStatus(id, status) {
+    if (!status) return;
+    fetch(`${API_URL}?endpoint=sales&id=${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+    }).then(r => r.json()).then(res => {
+        if (res.success) { alert('Status updated'); location.reload(); }
+        else { alert('Kesalahan: ' + res.message); }
+    });
+}
+
 function submitVoid() {
     const id = document.getElementById('voidSaleId').value;
     const reason = document.getElementById('voidReason').value;
@@ -468,6 +591,108 @@ function createDelivery(saleId, customerName) {
     document.getElementById('deliveryPelangganName').value = customerName;
     document.getElementById('deliveryDate').value = new Date().toISOString().split('T')[0];
     new bootstrap.Modal(document.getElementById('deliveryModal')).show();
+}
+
+function openQuickAddCustomerModal() {
+    document.getElementById('quickCustomerName').value = '';
+    document.getElementById('quickCustomerPhone').value = '';
+    document.getElementById('quickCustomerEmail').value = '';
+    document.getElementById('quickCustomerAddress').value = '';
+    new bootstrap.Modal(document.getElementById('quickAddCustomerModal')).show();
+}
+
+function openQuickAddPaymentModal() {
+    document.getElementById('quickPaymentCode').value = '';
+    document.getElementById('quickPaymentName').value = '';
+    new bootstrap.Modal(document.getElementById('quickAddPaymentModal')).show();
+}
+
+function submitQuickAddPayment() {
+    var code = document.getElementById('quickPaymentCode').value.trim();
+    var name = document.getElementById('quickPaymentName').value.trim();
+    
+    if (!code || !name) {
+        alert('Kode dan nama tidak boleh kosong');
+        return;
+    }
+    
+    var data = {
+        code: code,
+        name: name
+    };
+    
+    fetch(API_URL + '?endpoint=payment-methods', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            var select = document.getElementById('paymentMethod');
+            var option = document.createElement('option');
+            option.value = res.data.code;
+            option.textContent = res.data.name;
+            select.appendChild(option);
+            select.value = res.data.code;
+            
+            bootstrap.Modal.getInstance(document.getElementById('quickAddPaymentModal')).hide();
+            alert('Metode bayar berhasil ditambahkan');
+            
+            // Return focus to the select element
+            select.focus();
+        } else {
+            alert('Gagal menambahkan: ' + res.message);
+        }
+    })
+    .catch(err => {
+        alert('Terjadi kesalahan: ' + err);
+    });
+}
+
+function submitQuickAddCustomer() {
+    var name = document.getElementById('quickCustomerName').value.trim();
+    if (!name) {
+        alert('Nama pelanggan tidak boleh kosong');
+        return;
+    }
+    
+    var data = {
+        name: name,
+        phone: document.getElementById('quickCustomerPhone').value,
+        email: document.getElementById('quickCustomerEmail').value,
+        address: document.getElementById('quickCustomerAddress').value
+    };
+    
+    fetch(API_URL + '?endpoint=customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            var select = document.getElementById('customerSelect');
+            var option = document.createElement('option');
+            option.value = res.data.id;
+            option.textContent = res.data.name;
+            option.setAttribute('data-group', res.data.group_id || '');
+            select.appendChild(option);
+            select.value = res.data.id;
+            
+            bootstrap.Modal.getInstance(document.getElementById('quickAddCustomerModal')).hide();
+            alert('Pelanggan berhasil ditambahkan');
+            onPelangganChange();
+            
+            // Return focus to the select element
+            select.focus();
+        } else {
+            alert('Gagal menambahkan: ' + res.message);
+        }
+    })
+    .catch(err => {
+        alert('Terjadi kesalahan: ' + err);
+    });
 }
 
 function submitDelivery() {
@@ -507,8 +732,32 @@ function loadSales() {
                 <td><span class="badge bg-${s.status==='completed'?'success':(s.status==='voided'?'danger':'secondary')}">${s.status}</span></td>
                 <td><a href="print_nota.php?id=${s.id}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-printer"></i></a></td>
             </tr>`).join('');
-            document.getElementById('salesPageInfo').textContent = `Page ${res.meta.current_page} of ${res.meta.last_page} (${res.meta.total} total)`;
+            document.getElementById('salesPageInfo').textContent = `Page ${res.meta?.current_page || currentPage} of ${res.meta?.last_page || 1} (${res.meta?.total || res.data.length} total)`;
+            document.getElementById('prevPageBtn').disabled = currentPage <= 1;
+            document.getElementById('nextPageBtn').disabled = !res.has_next;
         }
+    });
+}
+
+// Auto focus and enter key navigation
+function handleEnter(event, nextId) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        var nextElement = document.getElementById(nextId);
+        if (nextElement) {
+            nextElement.focus();
+            if (nextElement.tagName === 'SELECT') {
+                nextElement.click();
+            }
+        }
+    }
+}
+
+// Auto focus on modal open
+var saleModal = document.getElementById('saleModal');
+if (saleModal) {
+    saleModal.addEventListener('shown.bs.modal', function() {
+        document.getElementById('barcodeInput').focus();
     });
 }
 

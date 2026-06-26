@@ -73,12 +73,13 @@ $theme = $_SESSION['theme'] ?? 'light';
             </form>
             
             <hr>
-            <p class="text-muted small text-center mb-2">Login Cepat (Demo):</p>
+            <div class="text-center">
+                <small class="text-muted">Belum punya akun? <a href="register.php">Daftar</a></small>
+            </div>
+            <hr>
+            <p class="text-muted small text-center mb-2">Login Cepat:</p>
             <div class="row g-2 mb-3">
-                <div class="col-6"><button onclick="quickLogin('admin', 'password123')" class="btn btn-outline-primary btn-sm quick-btn w-100"><i class="bi bi-shield-check"></i> Admin</button></div>
-                <div class="col-6"><button onclick="quickLogin('manager1', 'password123')" class="btn btn-outline-success btn-sm quick-btn w-100"><i class="bi bi-person-badge"></i> Manager</button></div>
-                <div class="col-6"><button onclick="quickLogin('kasir1', 'password123')" class="btn btn-outline-warning btn-sm quick-btn w-100"><i class="bi bi-cash-stack"></i> Kasir</button></div>
-                <div class="col-6"><button onclick="quickLogin('gudang1', 'password123')" class="btn btn-outline-info btn-sm quick-btn w-100"><i class="bi bi-box-seam"></i> Gudang</button></div>
+                <div class="col-12"><button onclick="quickLogin('admin', 'password123')" class="btn btn-primary btn-sm quick-btn w-100"><i class="bi bi-shield-check"></i> Super Admin (Platform Owner)</button></div>
             </div>
             
             <hr>

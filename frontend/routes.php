@@ -12,11 +12,11 @@ renderNav('routes');
 ?>
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1>Rute Pengiriman/h1>
+        <h1>Rute Pengiriman</h1>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#routeModal" onclick="resetRouteForm()"><i class="bi bi-plus-circle"></i> New Route</button>
     </div>
     <div class="card"><div class="card-body">
-        <table class="table table-striped">
+        <div class="table-responsive"><table class="table table-striped">
             <thead><tr><th>Route No</th><th>Tanggal</th><th>Vehicle</th><th>Driver</th><th>Stops</th><th>Status</th><th>Aksi</th></tr></thead>
             <tbody>
                 <?php foreach ($routes as $r): ?>
@@ -36,7 +36,7 @@ renderNav('routes');
                 </tr>
                 <?php endforeach; ?>
             </tbody>
-        </table>
+        </table></div>
     </div></div>
 </div>
 
@@ -90,7 +90,7 @@ function viewRoute(id) {
         if(res.success) {
             const rt = res.data;
             let html = `<h6>${rt.route_no}</h6><p>Tanggal: ${rt.route_date} | Kendaraan: ${rt.plate_no||'-'} | Sopir: ${rt.driver_name||'-'} | Status: ${rt.status==='completed'?'Selesai':(rt.status==='in_progress'?'Berjalan':(rt.status==='cancelled'?'Dibatalkan':'Pending'))}</p>`;
-            html += '<table class="table table-sm"><thead><tr><th>#</th><th>Customer</th><th>Alamat</th><th>Telepon</th><th>Status</th><th>Action</th></tr></thead><tbody>';
+            html += '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>#</th><th>Customer</th><th>Alamat</th><th>Telepon</th><th>Status</th><th>Action</th></tr></thead><tbody>';
             rt.stops?.forEach(s => {
                 html += `<tr><td>${s.stop_order}</td><td>${s.customer_name||'-'}</td><td>${s.address||'-'}</td><td>${s.phone||'-'}</td><td><span class="badge bg-${s.status==='completed'?'success':(s.status==='in_progress'?'info':'warning')}">${s.status==='completed'?'Selesai':(s.status==='in_progress'?'Berjalan':'Pending')}</span></td>`;
                 if (rt.status === 'in_progress' && s.status !== 'completed') {
@@ -98,7 +98,7 @@ function viewRoute(id) {
                 } else { html += '<td></td>'; }
                 html += '</tr>';
             });
-            html += '</tbody></table>';
+            html += '</tbody></table></div>';
             document.getElementById('routeDetailBody').innerHTML = html;
             new bootstrap.Modal(document.getElementById('routeDetailModal')).show();
         }

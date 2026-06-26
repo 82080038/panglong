@@ -2,10 +2,30 @@
 require_once 'config.php';
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$suppliers = $d->query("SELECT id, name FROM suppliers ORDER BY name")->fetchAll();
-$products = $d->query("SELECT id, code, name, buy_price FROM products WHERE is_active = 1 ORDER BY name LIMIT 100")->fetchAll();
-$pos = $d->query("SELECT po.*, s.name as supplier_name FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id = s.id ORDER BY po.id DESC LIMIT 20")->fetchAll();
+$supplierSql = "SELECT id, name FROM suppliers";
+if (!$isSuperAdmin && $tenantId) {
+    $supplierSql .= " WHERE tenant_id = $tenantId";
+}
+$supplierSql .= " ORDER BY name";
+$suppliers = $d->query($supplierSql)->fetchAll();
+
+$productSql = "SELECT id, code, name, buy_price FROM products WHERE is_active = 1";
+if (!$isSuperAdmin && $tenantId) {
+    $productSql .= " AND tenant_id = $tenantId";
+}
+$productSql .= " ORDER BY name LIMIT 100";
+$products = $d->query($productSql)->fetchAll();
+
+$poSql = "SELECT po.*, s.name as supplier_name FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id = s.id";
+if (!$isSuperAdmin && $tenantId) {
+    $poSql .= " WHERE po.tenant_id = $tenantId";
+}
+$poSql .= " ORDER BY po.id DESC LIMIT 20";
+$pos = $d->query($poSql)->fetchAll();
 foreach ($pos as &$po) {
     $po['supplier'] = ['name' => $po['supplier_name'] ?? ''];
 }
@@ -22,7 +42,7 @@ renderNav('purchase-orders');
     </div>
     <div class="card">
         <div class="card-body">
-            <table class="table table-striped">
+            <div class="table-responsive"><table class="table table-striped">
                 <thead><tr><th>Nomor PO</th><th>Tanggal</th><th>Supplier</th><th>Total</th><th>Payment</th><th>Status</th><th>Aksi</th></tr></thead>
                 <tbody>
                     <?php foreach ($pos as $po): ?>
@@ -45,7 +65,7 @@ renderNav('purchase-orders');
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
-            </table>
+            </table></div>
         </div>
     </div>
 </div>
@@ -64,14 +84,14 @@ renderNav('purchase-orders');
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Items</label>
-                        <table class="table table-sm"><thead><tr><th>Produk</th><th>Qty</th><th>Harga Satuan</th><th>Subtotal</th><th></th></tr></thead><tbody id="poItemsBody"></tbody></table>
+                        <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Produk</th><th>Qty</th><th>Harga Satuan</th><th>Subtotal</th><th></th></tr></thead><tbody id="poItemsBody"></tbody></table></div>
                         <button type="button" class="btn btn-sm btn-outline-primary" onclick="addPORow()"><i class="bi bi-plus"></i> Add Item</button>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-4"><label class="form-label">Discount (Rp)</label><input type="number" class="form-control" id="poDiscount" value="0" min="0" oninput="calcPOTotal()"></div>
                         <div class="col-md-8"><label class="form-label">Catatan</label><input type="text" class="form-control" id="poNotes"></div>
                     </div>
-                    <div class="row"><div class="col-md-4 offset-md-8"><table class="table table-sm"><tr class="fw-bold"><td>Grand Total</td><td class="text-end" id="poGrandTotal">Rp 0</td></tr></table></div></div>
+                    <div class="row"><div class="col-md-4 offset-md-8"><div class="table-responsive"><table class="table table-sm"><tr class="fw-bold"><td>Grand Total</td><td class="text-end" id="poGrandTotal">Rp 0</td></tr></table></div></div></div>
                 </form>
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary" onclick="submitPO()">Create PO</button></div>
@@ -266,11 +286,11 @@ function viewPO(id) {
         if (res.success) {
             const po = res.data;
             let html = `<h6>PO: ${po.po_number}</h6><p>Supplier: ${po.supplier?.name} | Tanggal: ${po.po_date} | Status: ${po.status==='pending'?'Pending':(po.status==='received'?'Diterima':(po.status==='partial'?'Sebagian':'Selesai'))}</p>`;
-            html += '<table class="table table-sm"><thead><tr><th>Produk</th><th>Qty</th><th>Received</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>';
+            html += '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Produk</th><th>Qty</th><th>Received</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>';
             po.items.forEach(i => {
                 html += `<tr><td>${i.product?.name || ''}</td><td>${i.quantity}</td><td>${i.received_quantity}</td><td>Rp ${Number(i.unit_price).toLocaleString()}</td><td>Rp ${Number(i.subtotal).toLocaleString()}</td></tr>`;
             });
-            html += '</tbody></table>';
+            html += '</tbody></table></div>';
             html += `<p>Subtotal: Rp ${Number(po.subtotal).toLocaleString()} | Total: Rp ${Number(po.total).toLocaleString()} | Pembayaran: ${po.payment_status}</p>`;
             document.getElementById('poDetailBody').innerHTML = html;
             new bootstrap.Modal(document.getElementById('poDetailModal')).show();

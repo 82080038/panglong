@@ -2,10 +2,30 @@
 require_once 'config.php';
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$warehouses = $d->query("SELECT * FROM warehouses ORDER BY id")->fetchAll();
-$transfers = $d->query("SELECT * FROM stock_transfers ORDER BY id DESC LIMIT 50")->fetchAll();
-$products = $d->query("SELECT id, code, name FROM products WHERE is_active = 1 ORDER BY name LIMIT 100")->fetchAll();
+$warehouseSql = "SELECT * FROM warehouses";
+if (!$isSuperAdmin && $tenantId) {
+    $warehouseSql .= " WHERE tenant_id = $tenantId";
+}
+$warehouseSql .= " ORDER BY id";
+$warehouses = $d->query($warehouseSql)->fetchAll();
+
+$transferSql = "SELECT * FROM stock_transfers";
+if (!$isSuperAdmin && $tenantId) {
+    $transferSql .= " WHERE tenant_id = $tenantId";
+}
+$transferSql .= " ORDER BY id DESC LIMIT 50";
+$transfers = $d->query($transferSql)->fetchAll();
+
+$productSql = "SELECT id, code, name FROM products WHERE is_active = 1";
+if (!$isSuperAdmin && $tenantId) {
+    $productSql .= " AND tenant_id = $tenantId";
+}
+$productSql .= " ORDER BY name LIMIT 100";
+$products = $d->query($productSql)->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (($_POST['action'] ?? '') === 'create_warehouse') {
@@ -54,21 +74,21 @@ renderNav('warehouses');
     <?php endif; ?>
 
     <div class="card mb-3"><div class="card-header"><h5 class="mb-0">Gudang</h5></div><div class="card-body">
-        <table class="table table-striped"><thead><tr><th>Kode</th><th>Nama</th><th>Alamat</th><th>Telepon</th><th>Status</th></tr></thead><tbody>
+        <div class="table-responsive"><table class="table table-striped"><thead><tr><th>Kode</th><th>Nama</th><th>Alamat</th><th>Telepon</th><th>Status</th></tr></thead><tbody>
         <?php foreach ($warehouses as $w): ?>
         <tr><td><?= htmlspecialchars($w['code']) ?></td><td><?= htmlspecialchars($w['name']) ?></td><td><?= htmlspecialchars($w['address'] ?? '-') ?></td><td><?= htmlspecialchars($w['phone'] ?? '-') ?></td><td><span class="badge bg-success">Aktif</span></td></tr>
         <?php endforeach; ?>
         <?php if (empty($warehouses)): ?><tr><td colspan="5" class="text-center text-muted">No warehouses</td></tr><?php endif; ?>
-        </tbody></table>
+        </tbody></table></div>
     </div></div>
 
     <div class="card"><div class="card-header"><h5 class="mb-0">Stock Transfers</h5></div><div class="card-body">
-        <table class="table table-striped"><thead><tr><th>Transfer No</th><th>Tanggal</th><th>From</th><th>To</th><th>Items</th><th>Status</th></tr></thead><tbody>
+        <div class="table-responsive"><table class="table table-striped"><thead><tr><th>Transfer No</th><th>Tanggal</th><th>From</th><th>To</th><th>Items</th><th>Status</th></tr></thead><tbody>
         <?php foreach ($transfers as $t): ?>
         <tr><td><?= htmlspecialchars($t['transfer_no']) ?></td><td><?= tglIndo($t['transfer_date']) ?></td><td><?= htmlspecialchars($t['from_warehouse']['name'] ?? '') ?></td><td><?= htmlspecialchars($t['to_warehouse']['name'] ?? '') ?></td><td><?= count($t['items'] ?? []) ?></td><td><span class="badge bg-info"><?= $t['status'] === 'completed' ? 'Selesai' : ($t['status'] === 'in_transit' ? 'Dalam Pengiriman' : 'Pending') ?></span></td></tr>
         <?php endforeach; ?>
         <?php if (empty($transfers)): ?><tr><td colspan="6" class="text-center text-muted">No transfers yet</td></tr><?php endif; ?>
-        </tbody></table>
+        </tbody></table></div>
     </div></div>
 </div>
 
@@ -99,10 +119,10 @@ renderNav('warehouses');
                 </select></div>
             </div>
             <div class="mb-3"><label class="form-label">Catatan</label><input type="text" class="form-control" name="notes"></div>
-            <table class="table table-sm"><thead><tr><th>Produk</th><th>Qty</th></tr></thead><tbody id="transferItems">
+            <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Produk</th><th>Qty</th></tr></thead><tbody id="transferItems">
             <tr><td><select class="form-select form-select-sm" name="product_id[]"><option value="">Select...</option><?php foreach ($products as $p): ?><option value="<?= $p['id'] ?>"><?= htmlspecialchars($p['code'] . ' - ' . $p['name']) ?></option><?php endforeach; ?></select></td>
             <td><input type="number" class="form-control form-control-sm" name="quantity[]" step="0.001" min="0.001" style="width:100px"></td></tr>
-            </tbody></table>
+            </tbody></table></div>
             <button type="button" class="btn btn-sm btn-outline-primary" onclick="addTransferRow()"><i class="bi bi-plus"></i> Add Row</button>
         </div>
         <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-success">Transfer</button></div>

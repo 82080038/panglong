@@ -2,18 +2,40 @@
 require_once 'config.php';
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$assets = $d->query("SELECT * FROM fixed_assets ORDER BY id DESC LIMIT 50")->fetchAll();
+$assetSql = "SELECT * FROM fixed_assets";
+if (!$isSuperAdmin && $tenantId) {
+    $assetSql .= " WHERE tenant_id = $tenantId";
+}
+$assetSql .= " ORDER BY id DESC LIMIT 50";
+$assets = $d->query($assetSql)->fetchAll();
 
-$totalCost = $d->query("SELECT COALESCE(SUM(acquisition_cost),0) FROM fixed_assets WHERE status='active'")->fetchColumn();
-$totalDep = $d->query("SELECT COALESCE(SUM(accumulated_depreciation),0) FROM fixed_assets WHERE status='active'")->fetchColumn();
-$totalBook = $d->query("SELECT COALESCE(SUM(book_value),0) FROM fixed_assets WHERE status='active'")->fetchColumn();
+$totalCostSql = "SELECT COALESCE(SUM(acquisition_cost),0) FROM fixed_assets WHERE status='active'";
+if (!$isSuperAdmin && $tenantId) {
+    $totalCostSql .= " AND tenant_id = $tenantId";
+}
+$totalCost = $d->query($totalCostSql)->fetchColumn();
+
+$totalDepSql = "SELECT COALESCE(SUM(accumulated_depreciation),0) FROM fixed_assets WHERE status='active'";
+if (!$isSuperAdmin && $tenantId) {
+    $totalDepSql .= " AND tenant_id = $tenantId";
+}
+$totalDep = $d->query($totalDepSql)->fetchColumn();
+
+$totalBookSql = "SELECT COALESCE(SUM(book_value),0) FROM fixed_assets WHERE status='active'";
+if (!$isSuperAdmin && $tenantId) {
+    $totalBookSql .= " AND tenant_id = $tenantId";
+}
+$totalBook = $d->query($totalBookSql)->fetchColumn();
 
 renderHead('Fixed Assets');
 renderNav('fixed-assets');
 ?>
 <div class="container mt-4">
-    <h1>Aset Tetap/h1>
+    <h1>Aset Tetap</h1>
     <div class="row mb-4">
         <div class="col-md-4"><div class="card bg-info text-white"><div class="card-body"><h6>Harga Perolehan</h6><h3><?= rupiah($totalCost) ?></h3></div></div></div>
         <div class="col-md-4"><div class="card bg-warning text-white"><div class="card-body"><h6>Akumulasi Penyusutan</h6><h3><?= rupiah($totalDep) ?></h3></div></div></div>
@@ -24,7 +46,7 @@ renderNav('fixed-assets');
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#faModal"><i class="bi bi-plus-circle"></i> New Asset</button>
     </div>
     <div class="card"><div class="card-body">
-        <table class="table table-striped">
+        <div class="table-responsive"><table class="table table-striped">
             <thead><tr><th>Kode</th><th>Nama</th><th>Category</th><th>Harga Perolehan</th><th>Monthly Dep.</th><th>Accum. Dep.</th><th>Book Value</th><th>Status</th><th>Aksi</th></tr></thead>
             <tbody>
                 <?php foreach ($assets as $a): ?>
@@ -46,7 +68,7 @@ renderNav('fixed-assets');
                 </tr>
                 <?php endforeach; ?>
             </tbody>
-        </table>
+        </table></div>
     </div></div>
 </div>
 

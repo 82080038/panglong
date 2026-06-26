@@ -6,6 +6,7 @@ $d = db();
 $templates = $d->query("SELECT * FROM whatsapp_templates WHERE is_active = 1 ORDER BY id")->fetchAll();
 $messages = $d->query("SELECT * FROM whatsapp_messages ORDER BY id DESC LIMIT 50")->fetchAll();
 $customers = $d->query("SELECT id, name, phone FROM customers WHERE phone IS NOT NULL AND phone != '' ORDER BY name LIMIT 200")->fetchAll();
+$waTemplateTypes = $d->query("SELECT * FROM whatsapp_template_types WHERE is_active = 1 ORDER BY name")->fetchAll();
 
 renderHead('WhatsApp');
 renderNav('whatsapp');
@@ -43,7 +44,7 @@ renderNav('whatsapp');
         <div class="tab-pane fade" id="templates">
             <button class="btn btn-primary btn-sm mb-3" data-bs-toggle="modal" data-bs-target="#tplModal"><i class="bi bi-plus"></i> Add Template</button>
             <div class="card"><div class="card-body">
-                <table class="table table-striped">
+                <div class="table-responsive"><table class="table table-striped">
                     <thead><tr><th>Nama</th><th>Type</th><th>Message</th><th>Variables</th><th>Aksi</th></tr></thead>
                     <tbody>
                         <?php foreach ($templates as $t): ?>
@@ -56,12 +57,12 @@ renderNav('whatsapp');
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
-                </table>
+                </table></div>
             </div></div>
         </div>
         <div class="tab-pane fade" id="history">
             <div class="card"><div class="card-body">
-                <table class="table table-striped">
+                <div class="table-responsive"><table class="table table-striped">
                     <thead><tr><th>Tanggal</th><th>Telepon</th><th>Template</th><th>Message</th><th>Status</th></tr></thead>
                     <tbody>
                         <?php foreach ($messages as $m): ?>
@@ -74,7 +75,7 @@ renderNav('whatsapp');
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
-                </table>
+                </table></div>
             </div></div>
         </div>
     </div>
@@ -84,7 +85,14 @@ renderNav('whatsapp');
     <div class="modal-header"><h5 class="modal-title">Add Template</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
         <div class="mb-3"><label class="form-label">Template Name *</label><input type="text" class="form-control" id="tplName"></div>
-        <div class="mb-3"><label class="form-label">Type</label><select class="form-select" id="tplType"><option value="notification">Notification</option><option value="reminder">Reminder</option><option value="confirmation">Confirmation</option><option value="marketing">Marketing</option></select></div>
+        <div class="mb-3"><label class="form-label">Type</label><select class="form-select" id="tplType">
+            <option value="">Pilih Type</option>
+            <?php if (is_array($waTemplateTypes)): ?>
+                <?php foreach ($waTemplateTypes as $wtt): ?>
+                    <option value="<?php echo htmlspecialchars($wtt['code']); ?>"><?php echo htmlspecialchars($wtt['name']); ?></option>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </select></div>
         <div class="mb-3"><label class="form-label">Message Body</label><textarea class="form-control" id="tplBody" rows="4"></textarea></div>
         <div class="mb-3"><label class="form-label">Variables (comma-separated)</label><input type="text" class="form-control" id="tplVars" placeholder="customer_name,invoice_no,total"></div>
     </div>
