@@ -390,7 +390,7 @@ Fitur-fitur advanced (AI, SaaS, multi-tenant, delivery tracking, dll) akan diker
 ### Frontend (Yang Aktif Berjalan)
 - **Approach**: PHP Native (procedural, PDO SQLite langsung, jQuery AJAX ke ajax.php)
 - **Database Access**: PDO SQLite via `frontend/db.php` → `database/database.sqlite`
-- **AJAX Endpoint**: `frontend/ajax.php` (1802 lines) — single endpoint untuk semua CRUD
+- **AJAX Endpoint**: `frontend/ajax.php` (1940 lines, 48 endpoints) — single endpoint untuk semua CRUD
 - **Auth**: Session-based via `frontend/auth.php` dengan `password_verify()`
 - **CSS Framework**: Bootstrap 5.3.x (CDN)
 - **JS Library**: jQuery 3.6.x (CDN) — `$.ajax()` calls to `ajax.php`
@@ -400,7 +400,7 @@ Fitur-fitur advanced (AI, SaaS, multi-tenant, delivery tracking, dll) akan diker
 - **API_URL**: `'ajax.php'` (local, NOT Laravel API URL)
 
 ### Development Tools
-- **Testing**: PHPUnit (Laravel backend, 14 files) + Playwright E2E (frontend, 18 specs, 39 tests)
+- **Testing**: PHPUnit (Laravel backend, 14 files) + Playwright E2E (frontend, 19 specs, 50 tests)
 - **Code Quality**: PHPStan / Psalm (optional)
 - **Version Control**: Git
 - **PHP**: XAMPP `/opt/lampp/bin/php` (8.2.12) — has pdo_sqlite; system PHP (8.3.6) does NOT
@@ -534,7 +534,7 @@ GET    /api/v1/reports/inventory/low-stock
 - [x] Seeders untuk data awal (16 seeders)
 - [x] API endpoints (Laravel REST API — unused by frontend)
 - [x] Frontend pages (45 PHP Native pages, frontend/ directory)
-- [x] AJAX endpoint (ajax.php, 34 endpoints, 1802 lines)
+- [x] AJAX endpoint (ajax.php, 48 endpoints, 1940 lines)
 - [x] RBAC navigation per role
 - [x] Dark mode + eye-care mode + fullscreen toggle
 - [x] Responsive design (mobile/tablet/desktop)
@@ -550,7 +550,7 @@ GET    /api/v1/reports/inventory/low-stock
 ## 7.3 Testing
 - [x] Unit tests untuk core logic (PHPUnit, 14 files)
 - [x] Feature tests untuk critical flows (PHPUnit)
-- [x] E2E tests (Playwright, 18 specs, 39 tests, ALL PASSING)
+- [x] E2E tests (Playwright, 19 specs, 50 tests, ALL PASSING)
 
 ---
 
@@ -619,7 +619,7 @@ Setelah MVP selesai dan stabil, Phase 2 akan mencakup:
 | Marketplace | COMPLETED | Tokopedia, Shopee integration |
 | IoT sensors | COMPLETED | Temperature, humidity, weight |
 | Print nota | COMPLETED | Thermal 80mm print |
-| ajax.php | COMPLETED | 1802 lines, single AJAX endpoint |
+| ajax.php | COMPLETED | 1940 lines, 48 endpoints, single AJAX endpoint |
 
 ## Backend Laravel API (TIDAK digunakan frontend)
 | Komponen | Status | Catatan |

@@ -2,11 +2,11 @@
 
 # PANGLONG ERP - PHASE 1 MVP
 
-## Version: 3.0 (Updated 2026-06-26)
+## Version: 4.0 (Updated 2026-06-26)
 ## Status: Frontend 100% Functional (PHP Native + PDO SQLite) — Sprint 1-12 COMPLETED
 
 > **ARSITEKTUR AKTUAL:** Frontend menggunakan PHP Native + PDO SQLite + jQuery AJAX.
-> `frontend/ajax.php` adalah single endpoint (1802 lines) untuk semua CRUD operations.
+> `frontend/ajax.php` adalah single endpoint (1940 lines, 48 endpoints) untuk semua CRUD operations.
 > Laravel backend API ada di repo tetapi TIDAK digunakan oleh frontend.
 > Database: SQLite (`database/database.sqlite`, 78 tables, 1.3MB).
 >
@@ -22,7 +22,7 @@
 - `frontend/db.php` — PDO SQLite connection singleton
 - `frontend/auth.php` — Session-based auth dengan `password_verify()`
 - `frontend/config.php` — Session timeout, navbar, CDN loads (jQuery 3.6, Bootstrap 5.3)
-- `frontend/ajax.php` — Single AJAX endpoint (1802 lines) untuk semua CRUD operations
+- `frontend/ajax.php` — Single AJAX endpoint (1940 lines, 48 endpoints) untuk semua CRUD operations
 - jQuery `$.ajax()` calls to `ajax.php` untuk dynamic operations
 - Direct PDO queries untuk initial page load data
 - Chart.js 4.4.0 untuk dashboard charts
@@ -39,7 +39,7 @@
 - 6 API Resource transformer classes
 - Routes with Sanctum + Spatie Permission middleware
 - 14 PHPUnit test files
-- 18 Playwright E2E test specs (39 tests, ALL PASSING)
+- 19 Playwright E2E test specs (50 tests, ALL PASSING)
 
 ## 3. Database
 - SQLite: `database/database.sqlite` (1.3MB, 78 tables)
@@ -154,6 +154,8 @@ Database SQLite sudah berisi data user hasil seeder:
 | manager1 | password123 | Manager | Manager access |
 | kasir1 | password123 | Kasir | Cashier access |
 | gudang1 | password123 | Gudang | Warehouse access |
+| accounting1 | password123 | Accounting | Accounting access |
+| supervisor1 | password123 | Supervisor | Dashboard & reports |
 
 ---
 
@@ -432,7 +434,7 @@ Laravel backend API scaffolded dan tested tetapi TIDAK digunakan oleh frontend.
 1. Frontend: 45 halaman PHP dengan PDO SQLite + jQuery AJAX
 2. Database: SQLite dengan 78 tables dan seed data
 3. Auth: Session-based dengan permission checks
-4. Testing: Playwright E2E (39 tests) + PHPUnit (14 files)
+4. Testing: Playwright E2E (50 tests across 19 specs) + PHPUnit (14 files)
 5. Deployment: Docker + PWA offline-first
 6. Sprint 7-12: Retur, Quotation, Sales Order, Pricing, Stock Transfer, Cash Book, Fixed Assets, Fleet, Routes, WhatsApp, e-Faktur
 

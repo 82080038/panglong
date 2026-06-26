@@ -7,7 +7,7 @@
 ## Status: ALL SPRINTS (1-12) + GAP FEATURES + UI/UX COMPLETED
 
 > **ARSITEKTUR AKTUAL:** Frontend menggunakan PHP Native + PDO SQLite + jQuery AJAX.
-> `frontend/ajax.php` adalah single endpoint (1802 lines) untuk semua CRUD operations.
+> `frontend/ajax.php` adalah single endpoint (1940 lines, 48 endpoints) untuk semua CRUD operations.
 > Laravel backend API ada di repo tetapi TIDAK digunakan oleh frontend.
 > Database: SQLite (`database/database.sqlite`, 78 tables, 1.3MB).
 > **Sprint 7-12 (Juni 2026):** Retur, Quotation, Sales Order, Pricing, Stock Transfer, Cash Book, Fixed Assets, Fleet, Routes, WhatsApp, e-Faktur.
@@ -35,9 +35,9 @@ Panglong ERP adalah platform ERP distribksi material bangunan yang dikembangkan 
 
 **Status kode saat ini:**
 - Backend Laravel API: 100% functional (33 controllers, 20 services) — TIDAK digunakan frontend
-- Frontend PHP Native: 100% functional (45 pages, 34 AJAX endpoints)
+- Frontend PHP Native: 100% functional (45 pages, 48 AJAX endpoints)
 - Database migrations: 37 migration files, all executed to SQLite (78 tables)
-- Testing: PHPUnit (14 files) + Playwright E2E (18 specs, 39 tests) - ALL PASSING
+- Testing: PHPUnit (14 files) + Playwright E2E (19 specs, 50 tests) - ALL PASSING
 - Docker deployment ready (Dockerfile + docker-compose + nginx)
 - PWA offline-first (manifest.json + service worker)
 - RBAC navigation per role, dark mode, eye-care mode, fullscreen toggle
@@ -63,7 +63,7 @@ Panglong ERP adalah platform ERP distribksi material bangunan yang dikembangkan 
 | PWA Offline-First | OK | manifest.json, sw.js service worker |
 | .gitignore | OK | .env, vendor/, storage/, test artifacts excluded |
 | PHPUnit | OK | 14 test files |
-| Playwright E2E | OK | 18 specs, 39 tests, all passing |
+| Playwright E2E | OK | 19 specs, 50 tests, all passing |
 | Form Request classes | OK | 7 classes |
 | API Resource classes | OK | 6 classes |
 | Model Factories | OK | 9 factories |
@@ -174,7 +174,7 @@ Panglong ERP adalah platform ERP distribksi material bangunan yang dikembangkan 
 ## Frontend (Yang Aktif Berjalan)
 - **Approach**: PHP Native (procedural, session-based, PDO SQLite langsung)
 - **Database Access**: PDO SQLite via `frontend/db.php` → `database/database.sqlite`
-- **AJAX Endpoint**: `frontend/ajax.php` (1802 lines) — single endpoint untuk semua CRUD
+- **AJAX Endpoint**: `frontend/ajax.php` (1940 lines, 48 endpoints) — single endpoint untuk semua CRUD
 - **Auth**: Session-based via `frontend/auth.php` dengan `password_verify()`
 - **CSS**: Bootstrap 5.3.x (CDN)
 - **JS**: jQuery 3.6.x (CDN) — `$.ajax()` calls to `ajax.php`
@@ -184,7 +184,7 @@ Panglong ERP adalah platform ERP distribksi material bangunan yang dikembangkan 
 - **Session Timeout**: 30 minutes idle → redirect to login
 
 ## Development Tools
-- **Testing**: PHPUnit 10.x (Laravel backend, 14 files) + Playwright E2E (18 specs, 39 tests, frontend)
+- **Testing**: PHPUnit 10.x (Laravel backend, 14 files) + Playwright E2E (19 specs, 50 tests, frontend)
 - **Version Control**: Git (GitHub: 82080038/panglong)
 - **Package Manager**: Composer (PHP), npm (Playwright)
 
@@ -304,7 +304,7 @@ Panglong ERP adalah platform ERP distribksi material bangunan yang dikembangkan 
 
 ## All Sprints (1-12) - ALL CHECKED
 - [x] Semua sprint selesai (Sprint 1-12)
-- [x] Playwright E2E tests pass (39 tests)
+- [x] Playwright E2E tests pass (50 tests)
 - [x] All 17 gap fixes implemented
 - [x] Sprint 7: Retur (sales/purchase), Quotation, Sales Order
 - [x] Sprint 8: Delivery cost, landed cost fields, bonus qty, weight/dimension

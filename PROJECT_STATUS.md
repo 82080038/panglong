@@ -2,7 +2,7 @@
 
 # PANGLONG ERP - ACCURATE AUDIT
 
-## Version: 4.0
+## Version: 5.0
 ## Date: 2026-06-26
 ## Auditor: Automated Analysis
 
@@ -39,8 +39,8 @@
 | Seeder files | 16 |
 | Database | SQLite (database/database.sqlite, 78 tables) |
 | PHPUnit test files | 14 |
-| Playwright E2E specs | 18 specs (39 tests, ALL PASSING) |
-| AJAX endpoints | 34 endpoints in ajax.php (1802 lines) |
+| Playwright E2E specs | 19 specs (50 tests, ALL PASSING) |
+| AJAX endpoints | 48 endpoints in ajax.php (1940 lines) |
 | RBAC Nav | Dynamic per role (owner, manager, kasir, gudang, accounting, supervisor) |
 | UI Features | Dark mode, eye-care mode, fullscreen toggle, responsive design |
 | Overall Readiness | Frontend 100% functional (PHP Native + PDO SQLite) |
@@ -146,7 +146,7 @@ StockMovementFactory.
 
 > **Arsitektur:** PHP Native procedural + PDO SQLite + jQuery 3.6 AJAX + Bootstrap 5.3
 > **Database:** Langsung ke `database/database.sqlite` via PDO (`frontend/db.php`)
-> **Endpoint:** Single AJAX handler `frontend/ajax.php` (1802 lines, 34 endpoints) untuk semua CRUD
+> **Endpoint:** Single AJAX handler `frontend/ajax.php` (1940 lines, 48 endpoints) untuk semua CRUD
 > **Auth:** Session-based (`frontend/auth.php`) dengan `password_verify()`
 > **Config:** `frontend/config.php` — session timeout 30 menit, RBAC navbar, dark mode, eye-care mode, fullscreen toggle, CDN loads
 > **UI:** Bootstrap 5.3 + Bootstrap Icons, responsive (mobile/tablet/desktop), gradient navbar, card shadows
@@ -158,7 +158,7 @@ StockMovementFactory.
 | `db.php` | PDO SQLite connection singleton | COMPLETED |
 | `auth.php` | Session auth: login(), logout(), hasPermission() | COMPLETED |
 | `config.php` | Session timeout, navbar, renderHead/renderFoot, CDN | COMPLETED |
-| `ajax.php` | Single AJAX endpoint (1802 lines) — all CRUD operations | COMPLETED |
+| `ajax.php` | Single AJAX endpoint (1940 lines) — all CRUD operations | COMPLETED |
 
 ### Page Files (45 pages)
 
@@ -236,10 +236,10 @@ StockMovementFactory.
 | composer.json | OK | Laravel 10, Sanctum, Spatie Permission |
 | phpunit.xml | OK | PHPUnit configured, SQLite :memory: for tests |
 | package.json | OK | Playwright E2E test config |
-| tests/ directory | OK | PHPUnit (Feature/Unit) + Playwright E2E (18 specs) |
+| tests/ directory | OK | PHPUnit (Feature/Unit) + Playwright E2E (19 specs) |
 | database/factories/ | OK | 9 factories |
 | storage/ | NOT TRACKED | Removed from git (ISSUE-004 resolved) |
-| database/database.sqlite | NOT TRACKED | Removed from git; 1.3MB, 78 tables |
+| database/database.sqlite | COMMITTED | 78 tables, seed data included in repo |
 | Docker | OK | Dockerfile, docker-compose.yml, nginx.conf |
 | PWA | OK | manifest.json, sw.js service worker |
 
@@ -259,10 +259,10 @@ StockMovementFactory.
 | DATABASE_SCHEMA.md | v1.2 | SQLite schema (78 tables) |
 | API_SPECIFICATION.md | v1.0 | Documents Laravel API (unused by frontend) |
 | TECHNICAL_DOCUMENTATION.md | v1.2 | Architecture documentation |
-| SETUP_GUIDE.md | v3.0 | Setup instructions (XAMPP + SQLite) |
+| SETUP_GUIDE.md | v4.0 | Setup instructions (XAMPP + SQLite) |
 | TESTING_FRAMEWORK.md | v1.0 | References Laravel testing only |
 | DEVELOPMENT_ROADMAP.md | v6.0 | All sprints 1-12 completed |
-| PROJECT_STATUS.md | v3.0 | This file — updated to reflect actual architecture |
+| PROJECT_STATUS.md | v5.0 | This file — updated to reflect actual architecture |
 | PANGLONG_BUSINESS_ANALYSIS.md | Updated | Business analysis with gap tracking |
 | PROMPTING_GUIDE.md | Updated | AI prompting guide for this codebase |
 
@@ -276,9 +276,9 @@ StockMovementFactory.
 - [x] 63 models, 33 controllers, 20 services implemented
 - [x] 16 seeders, 9 factories created
 - [x] 7 Form Request classes, 6 API Resource classes
-- [x] 40 frontend PHP pages — all functional with PDO SQLite + jQuery AJAX
+- [x] 45 frontend PHP pages — all functional with PDO SQLite + jQuery AJAX
 - [x] Session-based auth with permission checks
-- [x] Playwright E2E tests (39 tests)
+- [x] Playwright E2E tests (50 tests across 19 specs)
 - [x] Docker deployment + PWA offline-first
 - [x] Accounting engine (double-entry, trial balance, P&L, balance sheet)
 - [x] Multi-tenant, SaaS billing, marketplace, IoT
@@ -313,4 +313,4 @@ StockMovementFactory.
 3. ✅ DATABASE_SCHEMA.md notes SQLite as development database
 4. ✅ SETUP_GUIDE.md has actual setup instructions (XAMPP + SQLite)
 5. ✅ TESTING_FRAMEWORK.md includes Playwright E2E test documentation
-6. ✅ All stats accurate (45 pages, 39 tests, 37 migrations, 78 tables, 34 endpoints)
+6. ✅ All stats accurate (45 pages, 50 tests, 37 migrations, 78 tables, 48 endpoints)

@@ -19,7 +19,7 @@
   ↓
 [PHP Server-Side Rendering] — frontend/*.php (45 pages)
   ├── Direct PDO SQLite queries untuk initial page load
-  └── jQuery 3.6 $.ajax() → frontend/ajax.php (1802 lines) → PDO SQLite
+  └── jQuery 3.6 $.ajax() → frontend/ajax.php (1940 lines, 48 endpoints) → PDO SQLite
   ↓
 [database/database.sqlite] — 78 tables, 1.3MB
 ```
@@ -31,7 +31,7 @@
 | DB Connection | `frontend/db.php` | PDO SQLite singleton, `PRAGMA foreign_keys = ON` |
 | Auth | `frontend/auth.php` | Session-based, `password_verify()`, `hasPermission()` |
 | Config | `frontend/config.php` | Session timeout 30min, `renderNav()`, `renderHead()`, `renderFoot()` |
-| AJAX Endpoint | `frontend/ajax.php` | Single endpoint (1802 lines), parameter `?endpoint=X` |
+| AJAX Endpoint | `frontend/ajax.php` | Single endpoint (1940 lines, 48 endpoints), parameter `?endpoint=X` |
 | Database | `database/database.sqlite` | SQLite, 78 tables, hasil 37 migrations + 16 seeders |
 
 ## Yang Ada Tapi TIDAK Digunakan

@@ -316,10 +316,10 @@ Harga Retail > Harga Toko Kecil > Harga Kontraktor > Harga Developer
 ## 8. STATUS SAAT INI (Sprint 1-12 COMPLETED)
 
 > **Arsitektur aktual:** Frontend PHP Native + PDO SQLite + jQuery AJAX.
-> `frontend/ajax.php` sebagai single endpoint (~1802 lines) untuk semua CRUD.
+> `frontend/ajax.php` sebagai single endpoint (1940 lines, 48 endpoints) untuk semua CRUD.
 > Laravel backend API ada di repo tetapi TIDAK digunakan frontend.
 > Database: SQLite (`database/database.sqlite`, 78 tables, 1.3MB).
-> **Bug fixes (Juni 2026):** 8 bug kritis diperbaiki, 39 Playwright E2E tests lulus.
+> **Bug fixes (Juni 2026):** 8 bug kritis diperbaiki, 50 Playwright E2E tests lulus (19 specs).
 > **Sprint 7-12 (Juni 2026):** Retur, Quotation, Sales Order, Pricing, Stock Transfer, Cash Book, Fixed Assets, Fleet, Routes, WhatsApp, e-Faktur — semua diimplementasi.
 
 | Sprint | Fokus | Status |

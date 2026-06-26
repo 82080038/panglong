@@ -4,7 +4,7 @@ Sistem ERP untuk distribusi material bangunan — POS, inventory, AR/AP, akuntan
 
 > **Status:** Sprint 1-12 + Gap Features + UI/UX Enhancements — ALL COMPLETED
 > **Architecture:** PHP Native + PDO SQLite + jQuery AJAX + Bootstrap 5
-> **Tests:** 39 Playwright E2E tests (ALL PASSING)
+> **Tests:** 50 Playwright E2E tests across 19 specs (ALL PASSING)
 
 ---
 
@@ -61,7 +61,7 @@ http://localhost/panglong/frontend/login.php
   ↓
 [PHP Server-Side Rendering] — frontend/*.php (45 pages)
   ├── Direct PDO SQLite queries untuk initial page load
-  └── jQuery 3.6 $.ajax() → frontend/ajax.php (1802 lines, 34 endpoints) → PDO SQLite
+  └── jQuery 3.6 $.ajax() → frontend/ajax.php (1940 lines, 48 endpoints) → PDO SQLite
   ↓
 [database/database.sqlite] — 78 tables
 ```
@@ -69,7 +69,7 @@ http://localhost/panglong/frontend/login.php
 ### Yang berjalan saat ini
 - **Frontend:** PHP Native procedural (45 pages) di `frontend/`
 - **Database:** SQLite langsung via PDO (`frontend/db.php`)
-- **AJAX:** Single endpoint `frontend/ajax.php` (34 endpoints)
+- **AJAX:** Single endpoint `frontend/ajax.php` (48 endpoints)
 - **Auth:** Session-based (`frontend/auth.php`) dengan `password_verify()`
 - **UI:** Bootstrap 5.3 + Bootstrap Icons (CDN), dark mode, eye-care mode, fullscreen toggle, responsive
 
@@ -86,7 +86,7 @@ panglong/
 │   ├── config.php            # Session, navbar (RBAC), dark mode, fullscreen, CDN
 │   ├── db.php                # PDO SQLite connection singleton
 │   ├── auth.php              # Session auth: login(), logout(), hasPermission()
-│   ├── ajax.php              # Single AJAX endpoint (1802 lines, 34 endpoints)
+│   ├── ajax.php              # Single AJAX endpoint (1940 lines, 48 endpoints)
 │   ├── login.php             # Login page dengan quick login buttons
 │   ├── index.php             # Dashboard
 │   ├── products.php          # Product management
@@ -110,7 +110,7 @@ panglong/
 │
 ├── app/                      # Laravel backend (TIDAK digunakan frontend)
 ├── routes/api.php            # Laravel API routes (TIDAK digunakan frontend)
-├── tests/e2e/                # Playwright E2E tests (18 specs, 39 tests)
+├── tests/e2e/                # Playwright E2E tests (19 specs, 50 tests)
 ├── docker/                   # Docker config (nginx.conf)
 ├── Dockerfile                # Docker build
 ├── docker-compose.yml        # Docker compose (app + db + nginx + frontend)

@@ -1264,7 +1264,7 @@ module.exports = defineConfig({
 }
 ```
 
-## Test Specs (18 files, 39 tests — ALL PASSING)
+## Test Specs (19 files, 50 tests — ALL PASSING)
 
 | Spec File | Tests | Description |
 |-----------|-------|-------------|
@@ -1282,6 +1282,7 @@ module.exports = defineConfig({
 | reports.spec.js | 3 | Reports page + low stock + AR aging tabs |
 | saas.spec.js | 2 | SaaS page + plans tab |
 | sales.spec.js | 3 | Sales page + new sale modal + add item |
+| simulation.spec.js | 11 | Full 3-month simulation across all 6 roles |
 | stock_opname.spec.js | 2 | Stock opname page + form |
 | stock.spec.js | 2 | Stock page + adjustment modal |
 | suppliers.spec.js | 2 | Suppliers page + add modal |

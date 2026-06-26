@@ -200,7 +200,7 @@ Browser (User)
 ↓
 PHP Native Frontend (frontend/*.php)
 ↓ jQuery $.ajax()
-frontend/ajax.php (single AJAX endpoint, 1802 lines)
+frontend/ajax.php (single AJAX endpoint, 1940 lines, 48 endpoints)
 ↓ PDO SQLite
 Database (database/database.sqlite, 78 tables)
 

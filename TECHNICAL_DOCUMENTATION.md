@@ -7,10 +7,10 @@
 ## Status: ALL SPRINTS (1-12) + GAP FEATURES + UI/UX COMPLETED
 
 > **ARSITEKTUR AKTUAL (Updated 2026-06-26):** Frontend menggunakan PHP Native
-> + PDO SQLite + jQuery AJAX. `frontend/ajax.php` adalah single endpoint (1802 lines, 34 endpoints) untuk
+> + PDO SQLite + jQuery AJAX. `frontend/ajax.php` adalah single endpoint (1940 lines, 48 endpoints) untuk
 > semua CRUD operations. Laravel backend API ada di repo tetapi TIDAK digunakan
 > oleh frontend. Database: SQLite (`database/database.sqlite`, 78 tables).
-> Frontend: 45 PHP pages, 18 Playwright E2E specs (39 tests, ALL PASSING).
+> Frontend: 45 PHP pages, 19 Playwright E2E specs (50 tests, ALL PASSING).
 > UI: RBAC nav per role, dark mode, eye-care mode, fullscreen toggle, responsive design.
 > Lihat PROJECT_STATUS.md dan DEVELOPMENT_ROADMAP.md untuk detail.
 
@@ -25,7 +25,7 @@
   ↓
 [PHP Server-Side Rendering] — frontend/*.php (45 pages)
   ├── Direct PDO SQLite queries untuk initial page load
-  └── jQuery 3.6 $.ajax() → frontend/ajax.php (1802 lines, 34 endpoints) → PDO SQLite
+  └── jQuery 3.6 $.ajax() → frontend/ajax.php (1940 lines, 48 endpoints) → PDO SQLite
   ↓
 [database/database.sqlite] — 78 tables
 ```
@@ -37,7 +37,7 @@
 | DB Connection | `frontend/db.php` | PDO SQLite singleton, `PRAGMA foreign_keys = ON` |
 | Auth | `frontend/auth.php` | Session-based, `login()`, `logout()`, `hasPermission()` |
 | Config | `frontend/config.php` | Session timeout 30 min, RBAC navbar, dark mode, fullscreen, CDN |
-| AJAX Endpoint | `frontend/ajax.php` | 1802 lines, 34 endpoints, all CRUD operations |
+| AJAX Endpoint | `frontend/ajax.php` | 1940 lines, 48 endpoints, all CRUD operations |
 | Login | `frontend/login.php` | Login page with quick login buttons |
 | PWA | `frontend/manifest.json`, `frontend/sw.js` | Offline-first service worker |
 
