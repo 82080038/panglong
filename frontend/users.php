@@ -15,7 +15,7 @@ $users = $d->query("SELECT u.id, u.username, u.full_name, u.email, u.phone, u.is
 <?php renderNav('users'); ?>
 
 <div class="container mt-4">
-    <h1>Manajemen Pengguna/h1>
+    <h1>Manajemen Pengguna</h1>
     <p class="text-muted">Current user: <?php echo htmlspecialchars(userFullName()); ?> (<?php echo ucfirst($role); ?>)</p>
     
     <div class="card mt-3"><div class="card-body">

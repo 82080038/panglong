@@ -15,6 +15,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header("Location: saas.php?tab=tenants&msg=tenant_created");
         exit;
     }
+    if (($_POST['action'] ?? '') === 'subscribe') {
+        $now = date('Y-m-d H:i:s');
+        $tenantId = (int)($_POST['tenant_id'] ?? 0);
+        $planId = (int)($_POST['plan_id'] ?? 0);
+        $billingCycle = $_POST['billing_cycle'] ?? 'monthly';
+        $plan = $d->prepare("SELECT * FROM subscription_plans WHERE id = ?");
+        $plan->execute([$planId]);
+        $planData = $plan->fetch();
+        if ($planData) {
+            $amount = $billingCycle === 'yearly' ? $planData['price_yearly'] : $planData['price_monthly'];
+            $startDate = date('Y-m-d');
+            $endDate = $billingCycle === 'yearly' ? date('Y-m-d', strtotime('+1 year')) : date('Y-m-d', strtotime('+1 month'));
+            $d->prepare("INSERT INTO subscriptions (tenant_id, plan_id, billing_cycle, start_date, end_date, status, amount, created_at, updated_at) VALUES (?,?,?,?,?,'active',?,?,?)")
+                ->execute([$tenantId, $planId, $billingCycle, $startDate, $endDate, $amount, $now, $now]);
+            $subId = $d->lastInsertId();
+            $d->prepare("UPDATE tenants SET status = 'active', subscription_ends_at = ? WHERE id = ?")->execute([$endDate, $tenantId]);
+            $invNo = 'INV-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+            $d->prepare("INSERT INTO subscription_invoices (invoice_no, tenant_id, subscription_id, invoice_date, due_date, amount, status, created_at, updated_at) VALUES (?,?,?,?,?,?,'unpaid',?,?)")
+                ->execute([$invNo, $tenantId, $subId, $startDate, date('Y-m-d', strtotime('+7 days')), $amount, $now, $now]);
+            header("Location: saas.php?tab=tenants&msg=subscribed");
+        } else {
+            header("Location: saas.php?tab=tenants&msg=error");
+        }
+        exit;
+    }
+    if (($_POST['action'] ?? '') === 'pay_invoice') {
+        $now = date('Y-m-d H:i:s');
+        $invId = (int)($_POST['invoice_id'] ?? 0);
+        $d->prepare("UPDATE subscription_invoices SET status = 'paid', paid_at = ?, payment_method = ?, updated_at = ? WHERE id = ?")
+            ->execute([$now, $_POST['payment_method'] ?? 'bank_transfer', $now, $invId]);
+        header("Location: saas.php?tab=tenants&msg=paid");
+        exit;
+    }
 }
 
 $plans = $d->query("SELECT * FROM subscription_plans ORDER BY price_monthly")->fetchAll();

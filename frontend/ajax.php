@@ -104,7 +104,7 @@ if ($endpoint === 'products') {
 
     if ($method === 'POST') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO products (code, name, alias, category_id, brand, min_stock, max_stock, location, buy_price, sell_price, is_active, created_at, updated_at, weight_kg, length_cm, width_cm, height_cm) VALUES (?,?,?,?,?,?,?,?,'',?,?,1,?,?,0,0,0)");
+        $stmt = $d->prepare("INSERT INTO products (code, name, alias, category_id, brand, min_stock, max_stock, location, buy_price, sell_price, is_active, created_at, updated_at, weight_kg, length_cm, width_cm, height_cm) VALUES (?,?,?,?,?,?,?,'',?,?,1,?,?,0,0,0,0)");
         $stmt->execute([
             $input['code'] ?? '', $input['name'] ?? '', $input['alias'] ?? null,
             $input['category_id'] ?? null, $input['brand'] ?? null,
@@ -310,9 +310,10 @@ if ($endpoint === 'sales') {
         $tax = $taxable * $taxRate;
         $total = $taxable + $tax;
 
-        $stmt = $d->prepare("INSERT INTO sales (invoice_no, customer_id, sale_date, subtotal, discount, tax, total, payment_method, payment_status, status, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,'completed',?,?,?,?)");
+        $stmt = $d->prepare("INSERT INTO sales (invoice_no, customer_id, customer_name_snapshot, sale_date, subtotal, discount, tax, total, delivery_cost, payment_method, payment_status, status, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,0,?,?,'completed',?,?,?)");
         $stmt->execute([
-            $invoiceNo, $input['customer_id'] ?? null, $input['sale_date'] ?? date('Y-m-d'),
+            $invoiceNo, $input['customer_id'] ?? null, $input['customer_name'] ?? 'Walk-in Customer',
+            $input['sale_date'] ?? date('Y-m-d'),
             $subtotal, $globalDiscount, $tax, $total,
             $input['payment_method'] ?? 'cash', 'unpaid',
             $input['notes'] ?? null, $now, $now
@@ -322,16 +323,17 @@ if ($endpoint === 'sales') {
         foreach ($input['items'] ?? [] as $item) {
             if (empty($item['product_id'])) continue;
             $lineSubtotal = ($item['quantity'] * $item['unit_price']) - ($item['discount'] ?? 0);
-            $stmt = $d->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, discount, subtotal, created_at) VALUES (?,?,?,?,?,?,?)");
+            $stmt = $d->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, bonus_qty, unit_id, unit_price, discount, subtotal, created_at) VALUES (?,?,?,?,?,?,?,?,?)");
             $stmt->execute([
                 $saleId, $item['product_id'], $item['quantity'],
+                $item['bonus_qty'] ?? 0, $item['unit_id'] ?? 1,
                 $item['unit_price'], $item['discount'] ?? 0, $lineSubtotal, $now
             ]);
 
-            $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, movement_type, notes, created_at) VALUES (?,?,?,?,?)");
+            $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)");
             $stmt->execute([
                 $item['product_id'], -abs((float)$item['quantity']),
-                'sale', 'Sale ' . $invoiceNo, $now
+                $item['unit_id'] ?? 1, 'sale', 'Sale ' . $invoiceNo, $now
             ]);
         }
         created(['id' => $saleId, 'invoice_no' => $invoiceNo]);
@@ -345,10 +347,10 @@ if ($endpoint === 'sales') {
         $items = $d->prepare("SELECT product_id, quantity FROM sale_items WHERE sale_id = ?");
         $items->execute([$id]);
         foreach ($items->fetchAll() as $item) {
-            $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, movement_type, notes, created_at) VALUES (?,?,?,?,?)");
+            $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)");
             $stmt->execute([
                 $item['product_id'], abs((float)$item['quantity']),
-                'adjustment', 'Void sale #' . $id, $now
+                1, 'adjustment', 'Void sale #' . $id, $now
             ]);
         }
 
@@ -423,8 +425,8 @@ if ($endpoint === 'stock') {
         $adjType = $input['adjustment_type'] ?? 'correction';
         $reason = $input['reason'] ?? '';
 
-        $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, movement_type, notes, created_at) VALUES (?,?,?,?,?)");
-        $stmt->execute([$productId, $quantity, $adjType, $reason, $now]);
+        $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)");
+        $stmt->execute([$productId, $quantity, $input['unit_id'] ?? 1, $adjType, $reason, $now]);
         created(['product_id' => $productId, 'quantity' => $quantity]);
     }
 }
@@ -562,8 +564,8 @@ if ($endpoint === 'purchase-orders') {
             $newReceived = (float)$item['received_quantity'] + $qty;
             $d->prepare("UPDATE purchase_items SET received_quantity = ? WHERE id = ?")->execute([$newReceived, $itemId]);
 
-            $d->prepare("INSERT INTO stock_movements (product_id, quantity, movement_type, notes, created_at) VALUES (?,?,?,?,?)")->execute([
-                $item['pid'], $qty, 'purchase', 'PO receive #' . $id, $now
+            $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)")->execute([
+                $item['pid'], $qty, $item['unit_id'] ?? 1, 'purchase', 'PO receive #' . $id, $now
             ]);
         }
 
@@ -621,10 +623,11 @@ if ($endpoint === 'purchase-orders') {
         foreach ($input['items'] ?? [] as $item) {
             if (empty($item['product_id'])) continue;
             $lineSubtotal = ($item['quantity'] * $item['unit_price']);
-            $stmt = $d->prepare("INSERT INTO purchase_items (po_id, product_id, quantity, unit_price, subtotal, received_quantity, created_at) VALUES (?,?,?,?,?,?,?)");
+            $stmt = $d->prepare("INSERT INTO purchase_items (po_id, product_id, quantity, bonus_qty, received_quantity, unit_id, unit_price, subtotal, created_at) VALUES (?,?,?,?,?,?,?,?,?)");
             $stmt->execute([
                 $poId, $item['product_id'], $item['quantity'],
-                $item['unit_price'], $lineSubtotal, 0, $now
+                $item['bonus_qty'] ?? 0, 0,
+                $item['unit_id'] ?? 1, $item['unit_price'], $lineSubtotal, $now
             ]);
         }
         created(['id' => $poId, 'po_number' => $poNumber]);
@@ -712,7 +715,7 @@ if ($endpoint === 'reports') {
     }
 
     if ($type === 'stock-movement') {
-        $stmt = $d->prepare("SELECT sm.created_at as date, p.name as product_name, sm.quantity, sm.movement_type, sm.reason as notes FROM stock_movements sm JOIN products p ON sm.product_id = p.id WHERE DATE(sm.created_at) BETWEEN ? AND ? ORDER BY sm.created_at DESC LIMIT 200");
+        $stmt = $d->prepare("SELECT sm.created_at as date, p.name as product_name, sm.quantity, sm.movement_type, sm.notes FROM stock_movements sm JOIN products p ON sm.product_id = p.id WHERE DATE(sm.created_at) BETWEEN ? AND ? ORDER BY sm.created_at DESC LIMIT 200");
         $stmt->execute([$dateFrom, $dateTo]);
         ok($stmt->fetchAll());
     }
@@ -810,11 +813,11 @@ if ($endpoint === 'sales-returns') {
             $totalRefund += ($item['quantity'] * $item['unit_price']);
         }
 
-        $stmt = $d->prepare("INSERT INTO sales_returns (return_no, sale_id, customer_id, return_date, total_refund, refund_method, status, reason, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,'pending',?,?,?,?)");
+        $stmt = $d->prepare("INSERT INTO sales_returns (return_no, sale_id, customer_id, return_date, total_refund, refund_method, status, reason, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
         $stmt->execute([
             $returnNo, $saleId, $sale['customer_id'], $input['return_date'] ?? date('Y-m-d'),
-            $totalRefund, $input['refund_method'] ?? 'cash',
-            $input['reason'] ?? null, $input['notes'] ?? null,
+            $totalRefund, $input['refund_method'] ?? 'cash', 'pending',
+            $input['reason'] ?? 'N/A', $input['notes'] ?? null,
             $_SESSION['user']['id'] ?? null, $now, $now
         ]);
         $returnId = $d->lastInsertId();
@@ -822,11 +825,18 @@ if ($endpoint === 'sales-returns') {
         foreach ($input['items'] ?? [] as $item) {
             if (empty($item['product_id'])) continue;
             $refundAmt = ($item['quantity'] * $item['unit_price']);
-            $stmt = $d->prepare("INSERT INTO sales_return_items (sales_return_id, sale_item_id, product_id, quantity, unit_price, refund_amount, reason, created_at) VALUES (?,?,?,?,?,?,?,?)");
-            $stmt->execute([$returnId, $item['sale_item_id'] ?? null, $item['product_id'], $item['quantity'], $item['unit_price'], $refundAmt, $item['reason'] ?? null, $now]);
+            $saleItemId = $item['sale_item_id'] ?? null;
+            if (!$saleItemId) {
+                $si = $d->prepare("SELECT id FROM sale_items WHERE sale_id = ? AND product_id = ? LIMIT 1");
+                $si->execute([$saleId, $item['product_id']]);
+                $siRow = $si->fetch();
+                $saleItemId = $siRow ? $siRow['id'] : 0;
+            }
+            $stmt = $d->prepare("INSERT INTO sales_return_items (sales_return_id, sale_item_id, product_id, quantity, unit_id, unit_price, refund_amount, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?)");
+            $stmt->execute([$returnId, $saleItemId, $item['product_id'], $item['quantity'], $item['unit_id'] ?? 1, $item['unit_price'], $refundAmt, $item['reason'] ?? null, $now]);
 
-            $d->prepare("INSERT INTO stock_movements (product_id, quantity, movement_type, notes, created_at) VALUES (?,?,?,?,?)")->execute([
-                $item['product_id'], abs((float)$item['quantity']), 'sale_return', 'Return ' . $returnNo, $now
+            $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)")->execute([
+                $item['product_id'], abs((float)$item['quantity']), $item['unit_id'] ?? 1, 'sale_return', 'Return ' . $returnNo, $now
             ]);
         }
         created(['id' => $returnId, 'return_no' => $returnNo]);
@@ -874,11 +884,11 @@ if ($endpoint === 'purchase-returns') {
             $totalRefund += ($item['quantity'] * $item['unit_price']);
         }
 
-        $stmt = $d->prepare("INSERT INTO purchase_returns (return_no, po_id, supplier_id, return_date, total_refund, refund_method, status, reason, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,'pending',?,?,?,?)");
+        $stmt = $d->prepare("INSERT INTO purchase_returns (return_no, po_id, supplier_id, return_date, total_refund, refund_method, status, reason, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
         $stmt->execute([
             $returnNo, $poId, $po['supplier_id'], $input['return_date'] ?? date('Y-m-d'),
-            $totalRefund, $input['refund_method'] ?? 'credit',
-            $input['reason'] ?? null, $input['notes'] ?? null,
+            $totalRefund, $input['refund_method'] ?? 'credit', 'pending',
+            $input['reason'] ?? 'N/A', $input['notes'] ?? null,
             $_SESSION['user']['id'] ?? null, $now, $now
         ]);
         $returnId = $d->lastInsertId();
@@ -886,11 +896,18 @@ if ($endpoint === 'purchase-returns') {
         foreach ($input['items'] ?? [] as $item) {
             if (empty($item['product_id'])) continue;
             $refundAmt = ($item['quantity'] * $item['unit_price']);
-            $stmt = $d->prepare("INSERT INTO purchase_return_items (purchase_return_id, purchase_item_id, product_id, quantity, unit_price, refund_amount, reason, created_at) VALUES (?,?,?,?,?,?,?,?)");
-            $stmt->execute([$returnId, $item['purchase_item_id'] ?? null, $item['product_id'], $item['quantity'], $item['unit_price'], $refundAmt, $item['reason'] ?? null, $now]);
+            $purchaseItemId = $item['purchase_item_id'] ?? null;
+            if (!$purchaseItemId) {
+                $pi = $d->prepare("SELECT id FROM purchase_items WHERE po_id = ? AND product_id = ? LIMIT 1");
+                $pi->execute([$poId, $item['product_id']]);
+                $piRow = $pi->fetch();
+                $purchaseItemId = $piRow ? $piRow['id'] : 0;
+            }
+            $stmt = $d->prepare("INSERT INTO purchase_return_items (purchase_return_id, purchase_item_id, product_id, quantity, unit_id, unit_price, refund_amount, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?)");
+            $stmt->execute([$returnId, $purchaseItemId, $item['product_id'], $item['quantity'], $item['unit_id'] ?? 1, $item['unit_price'], $refundAmt, $item['reason'] ?? null, $now]);
 
-            $d->prepare("INSERT INTO stock_movements (product_id, quantity, movement_type, notes, created_at) VALUES (?,?,?,?,?)")->execute([
-                $item['product_id'], -abs((float)$item['quantity']), 'purchase_return', 'PR ' . $returnNo, $now
+            $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)")->execute([
+                $item['product_id'], -abs((float)$item['quantity']), $item['unit_id'] ?? 1, 'purchase_return', 'PR ' . $returnNo, $now
             ]);
         }
         created(['id' => $returnId, 'return_no' => $returnNo]);
@@ -936,7 +953,7 @@ if ($endpoint === 'quotations') {
         $tax = $taxable * $taxRate;
         $total = $taxable + $tax;
 
-        $stmt = $d->prepare("INSERT INTO quotations (quote_no, customer_id, customer_name, quote_date, valid_until, subtotal, discount, tax, total, status, notes, delivery_address, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,'draft',?,?,?,?)");
+        $stmt = $d->prepare("INSERT INTO quotations (quote_no, customer_id, customer_name, quote_date, valid_until, subtotal, discount, tax, total, status, notes, delivery_address, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,'draft',?,?,?,?,?)");
         $stmt->execute([
             $quoteNo, $input['customer_id'] ?? null, $input['customer_name'] ?? '',
             $input['quote_date'] ?? date('Y-m-d'), $input['valid_until'] ?? date('Y-m-d', strtotime('+30 days')),
@@ -949,8 +966,8 @@ if ($endpoint === 'quotations') {
         foreach ($input['items'] ?? [] as $item) {
             if (empty($item['product_id'])) continue;
             $lineSubtotal = ($item['quantity'] * $item['unit_price']) - ($item['discount'] ?? 0);
-            $stmt = $d->prepare("INSERT INTO quotation_items (quotation_id, product_id, quantity, bonus_qty, unit_price, discount, subtotal, notes, created_at) VALUES (?,?,?,?,?,?,?,?,?)");
-            $stmt->execute([$quoteId, $item['product_id'], $item['quantity'], $item['bonus_qty'] ?? 0, $item['unit_price'], $item['discount'] ?? 0, $lineSubtotal, $item['notes'] ?? null, $now]);
+            $stmt = $d->prepare("INSERT INTO quotation_items (quotation_id, product_id, quantity, bonus_qty, unit_id, unit_price, discount, subtotal, notes, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)");
+            $stmt->execute([$quoteId, $item['product_id'], $item['quantity'], $item['bonus_qty'] ?? 0, $item['unit_id'] ?? 1, $item['unit_price'], $item['discount'] ?? 0, $lineSubtotal, $item['notes'] ?? null, $now]);
         }
         created(['id' => $quoteId, 'quote_no' => $quoteNo]);
     }
@@ -995,7 +1012,7 @@ if ($endpoint === 'sales-orders') {
         $tax = $taxable * $taxRate;
         $total = $taxable + $tax;
 
-        $stmt = $d->prepare("INSERT INTO sales_orders (so_number, customer_id, customer_name, order_date, expected_delivery_date, subtotal, discount, tax, total, payment_method, status, notes, delivery_address, quotation_id, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?)");
+        $stmt = $d->prepare("INSERT INTO sales_orders (so_number, customer_id, customer_name, order_date, expected_delivery_date, subtotal, discount, tax, total, payment_method, status, notes, delivery_address, quotation_id, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,'open',?,?,?,?,?,?)");
         $stmt->execute([
             $soNumber, $input['customer_id'] ?? null, $input['customer_name'] ?? '',
             $input['order_date'] ?? date('Y-m-d'), $input['expected_delivery_date'] ?? null,
@@ -1010,8 +1027,8 @@ if ($endpoint === 'sales-orders') {
         foreach ($input['items'] ?? [] as $item) {
             if (empty($item['product_id'])) continue;
             $lineSubtotal = ($item['quantity'] * $item['unit_price']) - ($item['discount'] ?? 0);
-            $stmt = $d->prepare("INSERT INTO sales_order_items (sales_order_id, product_id, quantity, bonus_qty, delivered_qty, unit_price, discount, subtotal, notes, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)");
-            $stmt->execute([$soId, $item['product_id'], $item['quantity'], $item['bonus_qty'] ?? 0, 0, $item['unit_price'], $item['discount'] ?? 0, $lineSubtotal, $item['notes'] ?? null, $now]);
+            $stmt = $d->prepare("INSERT INTO sales_order_items (sales_order_id, product_id, quantity, bonus_qty, delivered_qty, unit_id, unit_price, discount, subtotal, notes, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+            $stmt->execute([$soId, $item['product_id'], $item['quantity'], $item['bonus_qty'] ?? 0, 0, $item['unit_id'] ?? 1, $item['unit_price'], $item['discount'] ?? 0, $lineSubtotal, $item['notes'] ?? null, $now]);
         }
         created(['id' => $soId, 'so_number' => $soNumber]);
     }
@@ -1045,8 +1062,8 @@ if ($endpoint === 'customer-prices') {
     }
     if ($method === 'POST') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO customer_product_prices (customer_id, product_id, custom_price, min_qty, is_active, notes, created_at, updated_at) VALUES (?,?,?,?,1,?,?,?)");
-        $stmt->execute([$input['customer_id'], $input['product_id'], $input['custom_price'], $input['min_qty'] ?? 1, $input['notes'] ?? null, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO customer_product_prices (customer_id, product_id, unit_id, custom_price, min_qty, is_active, notes, created_at, updated_at) VALUES (?,?,?,?,?,1,?,?,?)");
+        $stmt->execute([$input['customer_id'], $input['product_id'], $input['unit_id'] ?? 1, $input['custom_price'] ?? $input['unit_price'], $input['min_qty'] ?? 1, $input['notes'] ?? null, $now, $now]);
         created(['id' => $d->lastInsertId()]);
     }
     if ($method === 'PUT') {
@@ -1078,8 +1095,8 @@ if ($endpoint === 'tier-prices') {
     }
     if ($method === 'POST') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO product_tier_prices (product_id, min_qty, max_qty, unit_price, is_active, created_at, updated_at) VALUES (?,?,?,?,1,?,?)");
-        $stmt->execute([$input['product_id'], $input['min_qty'], $input['max_qty'] ?? null, $input['unit_price'], $now, $now]);
+        $stmt = $d->prepare("INSERT INTO product_tier_prices (product_id, unit_id, min_qty, max_qty, unit_price, is_active, created_at, updated_at) VALUES (?,?,?,?,?,1,?,?)");
+        $stmt->execute([$input['product_id'], $input['unit_id'] ?? 1, $input['min_qty'], $input['max_qty'] ?? null, $input['unit_price'], $now, $now]);
         created(['id' => $d->lastInsertId()]);
     }
     if ($method === 'DELETE') {
@@ -1103,8 +1120,8 @@ if ($endpoint === 'supplier-price-history') {
     }
     if ($method === 'POST') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO supplier_price_history (supplier_id, product_id, unit_price, effective_date, po_reference, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)");
-        $stmt->execute([$input['supplier_id'], $input['product_id'], $input['unit_price'], $input['effective_date'] ?? date('Y-m-d'), $input['po_reference'] ?? null, $input['notes'] ?? null, $_SESSION['user']['id'] ?? null, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO supplier_price_history (supplier_id, product_id, unit_id, unit_price, effective_date, po_reference, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)");
+        $stmt->execute([$input['supplier_id'], $input['product_id'], $input['unit_id'] ?? 1, $input['unit_price'], $input['effective_date'] ?? date('Y-m-d'), $input['po_reference'] ?? null, $input['notes'] ?? null, $_SESSION['user']['id'] ?? null, $now, $now]);
         created(['id' => $d->lastInsertId()]);
     }
 }
@@ -1122,7 +1139,7 @@ if ($endpoint === 'stock-adjustments') {
     }
     if ($method === 'POST') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO stock_adjustments (product_id, quantity, adjustment_type, reason, status, created_by, created_at, tenant_id) VALUES (?,?,?,?,'pending',?,?)");
+        $stmt = $d->prepare("INSERT INTO stock_adjustments (product_id, quantity, adjustment_type, reason, status, created_by, created_at, tenant_id) VALUES (?,?,?,?,'pending',?,?,?)");
         $stmt->execute([$input['product_id'], $input['quantity'], $input['adjustment_type'] ?? 'correction', $input['reason'] ?? null, $_SESSION['user']['id'] ?? null, $now, null]);
         created(['id' => $d->lastInsertId()]);
     }
@@ -1136,8 +1153,8 @@ if ($endpoint === 'stock-adjustments') {
             $stmt->execute([$id]);
             $adj = $stmt->fetch();
             if ($adj) {
-                $d->prepare("INSERT INTO stock_movements (product_id, quantity, movement_type, notes, created_at) VALUES (?,?,?,?,?)")->execute([
-                    $adj['product_id'], $adj['quantity'], 'adjustment', 'Approved adj #' . $id, $now
+                $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)")->execute([
+                    $adj['product_id'], $adj['quantity'], $adj['unit_id'] ?? 1, 'adjustment', 'Approved adj #' . $id, $now
                 ]);
             }
         }
@@ -1183,11 +1200,11 @@ if ($endpoint === 'stock-transfers') {
             $items = $d->prepare("SELECT * FROM stock_transfer_items WHERE transfer_id = ?");
             $items->execute([$id]);
             foreach ($items->fetchAll() as $item) {
-                $d->prepare("INSERT INTO stock_movements (product_id, quantity, movement_type, notes, created_at) VALUES (?,?,?,?,?)")->execute([
-                    $item['product_id'], -abs((float)$item['quantity']), 'transfer_out', 'Transfer out #' . $id, $now
+                $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)")->execute([
+                    $item['product_id'], -abs((float)$item['quantity']), $item['unit_id'] ?? 1, 'transfer_out', 'Transfer out #' . $id, $now
                 ]);
-                $d->prepare("INSERT INTO stock_movements (product_id, quantity, movement_type, notes, created_at) VALUES (?,?,?,?,?)")->execute([
-                    $item['product_id'], abs((float)$item['quantity']), 'transfer_in', 'Transfer in #' . $id, $now
+                $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)")->execute([
+                    $item['product_id'], abs((float)$item['quantity']), $item['unit_id'] ?? 1, 'transfer_in', 'Transfer in #' . $id, $now
                 ]);
             }
         }
@@ -1290,8 +1307,8 @@ if ($endpoint === 'fixed-assets') {
         $salvage = (float)($input['salvage_value'] ?? 0);
         $life = (int)($input['useful_life_months'] ?? 60);
         $monthlyDep = $life > 0 ? ($cost - $salvage) / $life : 0;
-        $stmt = $d->prepare("INSERT INTO fixed_assets (asset_code, name, category, serial_no, plate_no, acquisition_date, acquisition_cost, salvage_value, useful_life_months, depreciation_method, monthly_depreciation, accumulated_depreciation, book_value, status, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,'straight_line',?,?,?,?,'active',?,?,?)");
-        $stmt->execute([$assetCode, $input['name'], $input['category'] ?? 'equipment', $input['serial_no'] ?? null, $input['plate_no'] ?? null, $input['acquisition_date'] ?? date('Y-m-d'), $cost, $salvage, $life, $monthlyDep, 0, $cost, $input['notes'] ?? null, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO fixed_assets (asset_code, name, category, serial_no, plate_no, acquisition_date, acquisition_cost, salvage_value, useful_life_months, depreciation_method, monthly_depreciation, accumulated_depreciation, book_value, status, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+        $stmt->execute([$assetCode, $input['name'] ?? '', $input['category'] ?? 'equipment', $input['serial_no'] ?? null, $input['plate_no'] ?? null, $input['acquisition_date'] ?? date('Y-m-d'), $cost, $salvage, $life, 'straight_line', $monthlyDep, 0, $cost, 'active', $input['notes'] ?? null, $now, $now]);
         created(['id' => $d->lastInsertId(), 'asset_code' => $assetCode]);
     }
     if ($method === 'PUT') {
@@ -1310,7 +1327,7 @@ if ($endpoint === 'fixed-assets') {
             $newAccum = (float)$asset['accumulated_depreciation'] + $depAmount;
             $newBookValue = (float)$asset['book_value'] - $depAmount;
 
-            $d->prepare("INSERT INTO asset_depreciations (fixed_asset_id, depreciation_date, amount, accumulated_after, book_value_after, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)")->execute([$id, date('Y-m-d'), $depAmount, $newAccum, $newBookValue, 'Monthly depreciation', $_SESSION['user']['id'] ?? null, $now, $now]);
+            $d->prepare("INSERT INTO asset_depreciations (fixed_asset_id, depreciation_date, amount, accumulated_after, book_value_after, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)")->execute([$id, date('Y-m-d'), $depAmount, $newAccum, $newBookValue, 'Monthly depreciation', $_SESSION['user']['id'] ?? null, $now, $now]);
             $d->prepare("UPDATE fixed_assets SET accumulated_depreciation = ?, book_value = ?, updated_at = ? WHERE id = ?")->execute([$newAccum, $newBookValue, $now, $id]);
             ok(['id' => $id, 'depreciation' => $depAmount, 'book_value' => $newBookValue]);
         }
@@ -1334,7 +1351,7 @@ if ($endpoint === 'vehicles') {
     }
     if ($method === 'POST') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO vehicles (plate_no, vehicle_type, brand, model, capacity_kg, fuel_type, acquisition_date, status, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)");
+        $stmt = $d->prepare("INSERT INTO vehicles (plate_no, vehicle_type, brand, model, capacity_kg, fuel_type, acquisition_date, status, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
         $stmt->execute([$input['plate_no'], $input['vehicle_type'] ?? 'truck', $input['brand'] ?? null, $input['model'] ?? null, $input['capacity_kg'] ?? null, $input['fuel_type'] ?? 'diesel', $input['acquisition_date'] ?? date('Y-m-d'), 'active', $input['notes'] ?? null, $now, $now]);
         created(['id' => $d->lastInsertId()]);
     }
@@ -1395,7 +1412,7 @@ if ($endpoint === 'delivery-routes') {
         $stmt->execute([$routeNo, $input['route_date'] ?? date('Y-m-d'), $input['vehicle_id'] ?? null, $input['driver_name'] ?? null, $input['total_distance_km'] ?? null, $input['estimated_time_minutes'] ?? null, $input['notes'] ?? null, $_SESSION['user']['id'] ?? null, $now, $now]);
         $routeId = $d->lastInsertId();
         foreach ($input['stops'] ?? [] as $i => $stop) {
-            $d->prepare("INSERT INTO route_stops (route_id, delivery_id, stop_order, customer_name, address, phone, status, created_at) VALUES (?,?,?,?,?,'pending',?)")->execute([$routeId, $stop['delivery_id'] ?? null, $i + 1, $stop['customer_name'] ?? null, $stop['address'] ?? null, $stop['phone'] ?? null, $now]);
+            $d->prepare("INSERT INTO route_stops (route_id, delivery_id, stop_order, customer_name, address, phone, status, created_at) VALUES (?,?,?,?,?,?,'pending',?)")->execute([$routeId, $stop['delivery_id'] ?? null, $i + 1, $stop['customer_name'] ?? null, $stop['address'] ?? null, $stop['phone'] ?? null, $now]);
         }
         created(['id' => $routeId, 'route_no' => $routeNo]);
     }
@@ -1448,7 +1465,7 @@ if ($endpoint === 'whatsapp-messages') {
         if (!$phone || !$msg) fail('Phone and message required');
 
         // Log the message (in production, this would call WhatsApp API)
-        $stmt = $d->prepare("INSERT INTO whatsapp_messages (phone_number, message_body, template_name, reference_type, reference_id, status, sent_at, created_by, created_at) VALUES (?,?,?,?,?,?,'sent',?,?,?)");
+        $stmt = $d->prepare("INSERT INTO whatsapp_messages (phone_number, message_body, template_name, reference_type, reference_id, status, sent_at, created_by, created_at) VALUES (?,?,?,?,?,?,'sent',?,?)");
         $stmt->execute([$phone, $msg, $templateName, $input['reference_type'] ?? null, $input['reference_id'] ?? null, $_SESSION['user']['id'] ?? null, $now, $now]);
         created(['id' => $d->lastInsertId(), 'status' => 'sent']);
     }
@@ -1487,7 +1504,7 @@ if ($endpoint === 'e-faktur') {
         $fakturNo = date('Y') . sprintf('%03d', date('n')) . '-' . str_pad(rand(1, 999999999), 9, '0', STR_PAD_LEFT);
         $dpp = (float)($input['dpp'] ?? 0);
         $ppn = $dpp * 0.11;
-        $stmt = $d->prepare("INSERT INTO e_faktur (faktur_no, faktur_type, transaction_date, counterparty_name, counterparty_npwp, dpp, ppn, description, reference_type, reference_id, export_status, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,'pending',?,?,?)");
+        $stmt = $d->prepare("INSERT INTO e_faktur (faktur_no, faktur_type, transaction_date, counterparty_name, counterparty_npwp, dpp, ppn, description, reference_type, reference_id, export_status, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,'pending',?,?,?)");
         $stmt->execute([$fakturNo, $input['faktur_type'] ?? 'keluaran', $input['transaction_date'] ?? date('Y-m-d'), $input['counterparty_name'] ?? '', $input['counterparty_npwp'] ?? '', $dpp, $ppn, $input['description'] ?? null, $input['reference_type'] ?? null, $input['reference_id'] ?? null, $_SESSION['user']['id'] ?? null, $now, $now]);
         created(['id' => $d->lastInsertId(), 'faktur_no' => $fakturNo]);
     }
@@ -1633,7 +1650,7 @@ if ($endpoint === 'product-batches') {
     }
     if ($method === 'POST') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO product_batches (product_id, batch_no, lot_no, received_date, expiry_date, quantity_received, quantity_remaining, unit_cost, landed_unit_cost, supplier_id, purchase_order_id, status, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?,?)");
+        $stmt = $d->prepare("INSERT INTO product_batches (product_id, batch_no, lot_no, received_date, expiry_date, quantity_received, quantity_remaining, unit_cost, landed_unit_cost, supplier_id, purchase_order_id, status, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?)");
         $stmt->execute([
             $input['product_id'], $input['batch_no'] ?? null, $input['lot_no'] ?? null,
             $input['received_date'] ?? date('Y-m-d'), $input['expiry_date'] ?? null,
@@ -1764,7 +1781,8 @@ if ($endpoint === 'period-closings') {
         
         $existing = $d->prepare("SELECT * FROM period_closings WHERE period_year = ? AND period_month = ?");
         $existing->execute([$year, $month]);
-        if ($existing->fetch()) fail("Period $year-$month already exists");
+        $existingRow = $existing->fetch();
+        if ($existingRow) ok(['id' => $existingRow['id'], 'period' => "$year-$month", 'message' => "Period $year-$month already exists"]);
         
         $d->prepare("INSERT INTO period_closings (period_year, period_month, status, closed_by, closed_at, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)")
             ->execute([$year, $month, 'closed', $_SESSION['user']['id'] ?? null, $now, $input['notes'] ?? null, $now, $now]);
@@ -1796,6 +1814,126 @@ if ($endpoint === 'check-period-locked') {
         $stmt->execute([$year, $month]);
         $locked = $stmt->fetch();
         ok(['locked' => (bool)$locked, 'period' => "$year-$month"]);
+    }
+}
+
+// === SaaS TENANTS (Owner manages multiple stores) ===
+if ($endpoint === 'tenants') {
+    if ($method === 'GET') {
+        $id = $_GET['id'] ?? null;
+        if ($id) {
+            $stmt = $d->prepare("SELECT * FROM tenants WHERE id = ?");
+            $stmt->execute([$id]);
+            ok($stmt->fetch());
+        }
+        ok($d->query("SELECT * FROM tenants ORDER BY id DESC")->fetchAll());
+    }
+    if ($method === 'POST') {
+        $now = date('Y-m-d H:i:s');
+        $code = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $input['subdomain'] ?? ''), 0, 6));
+        $trialEnds = date('Y-m-d H:i:s', strtotime('+14 days'));
+        $stmt = $d->prepare("INSERT INTO tenants (code, name, subdomain, company_name, company_address, company_phone, company_email, tax_id, status, trial_ends_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,'trial',?,?,?)");
+        $stmt->execute([$code, $input['name'], $input['subdomain'], $input['company_name'] ?? null, $input['company_address'] ?? null, $input['company_phone'] ?? null, $input['company_email'] ?? null, $input['tax_id'] ?? null, $trialEnds, $now, $now]);
+        created(['id' => $d->lastInsertId(), 'code' => $code]);
+    }
+    if ($method === 'PUT') {
+        $id = $_GET['id'] ?? $input['id'] ?? null;
+        if (!$id) fail('ID required');
+        $now = date('Y-m-d H:i:s');
+        $status = $input['status'] ?? 'active';
+        $subEnds = $input['subscription_ends_at'] ?? null;
+        $d->prepare("UPDATE tenants SET status = ?, subscription_ends_at = ?, updated_at = ? WHERE id = ?")->execute([$status, $subEnds, $now, $id]);
+        ok(['id' => $id, 'status' => $status]);
+    }
+}
+
+// === SaaS SUBSCRIPTIONS ===
+if ($endpoint === 'subscriptions') {
+    if ($method === 'GET') {
+        $tenantId = $_GET['tenant_id'] ?? null;
+        if ($tenantId) {
+            $stmt = $d->prepare("SELECT s.*, sp.name as plan_name, sp.code as plan_code, t.name as tenant_name FROM subscriptions s LEFT JOIN subscription_plans sp ON s.plan_id = sp.id LEFT JOIN tenants t ON s.tenant_id = t.id WHERE s.tenant_id = ? ORDER BY s.id DESC");
+            $stmt->execute([$tenantId]);
+            ok($stmt->fetchAll());
+        }
+        ok($d->query("SELECT s.*, sp.name as plan_name, sp.code as plan_code, t.name as tenant_name FROM subscriptions s LEFT JOIN subscription_plans sp ON s.plan_id = sp.id LEFT JOIN tenants t ON s.tenant_id = t.id ORDER BY s.id DESC")->fetchAll());
+    }
+    if ($method === 'POST') {
+        $now = date('Y-m-d H:i:s');
+        $tenantId = $input['tenant_id'] ?? null;
+        $planId = $input['plan_id'] ?? null;
+        $billingCycle = $input['billing_cycle'] ?? 'monthly';
+        if (!$tenantId || !$planId) fail('tenant_id and plan_id required');
+
+        $plan = $d->prepare("SELECT * FROM subscription_plans WHERE id = ?");
+        $plan->execute([$planId]);
+        $planData = $plan->fetch();
+        if (!$planData) fail('Plan not found');
+
+        $amount = $billingCycle === 'yearly' ? $planData['price_yearly'] : $planData['price_monthly'];
+        $startDate = $input['start_date'] ?? date('Y-m-d');
+        $endDate = $billingCycle === 'yearly' ? date('Y-m-d', strtotime('+1 year', strtotime($startDate))) : date('Y-m-d', strtotime('+1 month', strtotime($startDate)));
+
+        $stmt = $d->prepare("INSERT INTO subscriptions (tenant_id, plan_id, billing_cycle, start_date, end_date, status, amount, payment_method, created_at, updated_at) VALUES (?,?,?,?,?,'active',?,?,?,?)");
+        $stmt->execute([$tenantId, $planId, $billingCycle, $startDate, $endDate, $amount, $input['payment_method'] ?? 'bank_transfer', $now, $now]);
+        $subId = $d->lastInsertId();
+
+        $d->prepare("UPDATE tenants SET status = 'active', subscription_ends_at = ? WHERE id = ?")->execute([$endDate, $tenantId]);
+
+        $invNo = 'INV-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+        $dueDate = date('Y-m-d', strtotime('+7 days', strtotime($startDate)));
+        $d->prepare("INSERT INTO subscription_invoices (invoice_no, tenant_id, subscription_id, invoice_date, due_date, amount, status, created_at, updated_at) VALUES (?,?,?,?,?,?,'unpaid',?,?)")
+            ->execute([$invNo, $tenantId, $subId, $startDate, $dueDate, $amount, $now, $now]);
+
+        created(['id' => $subId, 'invoice_no' => $invNo, 'amount' => $amount, 'end_date' => $endDate]);
+    }
+}
+
+// === SaaS SUBSCRIPTION INVOICES ===
+if ($endpoint === 'subscription-invoices') {
+    if ($method === 'GET') {
+        $tenantId = $_GET['tenant_id'] ?? null;
+        if ($tenantId) {
+            $stmt = $d->prepare("SELECT si.*, t.name as tenant_name FROM subscription_invoices si LEFT JOIN tenants t ON si.tenant_id = t.id WHERE si.tenant_id = ? ORDER BY si.id DESC");
+            $stmt->execute([$tenantId]);
+            ok($stmt->fetchAll());
+        }
+        ok($d->query("SELECT si.*, t.name as tenant_name FROM subscription_invoices si LEFT JOIN tenants t ON si.tenant_id = t.id ORDER BY si.id DESC")->fetchAll());
+    }
+    if ($method === 'PUT') {
+        $id = $_GET['id'] ?? $input['id'] ?? null;
+        if (!$id) fail('ID required');
+        $now = date('Y-m-d H:i:s');
+        $action = $input['action'] ?? '';
+        if ($action === 'pay') {
+            $d->prepare("UPDATE subscription_invoices SET status = 'paid', paid_at = ?, payment_method = ?, updated_at = ? WHERE id = ?")
+                ->execute([$now, $input['payment_method'] ?? 'bank_transfer', $now, $id]);
+            ok(['id' => $id, 'status' => 'paid']);
+        }
+        $d->prepare("UPDATE subscription_invoices SET status = ?, updated_at = ? WHERE id = ?")->execute([$input['status'] ?? 'unpaid', $now, $id]);
+        ok(['id' => $id, 'status' => $input['status'] ?? 'unpaid']);
+    }
+}
+
+// === SaaS REVENUE SUMMARY (Owner dashboard) ===
+if ($endpoint === 'saas-revenue') {
+    if ($method === 'GET') {
+        $totalTenants = $d->query("SELECT COUNT(*) as cnt FROM tenants")->fetch()['cnt'];
+        $activeTenants = $d->query("SELECT COUNT(*) as cnt FROM tenants WHERE status = 'active'")->fetch()['cnt'];
+        $trialTenants = $d->query("SELECT COUNT(*) as cnt FROM tenants WHERE status = 'trial'")->fetch()['cnt'];
+        $suspendedTenants = $d->query("SELECT COUNT(*) as cnt FROM tenants WHERE status = 'suspended'")->fetch()['cnt'];
+        $totalRevenue = $d->query("SELECT COALESCE(SUM(amount),0) as total FROM subscription_invoices WHERE status = 'paid'")->fetch()['total'];
+        $pendingRevenue = $d->query("SELECT COALESCE(SUM(amount),0) as total FROM subscription_invoices WHERE status = 'unpaid'")->fetch()['total'];
+        $monthlyRevenue = $d->query("SELECT COALESCE(SUM(amount),0) as total FROM subscription_invoices WHERE status = 'paid' AND strftime('%Y-%m', invoice_date) = strftime('%Y-%m', 'now')")->fetch()['total'];
+        ok([
+            'total_tenants' => (int)$totalTenants,
+            'active_tenants' => (int)$activeTenants,
+            'trial_tenants' => (int)$trialTenants,
+            'suspended_tenants' => (int)$suspendedTenants,
+            'total_revenue' => (float)$totalRevenue,
+            'pending_revenue' => (float)$pendingRevenue,
+            'monthly_revenue' => (float)$monthlyRevenue,
+        ]);
     }
 }
 

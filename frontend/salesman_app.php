@@ -226,7 +226,7 @@ $('#soForm').on('submit', function(e) {
         }
     });
     if (!valid || items.length === 0) {
-        Tidak boleh kosong fill all item rows completely.');
+        alert('Tidak boleh kosong. Lengkapi semua baris item.');
         return;
     }
     const data = {
