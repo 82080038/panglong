@@ -2,7 +2,12 @@
 
 session_start();
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+// CORS: restrict to same origin only
+$allowedOrigin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$serverHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
+if ($allowedOrigin && parse_url($allowedOrigin, PHP_URL_HOST) === parse_url('http://' . $serverHost, PHP_URL_HOST)) {
+    header('Access-Control-Allow-Origin: ' . $allowedOrigin);
+}
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-CSRF-Token');
 
@@ -18,8 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth.php';
 
-// Allow unauthenticated access for quick-add endpoints in test mode
-$testMode = isset($_GET['test_mode']) && $_GET['test_mode'] === 'true';
+// Test mode only allowed on localhost for development/testing
+$isLocalhost = in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1', '::1']);
+$testMode = $isLocalhost && isset($_GET['test_mode']) && $_GET['test_mode'] === 'true';
 $quickAddEndpoints = ['warehouse-locations', 'unit-measurements', 'payment-methods'];
 $isQuickAddEndpoint = in_array($_GET['endpoint'] ?? '', $quickAddEndpoints);
 
@@ -40,10 +46,11 @@ if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT', 'DELETE']) && !$testMod
     }
 }
 
-// Rate limiting for write operations (stricter than read operations)
+// Rate limiting for write operations
+$user = $_SESSION['user'] ?? null;
 if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT', 'DELETE']) && !$testMode) {
     $rateLimitKey = 'rate_limit_' . ($user['id'] ?? 'guest');
-    if (!checkRateLimit($rateLimitKey, 30, 60)) { // 30 requests per minute for writes
+    if (!checkRateLimit($rateLimitKey, 30, 60)) {
         http_response_code(429);
         echo json_encode(['success' => false, 'message' => 'Too many requests. Please slow down.']);
         exit;
@@ -56,16 +63,87 @@ $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
 
 $d = db();
 
-$user = $_SESSION['user'] ?? null;
-$tenantId = $user['tenant_id'] ?? null;
-$isSuperAdmin = $user['role_slug'] === 'super_admin';
+$tenantId = isset($user['tenant_id']) ? (int)$user['tenant_id'] : null;
+$isSuperAdmin = ($user['role_slug'] ?? '') === 'super_admin';
+
+// Role-based endpoint permission map
+$endpointRoles = [
+    'products' => ['owner','manager','gudang','kasir'],
+    'categories' => ['owner','manager','gudang'],
+    'brands' => ['owner','manager','gudang'],
+    'product-units' => ['owner','manager','gudang'],
+    'barcode-lookup' => ['owner','manager','gudang','kasir'],
+    'sales-price' => ['owner','manager','kasir'],
+    'customers' => ['owner','manager','kasir','accounting'],
+    'customer-groups' => ['owner','manager','kasir','accounting'],
+    'customer-prices' => ['owner','manager','kasir'],
+    'suppliers' => ['owner','manager','gudang'],
+    'supplier-price-history' => ['owner','manager','gudang'],
+    'warehouses' => ['owner','manager','gudang'],
+    'warehouse-locations' => ['owner','manager','gudang'],
+    'sales' => ['owner','manager','kasir'],
+    'sale-payment' => ['owner','manager','kasir'],
+    'sales-orders' => ['owner','manager','kasir'],
+    'sales-returns' => ['owner','manager','kasir','gudang'],
+    'purchase-orders' => ['owner','manager','gudang'],
+    'purchase-returns' => ['owner','manager','gudang'],
+    'quotations' => ['owner','manager','kasir'],
+    'deliveries' => ['owner','manager','gudang','kasir'],
+    'partial-deliveries' => ['owner','manager','gudang','kasir'],
+    'stock' => ['owner','manager','gudang'],
+    'stock-adjustments' => ['owner','manager','gudang'],
+    'stock-transfers' => ['owner','manager','gudang'],
+    'stock-valuation-fifo' => ['owner','manager','gudang'],
+    'product-batches' => ['owner','manager','gudang'],
+    'landed-cost' => ['owner','manager','gudang'],
+    'vehicles' => ['owner','manager','gudang'],
+    'vehicle-maintenance' => ['owner','manager','gudang'],
+    'delivery-routes' => ['owner','manager','gudang'],
+    'delivery-methods' => ['owner','manager','gudang'],
+    'cash-transactions' => ['owner','manager','accounting'],
+    'bank-statements' => ['owner','manager','accounting'],
+    'fixed-assets' => ['owner','manager','accounting'],
+    'e-faktur' => ['owner','manager','accounting'],
+    'e-faktur-types' => ['owner','manager','accounting'],
+    'cash-flow' => ['owner','manager','accounting'],
+    'period-closings' => ['owner','manager','accounting'],
+    'check-period-locked' => ['owner','manager','accounting'],
+    'reports' => ['owner','manager','accounting','supervisor'],
+    'marketplace' => ['owner','manager'],
+    'whatsapp-templates' => ['owner','manager','kasir'],
+    'whatsapp-messages' => ['owner','manager','kasir'],
+    'whatsapp-template-types' => ['owner','manager','kasir'],
+    'tier-prices' => ['owner','manager'],
+    'settings' => ['owner','manager'],
+    'users' => ['super_admin','owner','manager'],
+    'tenants' => ['super_admin'],
+    'subscriptions' => ['super_admin','owner'],
+    'subscription-invoices' => ['super_admin','owner'],
+    'saas-revenue' => ['super_admin','owner'],
+    'branches' => ['owner','manager'],
+    'payment-methods' => ['owner','manager','gudang','kasir','accounting'],
+    'adjustment-types' => ['owner','manager','gudang'],
+    'unit-measurements' => ['owner','manager','gudang'],
+    'tax-rates' => ['owner','manager','accounting'],
+    'status-codes' => ['owner','manager'],
+];
+
+// Check endpoint permission (skip for quick-add endpoints which bypass auth)
+if (!$isQuickAddEndpoint && isset($endpointRoles[$endpoint]) && !$isSuperAdmin) {
+    $userRole = $user['role_slug'] ?? '';
+    if (!in_array($userRole, $endpointRoles[$endpoint])) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Access denied for role: ' . $userRole]);
+        exit;
+    }
+}
 
 // Audit logging function
 function logAudit($action, $table, $record_id = null, $before = null, $after = null) {
     global $d;
     $user = $_SESSION['user'];
     try {
-        $stmt = $d->prepare('INSERT INTO audit_logs (user_id, action, table_name, record_id, before_data, after_data, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime("now"))');
+        $stmt = $d->prepare('INSERT INTO audit_logs (user_id, action, model_type, model_id, old_values, new_values, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime("now"))');
         $stmt->execute([
             $user['id'],
             $action,
@@ -101,6 +179,19 @@ function created($data = null) {
     http_response_code(201);
     echo json_encode($res);
     exit;
+}
+
+// Helper: add tenant filter to SQL query
+function addTenantFilter($sql, $alias, $tenantId, $isSuperAdmin, &$params) {
+    if (!$isSuperAdmin && $tenantId) {
+        if (preg_match('/\bWHERE\b/i', $sql)) {
+            $sql .= " AND {$alias}.tenant_id = ?";
+        } else {
+            $sql .= " WHERE {$alias}.tenant_id = ?";
+        }
+        $params[] = $tenantId;
+    }
+    return $sql;
 }
 
 // Referential integrity check function
@@ -363,29 +454,36 @@ if ($endpoint === 'products') {
             $code = 'PRD' . str_pad(time() % 1000000, 6, '0', STR_PAD_LEFT);
         }
         
-        $stmt = $d->prepare("INSERT INTO products (code, name, alias, category_id, brand, min_stock, max_stock, location, buy_price, sell_price, is_active, created_at, updated_at, weight_kg, length_cm, width_cm, height_cm, tenant_id) VALUES (?,?,?,?,?,?,?,'',?,?,1,?,?,0,0,0,0,?)");
-        $stmt->execute([
-            $code, $input['name'] ?? '', $input['alias'] ?? null,
-            $input['category_id'] ?? null, $input['brand'] ?? null,
-            $input['min_stock'] ?? 0, $input['max_stock'] ?? 0,
-            $input['buy_price'] ?? 0, $input['sell_price'] ?? 0, $now, $now, $tenantId
-        ]);
+        try {
+            $stmt = $d->prepare("INSERT INTO products (code, name, alias, category_id, brand, min_stock, max_stock, location, buy_price, sell_price, is_active, created_at, updated_at, weight_kg, length_cm, width_cm, height_cm, tenant_id) VALUES (?,?,?,?,?,?,?,'',?,?,1,?,?,0,0,0,0,?)");
+            $stmt->execute([
+                $code, $input['name'] ?? '', $input['alias'] ?? null,
+                $input['category_id'] ?? null, $input['brand'] ?? null,
+                $input['min_stock'] ?? 0, $input['max_stock'] ?? 0,
+                $input['buy_price'] ?? 0, $input['sell_price'] ?? 0, $now, $now, $tenantId
+            ]);
+        } catch (PDOException $e) {
+            if ($e->getCode() == 23000) {
+                fail('Product with this name or code already exists', 409);
+            }
+            fail('Database error: ' . $e->getMessage(), 500);
+        }
         $pid = $d->lastInsertId();
 
         if (!empty($input['units'])) {
             foreach ($input['units'] as $i => $u) {
-                $stmt = $d->prepare("INSERT INTO product_units (product_id, unit_name, conversion_factor, is_base_unit, price_per_unit, created_at, updated_at) VALUES (?,?,?,?,?,?,?)");
+                $stmt = $d->prepare("INSERT INTO product_units (product_id, unit_name, conversion_factor, is_base_unit, price_per_unit, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?)");
                 $stmt->execute([
                     $pid, $u['unit_name'] ?? '', $u['conversion_factor'] ?? 1,
-                    $i === 0 ? 1 : 0, $u['price_per_unit'] ?? 0, $now, $now
+                    $i === 0 ? 1 : 0, $u['price_per_unit'] ?? 0, $now, $now, $tenantId
                 ]);
             }
         }
         
         // Auto-generate barcode/QR code entry
         $qrData = "PROD:$pid:$code";
-        $stmt = $d->prepare("INSERT INTO barcodes (product_id, barcode, is_primary, created_at) VALUES (?, ?, 1, ?)");
-        $stmt->execute([$pid, $qrData, $now]);
+        $stmt = $d->prepare("INSERT INTO barcodes (product_id, barcode, is_primary, created_at, tenant_id) VALUES (?, ?, 1, ?, ?)");
+        $stmt->execute([$pid, $qrData, $now, $tenantId]);
         
         logAudit('create', 'products', $pid, null, ['code' => $code, 'name' => $input['name'] ?? '']);
         
@@ -400,17 +498,23 @@ if ($endpoint === 'products') {
         if (!$id) fail('ID required');
         
         // Get before data
-        $before = $d->prepare("SELECT * FROM products WHERE id = ?");
-        $before->execute([$id]);
+        $before = $d->prepare("SELECT * FROM products WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $before->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
         $beforeData = $before->fetch();
+        if (!$beforeData) fail('Product not found or access denied', 404);
         
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("UPDATE products SET name=?, category_id=?, brand=?, min_stock=?, max_stock=?, buy_price=?, sell_price=?, is_active=?, updated_at=? WHERE id=?");
-        $stmt->execute([
+        $stmt = $d->prepare("UPDATE products SET name=?, category_id=?, brand=?, min_stock=?, max_stock=?, buy_price=?, sell_price=?, is_active=?, updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt->execute($isSuperAdmin ? [
             $input['name'] ?? '', $input['category_id'] ?? null, $input['brand'] ?? null,
             $input['min_stock'] ?? 0, $input['max_stock'] ?? 0,
             $input['buy_price'] ?? 0, $input['sell_price'] ?? 0,
             isset($input['is_active']) ? 1 : 0, $now, $id
+        ] : [
+            $input['name'] ?? '', $input['category_id'] ?? null, $input['brand'] ?? null,
+            $input['min_stock'] ?? 0, $input['max_stock'] ?? 0,
+            $input['buy_price'] ?? 0, $input['sell_price'] ?? 0,
+            isset($input['is_active']) ? 1 : 0, $now, $id, $tenantId
         ]);
         
         // Get after data
@@ -437,12 +541,13 @@ if ($endpoint === 'products') {
         }
         
         // Get before data
-        $before = $d->prepare("SELECT * FROM products WHERE id = ?");
-        $before->execute([$id]);
+        $before = $d->prepare("SELECT * FROM products WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $before->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
         $beforeData = $before->fetch();
+        if (!$beforeData) fail('Product not found or access denied', 404);
         
         $d->prepare("DELETE FROM product_units WHERE product_id = ?")->execute([$id]);
-        $d->prepare("DELETE FROM products WHERE id = ?")->execute([$id]);
+        $d->prepare("DELETE FROM products WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
         
         logAudit('delete', 'products', $id, $beforeData, null);
         
@@ -463,7 +568,13 @@ if ($endpoint === 'categories') {
             ok($cached);
         }
         
-        $cats = $d->query("SELECT * FROM categories ORDER BY name")->fetchAll();
+        $catParams = [];
+        $catSql = "SELECT * FROM categories";
+        $catSql = addTenantFilter($catSql, 'categories', $tenantId, $isSuperAdmin, $catParams);
+        $catSql .= " ORDER BY name";
+        $catStmt = $d->prepare($catSql);
+        $catStmt->execute($catParams);
+        $cats = $catStmt->fetchAll();
         
         // Cache the result
         setCache($cacheKey, $cats);
@@ -474,8 +585,8 @@ if ($endpoint === 'categories') {
         $input = json_decode(file_get_contents('php://input'), true);
         if (empty($input['name'])) fail('Name is required');
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO categories (name, created_at, updated_at) VALUES (?,?,?)");
-        $stmt->execute([$input['name'], $now, $now]);
+        $stmt = $d->prepare("INSERT INTO categories (name, created_at, updated_at, tenant_id) VALUES (?,?,?,?)");
+        $stmt->execute([$input['name'], $now, $now, $tenantId]);
         
         // Clear category cache
         clearCache('categories_list');
@@ -493,8 +604,8 @@ if ($endpoint === 'categories') {
         }
         
         // Soft delete
-        $stmt = $d->prepare("UPDATE categories SET is_active = 0, updated_at = ? WHERE id = ?");
-        $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        $stmt = $d->prepare("UPDATE categories SET is_active = 0, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt->execute($isSuperAdmin ? [date('Y-m-d H:i:s'), $id] : [date('Y-m-d H:i:s'), $id, $tenantId]);
         
         // Clear category cache
         clearCache('categories_list');
@@ -506,7 +617,13 @@ if ($endpoint === 'categories') {
 // === BRANDS ===
 if ($endpoint === 'brands') {
     if ($method === 'GET') {
-        $brands = $d->query("SELECT DISTINCT brand as name FROM products WHERE brand IS NOT NULL AND brand != '' ORDER BY brand")->fetchAll();
+        $brandParams = [];
+        $brandSql = "SELECT DISTINCT brand as name FROM products WHERE brand IS NOT NULL AND brand != ''";
+        $brandSql = addTenantFilter($brandSql, 'products', $tenantId, $isSuperAdmin, $brandParams);
+        $brandSql .= " ORDER BY brand";
+        $brandStmt = $d->prepare($brandSql);
+        $brandStmt->execute($brandParams);
+        $brands = $brandStmt->fetchAll();
         ok($brands);
     }
     if ($method === 'POST') {
@@ -535,7 +652,13 @@ if ($endpoint === 'payment-methods') {
             ok($cached);
         }
         
-        $methods = $d->query("SELECT * FROM payment_methods WHERE is_active = 1 ORDER BY name")->fetchAll();
+        $pmParams = [];
+        $pmSql = "SELECT * FROM payment_methods WHERE is_active = 1";
+        $pmSql = addTenantFilter($pmSql, 'payment_methods', $tenantId, $isSuperAdmin, $pmParams);
+        $pmSql .= " ORDER BY name";
+        $pmStmt = $d->prepare($pmSql);
+        $pmStmt->execute($pmParams);
+        $methods = $pmStmt->fetchAll();
         
         // Cache the result
         setCache($cacheKey, $methods);
@@ -546,8 +669,8 @@ if ($endpoint === 'payment-methods') {
         $input = json_decode(file_get_contents('php://input'), true);
         if (empty($input['name']) || empty($input['code'])) fail('Name and code are required');
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO payment_methods (code, name, is_active, created_at, updated_at) VALUES (?,?,?,?,?)");
-        $stmt->execute([$input['code'], $input['name'], 1, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO payment_methods (code, name, is_active, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?)");
+        $stmt->execute([$input['code'], $input['name'], 1, $now, $now, $tenantId]);
         
         // Clear payment methods cache
         clearCache('payment_methods_list');
@@ -565,8 +688,8 @@ if ($endpoint === 'payment-methods') {
         }
 
         // Soft delete
-        $stmt = $d->prepare("UPDATE payment_methods SET is_active = 0, updated_at = ? WHERE id = ?");
-        $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        $stmt = $d->prepare("UPDATE payment_methods SET is_active = 0, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt->execute($isSuperAdmin ? [date('Y-m-d H:i:s'), $id] : [date('Y-m-d H:i:s'), $id, $tenantId]);
         
         // Clear payment methods cache
         clearCache('payment_methods_list');
@@ -577,77 +700,101 @@ if ($endpoint === 'payment-methods') {
 
 if ($endpoint === 'adjustment-types') {
     if ($method === 'GET') {
-        ok($d->query("SELECT * FROM adjustment_types WHERE is_active = 1 ORDER BY name")->fetchAll());
+        $atParams = [];
+        $atSql = "SELECT * FROM adjustment_types WHERE is_active = 1";
+        $atSql = addTenantFilter($atSql, 'adjustment_types', $tenantId, $isSuperAdmin, $atParams);
+        $atSql .= " ORDER BY name";
+        $atStmt = $d->prepare($atSql);
+        $atStmt->execute($atParams);
+        ok($atStmt->fetchAll());
     }
     if ($method === 'POST') {
         $input = json_decode(file_get_contents('php://input'), true);
         if (empty($input['name']) || empty($input['code'])) fail('Name and code are required');
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO adjustment_types (code, name, description, is_active, created_at, updated_at) VALUES (?,?,?,?,?,?)");
-        $stmt->execute([$input['code'], $input['name'], $input['description'] ?? null, 1, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO adjustment_types (code, name, description, is_active, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?)");
+        $stmt->execute([$input['code'], $input['name'], $input['description'] ?? null, 1, $now, $now, $tenantId]);
         created(['id' => $d->lastInsertId(), 'code' => $input['code'], 'name' => $input['name']]);
     }
     if ($method === 'DELETE') {
         $id = $_GET['id'] ?? null;
         if (!$id) fail('ID is required');
-        $stmt = $d->prepare("UPDATE adjustment_types SET is_active = 0, updated_at = ? WHERE id = ?");
-        $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        $stmt = $d->prepare("UPDATE adjustment_types SET is_active = 0, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt->execute($isSuperAdmin ? [date('Y-m-d H:i:s'), $id] : [date('Y-m-d H:i:s'), $id, $tenantId]);
         ok(['message' => 'Adjustment type deleted']);
     }
 }
 
 if ($endpoint === 'e-faktur-types') {
     if ($method === 'GET') {
-        ok($d->query("SELECT * FROM e_faktur_types WHERE is_active = 1 ORDER BY name")->fetchAll());
+        $eftParams = [];
+        $eftSql = "SELECT * FROM e_faktur_types WHERE is_active = 1";
+        $eftSql = addTenantFilter($eftSql, 'e_faktur_types', $tenantId, $isSuperAdmin, $eftParams);
+        $eftSql .= " ORDER BY name";
+        $eftStmt = $d->prepare($eftSql);
+        $eftStmt->execute($eftParams);
+        ok($eftStmt->fetchAll());
     }
     if ($method === 'POST') {
         $input = json_decode(file_get_contents('php://input'), true);
         if (empty($input['name']) || empty($input['code'])) fail('Name and code are required');
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO e_faktur_types (code, name, description, is_active, created_at, updated_at) VALUES (?,?,?,?,?,?)");
-        $stmt->execute([$input['code'], $input['name'], $input['description'] ?? null, 1, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO e_faktur_types (code, name, description, is_active, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?)");
+        $stmt->execute([$input['code'], $input['name'], $input['description'] ?? null, 1, $now, $now, $tenantId]);
         created(['id' => $d->lastInsertId(), 'code' => $input['code'], 'name' => $input['name']]);
     }
     if ($method === 'DELETE') {
         $id = $_GET['id'] ?? null;
         if (!$id) fail('ID is required');
-        $stmt = $d->prepare("UPDATE e_faktur_types SET is_active = 0, updated_at = ? WHERE id = ?");
-        $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        $stmt = $d->prepare("UPDATE e_faktur_types SET is_active = 0, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt->execute($isSuperAdmin ? [date('Y-m-d H:i:s'), $id] : [date('Y-m-d H:i:s'), $id, $tenantId]);
         ok(['message' => 'E-Faktur type deleted']);
     }
 }
 
 if ($endpoint === 'whatsapp-template-types') {
     if ($method === 'GET') {
-        ok($d->query("SELECT * FROM whatsapp_template_types WHERE is_active = 1 ORDER BY name")->fetchAll());
+        $wttParams = [];
+        $wttSql = "SELECT * FROM whatsapp_template_types WHERE is_active = 1";
+        $wttSql = addTenantFilter($wttSql, 'whatsapp_template_types', $tenantId, $isSuperAdmin, $wttParams);
+        $wttSql .= " ORDER BY name";
+        $wttStmt = $d->prepare($wttSql);
+        $wttStmt->execute($wttParams);
+        ok($wttStmt->fetchAll());
     }
     if ($method === 'POST') {
         $input = json_decode(file_get_contents('php://input'), true);
         if (empty($input['name']) || empty($input['code'])) fail('Name and code are required');
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO whatsapp_template_types (code, name, description, is_active, created_at, updated_at) VALUES (?,?,?,?,?,?)");
-        $stmt->execute([$input['code'], $input['name'], $input['description'] ?? null, 1, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO whatsapp_template_types (code, name, description, is_active, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?)");
+        $stmt->execute([$input['code'], $input['name'], $input['description'] ?? null, 1, $now, $now, $tenantId]);
         created(['id' => $d->lastInsertId(), 'code' => $input['code'], 'name' => $input['name']]);
     }
     if ($method === 'DELETE') {
         $id = $_GET['id'] ?? null;
         if (!$id) fail('ID is required');
-        $stmt = $d->prepare("UPDATE whatsapp_template_types SET is_active = 0, updated_at = ? WHERE id = ?");
-        $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        $stmt = $d->prepare("UPDATE whatsapp_template_types SET is_active = 0, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt->execute($isSuperAdmin ? [date('Y-m-d H:i:s'), $id] : [date('Y-m-d H:i:s'), $id, $tenantId]);
         ok(['message' => 'WhatsApp template type deleted']);
     }
 }
 
 if ($endpoint === 'unit-measurements') {
     if ($method === 'GET') {
-        ok($d->query("SELECT * FROM unit_measurements WHERE is_active = 1 ORDER BY name")->fetchAll());
+        $umParams = [];
+        $umSql = "SELECT * FROM unit_measurements WHERE is_active = 1";
+        $umSql = addTenantFilter($umSql, 'unit_measurements', $tenantId, $isSuperAdmin, $umParams);
+        $umSql .= " ORDER BY name";
+        $umStmt = $d->prepare($umSql);
+        $umStmt->execute($umParams);
+        ok($umStmt->fetchAll());
     }
     if ($method === 'POST') {
         $input = json_decode(file_get_contents('php://input'), true);
         if (empty($input['name']) || empty($input['code'])) fail('Name and code are required');
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO unit_measurements (code, name, is_active, created_at, updated_at) VALUES (?,?,?,?,?)");
-        $stmt->execute([$input['code'], $input['name'], 1, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO unit_measurements (code, name, is_active, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?)");
+        $stmt->execute([$input['code'], $input['name'], 1, $now, $now, $tenantId]);
         created(['id' => $d->lastInsertId(), 'code' => $input['code'], 'name' => $input['name']]);
     }
     if ($method === 'DELETE') {
@@ -661,22 +808,28 @@ if ($endpoint === 'unit-measurements') {
         }
         
         // Soft delete
-        $stmt = $d->prepare("UPDATE unit_measurements SET is_active = 0, updated_at = ? WHERE id = ?");
-        $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        $stmt = $d->prepare("UPDATE unit_measurements SET is_active = 0, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt->execute($isSuperAdmin ? [date('Y-m-d H:i:s'), $id] : [date('Y-m-d H:i:s'), $id, $tenantId]);
         ok(['message' => 'Unit measurement deleted']);
     }
 }
 
 if ($endpoint === 'tax-rates') {
     if ($method === 'GET') {
-        ok($d->query("SELECT * FROM tax_rates WHERE is_active = 1 ORDER BY name")->fetchAll());
+        $trParams = [];
+        $trSql = "SELECT * FROM tax_rates WHERE is_active = 1";
+        $trSql = addTenantFilter($trSql, 'tax_rates', $tenantId, $isSuperAdmin, $trParams);
+        $trSql .= " ORDER BY name";
+        $trStmt = $d->prepare($trSql);
+        $trStmt->execute($trParams);
+        ok($trStmt->fetchAll());
     }
     if ($method === 'POST') {
         $input = json_decode(file_get_contents('php://input'), true);
         if (empty($input['name']) || empty($input['code']) || !isset($input['rate'])) fail('Name, code, and rate are required');
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO tax_rates (code, name, rate, is_active, created_at, updated_at) VALUES (?,?,?,?,?,?)");
-        $stmt->execute([$input['code'], $input['name'], $input['rate'], 1, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO tax_rates (code, name, rate, is_active, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?)");
+        $stmt->execute([$input['code'], $input['name'], $input['rate'], 1, $now, $now, $tenantId]);
         ok(['id' => $d->lastInsertId(), 'code' => $input['code'], 'name' => $input['name'], 'rate' => $input['rate']]);
     }
     if ($method === 'DELETE') {
@@ -690,22 +843,28 @@ if ($endpoint === 'tax-rates') {
         }
         
         // Soft delete
-        $stmt = $d->prepare("UPDATE tax_rates SET is_active = 0, updated_at = ? WHERE id = ?");
-        $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        $stmt = $d->prepare("UPDATE tax_rates SET is_active = 0, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt->execute($isSuperAdmin ? [date('Y-m-d H:i:s'), $id] : [date('Y-m-d H:i:s'), $id, $tenantId]);
         ok(['message' => 'Tax rate deleted']);
     }
 }
 
 if ($endpoint === 'delivery-methods') {
     if ($method === 'GET') {
-        ok($d->query("SELECT * FROM delivery_methods WHERE is_active = 1 ORDER BY name")->fetchAll());
+        $dmParams = [];
+        $dmSql = "SELECT * FROM delivery_methods WHERE is_active = 1";
+        $dmSql = addTenantFilter($dmSql, 'delivery_methods', $tenantId, $isSuperAdmin, $dmParams);
+        $dmSql .= " ORDER BY name";
+        $dmStmt = $d->prepare($dmSql);
+        $dmStmt->execute($dmParams);
+        ok($dmStmt->fetchAll());
     }
     if ($method === 'POST') {
         $input = json_decode(file_get_contents('php://input'), true);
         if (empty($input['name']) || empty($input['code'])) fail('Name and code are required');
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO delivery_methods (code, name, is_active, created_at, updated_at) VALUES (?,?,?,?,?)");
-        $stmt->execute([$input['code'], $input['name'], 1, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO delivery_methods (code, name, is_active, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?)");
+        $stmt->execute([$input['code'], $input['name'], 1, $now, $now, $tenantId]);
         ok(['id' => $d->lastInsertId(), 'code' => $input['code'], 'name' => $input['name']]);
     }
     if ($method === 'DELETE') {
@@ -719,8 +878,8 @@ if ($endpoint === 'delivery-methods') {
         }
         
         // Soft delete
-        $stmt = $d->prepare("UPDATE delivery_methods SET is_active = 0, updated_at = ? WHERE id = ?");
-        $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        $stmt = $d->prepare("UPDATE delivery_methods SET is_active = 0, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt->execute($isSuperAdmin ? [date('Y-m-d H:i:s'), $id] : [date('Y-m-d H:i:s'), $id, $tenantId]);
         ok(['message' => 'Delivery method deleted']);
     }
 }
@@ -841,12 +1000,17 @@ if ($endpoint === 'customers') {
         $id = $_GET['id'] ?? $input['id'] ?? null;
         if (!$id) fail('ID required');
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("UPDATE customers SET name=?, address=?, phone=?, email=?, group_id=?, credit_limit=?, payment_terms=?, is_active=?, updated_at=? WHERE id=?");
-        $stmt->execute([
+        $stmt = $d->prepare("UPDATE customers SET name=?, address=?, phone=?, email=?, group_id=?, credit_limit=?, payment_terms=?, is_active=?, updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt->execute($isSuperAdmin ? [
             $input['name'] ?? '', $input['address'] ?? null, $input['phone'] ?? null,
             $input['email'] ?? null, $input['group_id'] ?? null,
             $input['credit_limit'] ?? 0, $input['payment_terms'] ?? 30,
             isset($input['is_active']) ? 1 : 0, $now, $id
+        ] : [
+            $input['name'] ?? '', $input['address'] ?? null, $input['phone'] ?? null,
+            $input['email'] ?? null, $input['group_id'] ?? null,
+            $input['credit_limit'] ?? 0, $input['payment_terms'] ?? 30,
+            isset($input['is_active']) ? 1 : 0, $now, $id, $tenantId
         ]);
         
         // Clear customer cache
@@ -865,8 +1029,8 @@ if ($endpoint === 'customers') {
         }
         
         // Soft delete
-        $stmt = $d->prepare("UPDATE customers SET is_active = 0, updated_at = ? WHERE id = ?");
-        $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        $stmt = $d->prepare("UPDATE customers SET is_active = 0, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt->execute($isSuperAdmin ? [date('Y-m-d H:i:s'), $id] : [date('Y-m-d H:i:s'), $id, $tenantId]);
         ok(['id' => $id]);
     }
 }
@@ -874,14 +1038,20 @@ if ($endpoint === 'customers') {
 // === CUSTOMER GROUPS ===
 if ($endpoint === 'customer-groups') {
     if ($method === 'GET') {
-        ok($d->query("SELECT * FROM customer_groups ORDER BY name")->fetchAll());
+        $cgParams = [];
+        $cgSql = "SELECT * FROM customer_groups";
+        $cgSql = addTenantFilter($cgSql, 'customer_groups', $tenantId, $isSuperAdmin, $cgParams);
+        $cgSql .= " ORDER BY name";
+        $cgStmt = $d->prepare($cgSql);
+        $cgStmt->execute($cgParams);
+        ok($cgStmt->fetchAll());
     }
     if ($method === 'POST') {
         $input = json_decode(file_get_contents('php://input'), true);
         if (empty($input['name'])) fail('Name is required');
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO customer_groups (name, created_at, updated_at) VALUES (?,?,?)");
-        $stmt->execute([$input['name'], $now, $now]);
+        $stmt = $d->prepare("INSERT INTO customer_groups (name, created_at, updated_at, tenant_id) VALUES (?,?,?,?)");
+        $stmt->execute([$input['name'], $now, $now, $tenantId]);
         ok(['id' => $d->lastInsertId(), 'name' => $input['name']]);
     }
     if ($method === 'DELETE') {
@@ -895,8 +1065,8 @@ if ($endpoint === 'customer-groups') {
         }
         
         // Soft delete
-        $stmt = $d->prepare("UPDATE customer_groups SET is_active = 0, updated_at = ? WHERE id = ?");
-        $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        $stmt = $d->prepare("UPDATE customer_groups SET is_active = 0, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt->execute($isSuperAdmin ? [date('Y-m-d H:i:s'), $id] : [date('Y-m-d H:i:s'), $id, $tenantId]);
         ok(['message' => 'Customer group deleted']);
     }
 }
@@ -1008,8 +1178,8 @@ if ($endpoint === 'suppliers') {
         }
         
         // Soft delete
-        $stmt = $d->prepare("UPDATE suppliers SET is_active = 0, updated_at = ? WHERE id = ?");
-        $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        $stmt = $d->prepare("UPDATE suppliers SET is_active = 0, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt->execute($isSuperAdmin ? [date('Y-m-d H:i:s'), $id] : [date('Y-m-d H:i:s'), $id, $tenantId]);
         
         // Clear supplier cache
         clearCache('suppliers_list');
@@ -1116,7 +1286,7 @@ if ($endpoint === 'sales') {
         $tax = $taxable * $taxRate;
         $total = $taxable + $tax;
 
-        $stmt = $d->prepare("INSERT INTO sales (invoice_no, customer_id, customer_name_snapshot, sale_date, subtotal, discount, tax, total, delivery_cost, payment_method, payment_status, status, notes, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,0,?,?,'completed',?,?,?,?,?)");
+        $stmt = $d->prepare("INSERT INTO sales (invoice_no, customer_id, customer_name_snapshot, sale_date, subtotal, discount, tax, total, delivery_cost, payment_method, payment_status, status, notes, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,0,?,?,'completed',?,?,?,?)");
         $stmt->execute([
             $invoiceNo, $input['customer_id'] ?? null, $input['customer_name'] ?? 'Walk-in Customer',
             $input['sale_date'] ?? date('Y-m-d'),
@@ -1129,17 +1299,17 @@ if ($endpoint === 'sales') {
         foreach ($input['items'] ?? [] as $item) {
             if (empty($item['product_id'])) continue;
             $lineSubtotal = ($item['quantity'] * $item['unit_price']) - ($item['discount'] ?? 0);
-            $stmt = $d->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, bonus_qty, unit_id, unit_price, discount, subtotal, created_at) VALUES (?,?,?,?,?,?,?,?,?)");
+            $stmt = $d->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, bonus_qty, unit_id, unit_price, discount, subtotal, created_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?)");
             $stmt->execute([
                 $saleId, $item['product_id'], $item['quantity'],
                 $item['bonus_qty'] ?? 0, $item['unit_id'] ?? 1,
-                $item['unit_price'], $item['discount'] ?? 0, $lineSubtotal, $now
+                $item['unit_price'], $item['discount'] ?? 0, $lineSubtotal, $now, $tenantId
             ]);
 
-            $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)");
+            $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)");
             $stmt->execute([
                 $item['product_id'], -abs((float)$item['quantity']),
-                $item['unit_id'] ?? 1, 'sale', 'Sale ' . $invoiceNo, $now
+                $item['unit_id'] ?? 1, 'sale', 'Sale ' . $invoiceNo, $now, $tenantId
             ]);
         }
         created(['id' => $saleId, 'invoice_no' => $invoiceNo]);
@@ -1153,14 +1323,14 @@ if ($endpoint === 'sales') {
         $items = $d->prepare("SELECT product_id, quantity FROM sale_items WHERE sale_id = ?");
         $items->execute([$id]);
         foreach ($items->fetchAll() as $item) {
-            $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)");
+            $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)");
             $stmt->execute([
                 $item['product_id'], abs((float)$item['quantity']),
-                1, 'adjustment', 'Void sale #' . $id, $now
+                1, 'adjustment', 'Void sale #' . $id, $now, $tenantId
             ]);
         }
 
-        $d->prepare("UPDATE sales SET status='voided', updated_at=? WHERE id=?")->execute([$now, $id]);
+        $d->prepare("UPDATE sales SET status='voided', updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id=?"))->execute($isSuperAdmin ? [$now, $id] : [$now, $id, $tenantId]);
         ok(['id' => $id]);
     }
 }
@@ -1178,12 +1348,12 @@ if ($endpoint === 'sale-payment') {
         if (!$sale) fail('Sale not found', 404);
 
         $amount = (float)($input['amount'] ?? 0);
-        $stmt = $d->prepare("INSERT INTO sale_payments (sale_id, amount, payment_method, payment_date, created_at) VALUES (?,?,?,?,?)");
-        $stmt->execute([$id, $amount, $input['payment_method'] ?? 'cash', $input['payment_date'] ?? date('Y-m-d'), $now]);
+        $stmt = $d->prepare("INSERT INTO sale_payments (sale_id, amount, payment_method, payment_date, created_at, tenant_id) VALUES (?,?,?,?,?,?)");
+        $stmt->execute([$id, $amount, $input['payment_method'] ?? 'cash', $input['payment_date'] ?? date('Y-m-d'), $now, $tenantId]);
 
         $newPaid = (float)$sale['paid'] + $amount;
         $status = $newPaid >= (float)$sale['total'] ? 'paid' : 'partial';
-        $d->prepare("UPDATE sales SET payment_status=?, updated_at=? WHERE id=?")->execute([$status, $now, $id]);
+        $d->prepare("UPDATE sales SET payment_status=?, updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id=?"))->execute($isSuperAdmin ? [$status, $now, $id] : [$status, $now, $id, $tenantId]);
 
         ok(['sale_id' => $id, 'paid' => $newPaid, 'status' => $status]);
     }
@@ -1357,11 +1527,11 @@ if ($endpoint === 'deliveries') {
         $status = $input['status'] ?? 'pending';
         $deliveredAt = $status === 'delivered' ? $now : null;
         if ($deliveredAt) {
-            $stmt = $d->prepare("UPDATE deliveries SET status=?, delivered_at=?, updated_at=? WHERE id=?");
-            $stmt->execute([$status, $deliveredAt, $now, $id]);
+            $stmt = $d->prepare("UPDATE deliveries SET status=?, delivered_at=?, updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id=?"));
+            $stmt->execute($isSuperAdmin ? [$status, $deliveredAt, $now, $id] : [$status, $deliveredAt, $now, $id, $tenantId]);
         } else {
-            $stmt = $d->prepare("UPDATE deliveries SET status=?, updated_at=? WHERE id=?");
-            $stmt->execute([$status, $now, $id]);
+            $stmt = $d->prepare("UPDATE deliveries SET status=?, updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id=?"));
+            $stmt->execute($isSuperAdmin ? [$status, $now, $id] : [$status, $now, $id, $tenantId]);
         }
         ok(['id' => $id, 'status' => $status]);
     }
@@ -1439,8 +1609,8 @@ if ($endpoint === 'purchase-orders') {
             $newReceived = (float)$item['received_quantity'] + $qty;
             $d->prepare("UPDATE purchase_items SET received_quantity = ? WHERE id = ?")->execute([$newReceived, $itemId]);
 
-            $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)")->execute([
-                $item['pid'], $qty, $item['unit_id'] ?? 1, 'purchase', 'PO receive #' . $id, $now
+            $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)")->execute([
+                $item['pid'], $qty, $item['unit_id'] ?? 1, 'purchase', 'PO receive #' . $id, $now, $tenantId
             ]);
         }
 
@@ -1460,8 +1630,8 @@ if ($endpoint === 'purchase-orders') {
         $now = date('Y-m-d H:i:s');
 
         $amount = (float)($input['amount'] ?? 0);
-        $stmt = $d->prepare("INSERT INTO purchase_payments (po_id, amount, payment_method, payment_date, created_at) VALUES (?,?,?,?,?)");
-        $stmt->execute([$id, $amount, $input['payment_method'] ?? 'cash', $input['payment_date'] ?? date('Y-m-d'), $now]);
+        $stmt = $d->prepare("INSERT INTO purchase_payments (po_id, amount, payment_method, payment_date, created_at, tenant_id) VALUES (?,?,?,?,?,?)");
+        $stmt->execute([$id, $amount, $input['payment_method'] ?? 'cash', $input['payment_date'] ?? date('Y-m-d'), $now, $tenantId]);
 
         $stmt = $d->prepare("SELECT total, COALESCE((SELECT SUM(amount) FROM purchase_payments WHERE po_id=po.id),0) as paid FROM purchase_orders po WHERE po.id = ?");
         $stmt->execute([$id]);
@@ -1516,22 +1686,22 @@ if ($endpoint === 'purchase-orders') {
         $tax = $taxable * $taxRate;
         $total = $taxable + $tax;
 
-        $stmt = $d->prepare("INSERT INTO purchase_orders (po_number, supplier_id, po_date, subtotal, discount, tax, total, payment_status, status, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,'pending',?,?,?)");
+        $stmt = $d->prepare("INSERT INTO purchase_orders (po_number, supplier_id, po_date, subtotal, discount, tax, total, payment_status, status, notes, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,'pending',?,?,?,?)");
         $stmt->execute([
             $poNumber, $input['supplier_id'] ?? null, $input['po_date'] ?? date('Y-m-d'),
             $subtotal, $globalDiscount, $tax, $total,
-            'unpaid', $input['notes'] ?? null, $now, $now
+            'unpaid', $input['notes'] ?? null, $now, $now, $tenantId
         ]);
         $poId = $d->lastInsertId();
 
         foreach ($input['items'] ?? [] as $item) {
             if (empty($item['product_id'])) continue;
             $lineSubtotal = ($item['quantity'] * $item['unit_price']);
-            $stmt = $d->prepare("INSERT INTO purchase_items (po_id, product_id, quantity, bonus_qty, received_quantity, unit_id, unit_price, subtotal, created_at) VALUES (?,?,?,?,?,?,?,?,?)");
+            $stmt = $d->prepare("INSERT INTO purchase_items (po_id, product_id, quantity, bonus_qty, received_quantity, unit_id, unit_price, subtotal, created_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?)");
             $stmt->execute([
                 $poId, $item['product_id'], $item['quantity'],
                 $item['bonus_qty'] ?? 0, 0,
-                $item['unit_id'] ?? 1, $item['unit_price'], $lineSubtotal, $now
+                $item['unit_id'] ?? 1, $item['unit_price'], $lineSubtotal, $now, $tenantId
             ]);
         }
         created(['id' => $poId, 'po_number' => $poNumber]);
@@ -1550,7 +1720,7 @@ if ($endpoint === 'marketplace') {
         $now = date('Y-m-d H:i:s');
 
         if ($action === 'sync-stock' || $action === 'sync-products') {
-            $d->prepare("UPDATE marketplace_integrations SET last_synced_at = ?, updated_at = ? WHERE id = ?")->execute([$now, $now, $id]);
+            $d->prepare("UPDATE marketplace_integrations SET last_synced_at = ?, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$now, $now, $id] : [$now, $now, $id, $tenantId]);
             ok(['id' => $id, 'message' => ucfirst(str_replace('-', ' ', $action)) . ' completed']);
         }
         ok(['message' => 'Unknown action']);
@@ -1558,7 +1728,7 @@ if ($endpoint === 'marketplace') {
     if ($method === 'DELETE') {
         $id = $_GET['id'] ?? null;
         if (!$id) fail('ID required');
-        $d->prepare("UPDATE marketplace_integrations SET status = 'disconnected' WHERE id = ?")->execute([$id]);
+        $d->prepare("UPDATE marketplace_integrations SET status = 'disconnected' WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
         ok(['id' => $id, 'message' => 'Disconnected']);
     }
 }
@@ -1757,6 +1927,12 @@ if ($endpoint === 'warehouses') {
         
         ok($warehouses, $meta);
     }
+    if ($method === 'POST') {
+        $now = date('Y-m-d H:i:s');
+        $stmt = $d->prepare("INSERT INTO warehouses (tenant_id, code, name, address, phone, is_active, type, capacity_m2, created_at, updated_at) VALUES (?,?,?,?,?,?,1,?,?,?)");
+        $stmt->execute([$tenantId, $input['code'] ?? '', $input['name'] ?? '', $input['address'] ?? null, $input['phone'] ?? null, $input['type'] ?? 'main', $input['capacity_m2'] ?? 0, $now, $now]);
+        created(['id' => $d->lastInsertId(), 'code' => $input['code'] ?? '', 'name' => $input['name'] ?? '']);
+    }
     if ($method === 'DELETE') {
         $id = $_GET['id'] ?? null;
         if (!$id) fail('ID required');
@@ -1768,8 +1944,8 @@ if ($endpoint === 'warehouses') {
         }
         
         // Soft delete
-        $stmt = $d->prepare("UPDATE warehouses SET is_active = 0, updated_at = ? WHERE id = ?");
-        $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        $stmt = $d->prepare("UPDATE warehouses SET is_active = 0, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt->execute($isSuperAdmin ? [date('Y-m-d H:i:s'), $id] : [date('Y-m-d H:i:s'), $id, $tenantId]);
         
         // Clear warehouse cache
         clearCache('warehouses_list');
@@ -1819,12 +1995,12 @@ if ($endpoint === 'sales-returns') {
             $totalRefund += ($item['quantity'] * $item['unit_price']);
         }
 
-        $stmt = $d->prepare("INSERT INTO sales_returns (return_no, sale_id, customer_id, return_date, total_refund, refund_method, status, reason, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
+        $stmt = $d->prepare("INSERT INTO sales_returns (return_no, sale_id, customer_id, return_date, total_refund, refund_method, status, reason, notes, created_by, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
         $stmt->execute([
             $returnNo, $saleId, $sale['customer_id'], $input['return_date'] ?? date('Y-m-d'),
             $totalRefund, $input['refund_method'] ?? 'cash', 'pending',
             $input['reason'] ?? 'N/A', $input['notes'] ?? null,
-            $_SESSION['user']['id'] ?? null, $now, $now
+            $_SESSION['user']['id'] ?? null, $now, $now, $tenantId
         ]);
         $returnId = $d->lastInsertId();
 
@@ -1838,11 +2014,11 @@ if ($endpoint === 'sales-returns') {
                 $siRow = $si->fetch();
                 $saleItemId = $siRow ? $siRow['id'] : 0;
             }
-            $stmt = $d->prepare("INSERT INTO sales_return_items (sales_return_id, sale_item_id, product_id, quantity, unit_id, unit_price, refund_amount, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?)");
-            $stmt->execute([$returnId, $saleItemId, $item['product_id'], $item['quantity'], $item['unit_id'] ?? 1, $item['unit_price'], $refundAmt, $item['reason'] ?? null, $now]);
+            $stmt = $d->prepare("INSERT INTO sales_return_items (sales_return_id, sale_item_id, product_id, quantity, unit_id, unit_price, refund_amount, reason, created_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?)");
+            $stmt->execute([$returnId, $saleItemId, $item['product_id'], $item['quantity'], $item['unit_id'] ?? 1, $item['unit_price'], $refundAmt, $item['reason'] ?? null, $now, $tenantId]);
 
-            $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)")->execute([
-                $item['product_id'], abs((float)$item['quantity']), $item['unit_id'] ?? 1, 'sale_return', 'Return ' . $returnNo, $now
+            $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)")->execute([
+                $item['product_id'], abs((float)$item['quantity']), $item['unit_id'] ?? 1, 'sale_return', 'Return ' . $returnNo, $now, $tenantId
             ]);
         }
         created(['id' => $returnId, 'return_no' => $returnNo]);
@@ -1852,7 +2028,7 @@ if ($endpoint === 'sales-returns') {
         if (!$id) fail('ID required');
         $now = date('Y-m-d H:i:s');
         $status = $input['status'] ?? 'approved';
-        $d->prepare("UPDATE sales_returns SET status = ?, approved_by = ?, updated_at = ? WHERE id = ?")->execute([$status, $_SESSION['user']['id'] ?? null, $now, $id]);
+        $d->prepare("UPDATE sales_returns SET status = ?, approved_by = ?, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$status, $_SESSION['user']['id'] ?? null, $now, $id] : [$status, $_SESSION['user']['id'] ?? null, $now, $id, $tenantId]);
         ok(['id' => $id, 'status' => $status]);
     }
 }
@@ -1890,12 +2066,12 @@ if ($endpoint === 'purchase-returns') {
             $totalRefund += ($item['quantity'] * $item['unit_price']);
         }
 
-        $stmt = $d->prepare("INSERT INTO purchase_returns (return_no, po_id, supplier_id, return_date, total_refund, refund_method, status, reason, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
+        $stmt = $d->prepare("INSERT INTO purchase_returns (return_no, po_id, supplier_id, return_date, total_refund, refund_method, status, reason, notes, created_by, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
         $stmt->execute([
             $returnNo, $poId, $po['supplier_id'], $input['return_date'] ?? date('Y-m-d'),
             $totalRefund, $input['refund_method'] ?? 'credit', 'pending',
             $input['reason'] ?? 'N/A', $input['notes'] ?? null,
-            $_SESSION['user']['id'] ?? null, $now, $now
+            $_SESSION['user']['id'] ?? null, $now, $now, $tenantId
         ]);
         $returnId = $d->lastInsertId();
 
@@ -1909,11 +2085,11 @@ if ($endpoint === 'purchase-returns') {
                 $piRow = $pi->fetch();
                 $purchaseItemId = $piRow ? $piRow['id'] : 0;
             }
-            $stmt = $d->prepare("INSERT INTO purchase_return_items (purchase_return_id, purchase_item_id, product_id, quantity, unit_id, unit_price, refund_amount, reason, created_at) VALUES (?,?,?,?,?,?,?,?,?)");
-            $stmt->execute([$returnId, $purchaseItemId, $item['product_id'], $item['quantity'], $item['unit_id'] ?? 1, $item['unit_price'], $refundAmt, $item['reason'] ?? null, $now]);
+            $stmt = $d->prepare("INSERT INTO purchase_return_items (purchase_return_id, purchase_item_id, product_id, quantity, unit_id, unit_price, refund_amount, reason, created_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?)");
+            $stmt->execute([$returnId, $purchaseItemId, $item['product_id'], $item['quantity'], $item['unit_id'] ?? 1, $item['unit_price'], $refundAmt, $item['reason'] ?? null, $now, $tenantId]);
 
-            $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)")->execute([
-                $item['product_id'], -abs((float)$item['quantity']), $item['unit_id'] ?? 1, 'purchase_return', 'PR ' . $returnNo, $now
+            $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)")->execute([
+                $item['product_id'], -abs((float)$item['quantity']), $item['unit_id'] ?? 1, 'purchase_return', 'PR ' . $returnNo, $now, $tenantId
             ]);
         }
         created(['id' => $returnId, 'return_no' => $returnNo]);
@@ -1923,7 +2099,7 @@ if ($endpoint === 'purchase-returns') {
         if (!$id) fail('ID required');
         $now = date('Y-m-d H:i:s');
         $status = $input['status'] ?? 'approved';
-        $d->prepare("UPDATE purchase_returns SET status = ?, approved_by = ?, updated_at = ? WHERE id = ?")->execute([$status, $_SESSION['user']['id'] ?? null, $now, $id]);
+        $d->prepare("UPDATE purchase_returns SET status = ?, approved_by = ?, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$status, $_SESSION['user']['id'] ?? null, $now, $id] : [$status, $_SESSION['user']['id'] ?? null, $now, $id, $tenantId]);
         ok(['id' => $id, 'status' => $status]);
     }
 }
@@ -2023,8 +2199,8 @@ if ($endpoint === 'quotations') {
         foreach ($input['items'] ?? [] as $item) {
             if (empty($item['product_id'])) continue;
             $lineSubtotal = ($item['quantity'] * $item['unit_price']) - ($item['discount'] ?? 0);
-            $stmt = $d->prepare("INSERT INTO quotation_items (quotation_id, product_id, quantity, bonus_qty, unit_id, unit_price, discount, subtotal, notes, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)");
-            $stmt->execute([$quoteId, $item['product_id'], $item['quantity'], $item['bonus_qty'] ?? 0, $item['unit_id'] ?? 1, $item['unit_price'], $item['discount'] ?? 0, $lineSubtotal, $item['notes'] ?? null, $now]);
+            $stmt = $d->prepare("INSERT INTO quotation_items (quotation_id, product_id, quantity, bonus_qty, unit_id, unit_price, discount, subtotal, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+            $stmt->execute([$quoteId, $item['product_id'], $item['quantity'], $item['bonus_qty'] ?? 0, $item['unit_id'] ?? 1, $item['unit_price'], $item['discount'] ?? 0, $lineSubtotal, $item['notes'] ?? null, $now, $tenantId]);
         }
         created(['id' => $quoteId, 'quote_no' => $quoteNo]);
     }
@@ -2033,7 +2209,7 @@ if ($endpoint === 'quotations') {
         if (!$id) fail('ID required');
         $now = date('Y-m-d H:i:s');
         $status = $input['status'] ?? 'sent';
-        $d->prepare("UPDATE quotations SET status = ?, updated_at = ? WHERE id = ?")->execute([$status, $now, $id]);
+        $d->prepare("UPDATE quotations SET status = ?, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$status, $now, $id] : [$status, $now, $id, $tenantId]);
         ok(['id' => $id, 'status' => $status]);
     }
 }
@@ -2090,8 +2266,8 @@ if ($endpoint === 'sales-orders') {
         foreach ($input['items'] ?? [] as $item) {
             if (empty($item['product_id'])) continue;
             $lineSubtotal = ($item['quantity'] * $item['unit_price']) - ($item['discount'] ?? 0);
-            $stmt = $d->prepare("INSERT INTO sales_order_items (sales_order_id, product_id, quantity, bonus_qty, delivered_qty, unit_id, unit_price, discount, subtotal, notes, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
-            $stmt->execute([$soId, $item['product_id'], $item['quantity'], $item['bonus_qty'] ?? 0, 0, $item['unit_id'] ?? 1, $item['unit_price'], $item['discount'] ?? 0, $lineSubtotal, $item['notes'] ?? null, $now]);
+            $stmt = $d->prepare("INSERT INTO sales_order_items (sales_order_id, product_id, quantity, bonus_qty, delivered_qty, unit_id, unit_price, discount, subtotal, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
+            $stmt->execute([$soId, $item['product_id'], $item['quantity'], $item['bonus_qty'] ?? 0, 0, $item['unit_id'] ?? 1, $item['unit_price'], $item['discount'] ?? 0, $lineSubtotal, $item['notes'] ?? null, $now, $tenantId]);
         }
         created(['id' => $soId, 'so_number' => $soNumber]);
     }
@@ -2100,7 +2276,7 @@ if ($endpoint === 'sales-orders') {
         if (!$id) fail('ID required');
         $now = date('Y-m-d H:i:s');
         $status = $input['status'] ?? 'fulfilled';
-        $d->prepare("UPDATE sales_orders SET status = ?, updated_at = ? WHERE id = ?")->execute([$status, $now, $id]);
+        $d->prepare("UPDATE sales_orders SET status = ?, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$status, $now, $id] : [$status, $now, $id, $tenantId]);
         ok(['id' => $id, 'status' => $status]);
     }
 }
@@ -2125,8 +2301,8 @@ if ($endpoint === 'customer-prices') {
     }
     if ($method === 'POST') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO customer_product_prices (customer_id, product_id, unit_id, custom_price, min_qty, is_active, notes, created_at, updated_at) VALUES (?,?,?,?,?,1,?,?,?)");
-        $stmt->execute([$input['customer_id'], $input['product_id'], $input['unit_id'] ?? 1, $input['custom_price'] ?? $input['unit_price'], $input['min_qty'] ?? 1, $input['notes'] ?? null, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO customer_product_prices (customer_id, product_id, unit_id, custom_price, min_qty, is_active, notes, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,1,?,?,?,?)");
+        $stmt->execute([$input['customer_id'], $input['product_id'], $input['unit_id'] ?? 1, $input['custom_price'] ?? $input['unit_price'], $input['min_qty'] ?? 1, $input['notes'] ?? null, $now, $now, $tenantId]);
         created(['id' => $d->lastInsertId()]);
     }
     if ($method === 'PUT') {
@@ -2140,7 +2316,7 @@ if ($endpoint === 'customer-prices') {
     if ($method === 'DELETE') {
         $id = $_GET['id'] ?? $input['id'] ?? null;
         if (!$id) fail('ID required');
-        $d->prepare("UPDATE customer_product_prices SET is_active = 0 WHERE id = ?")->execute([$id]);
+        $d->prepare("UPDATE customer_product_prices SET is_active = 0 WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
         ok(['id' => $id]);
     }
 }
@@ -2158,14 +2334,14 @@ if ($endpoint === 'tier-prices') {
     }
     if ($method === 'POST') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO product_tier_prices (product_id, unit_id, min_qty, max_qty, unit_price, is_active, created_at, updated_at) VALUES (?,?,?,?,?,1,?,?)");
-        $stmt->execute([$input['product_id'], $input['unit_id'] ?? 1, $input['min_qty'], $input['max_qty'] ?? null, $input['unit_price'], $now, $now]);
+        $stmt = $d->prepare("INSERT INTO product_tier_prices (product_id, unit_id, min_qty, max_qty, unit_price, is_active, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,1,?,?,?)");
+        $stmt->execute([$input['product_id'], $input['unit_id'] ?? 1, $input['min_qty'], $input['max_qty'] ?? null, $input['unit_price'], $now, $now, $tenantId]);
         created(['id' => $d->lastInsertId()]);
     }
     if ($method === 'DELETE') {
         $id = $_GET['id'] ?? $input['id'] ?? null;
         if (!$id) fail('ID required');
-        $d->prepare("UPDATE product_tier_prices SET is_active = 0 WHERE id = ?")->execute([$id]);
+        $d->prepare("UPDATE product_tier_prices SET is_active = 0 WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
         ok(['id' => $id]);
     }
 }
@@ -2183,8 +2359,8 @@ if ($endpoint === 'supplier-price-history') {
     }
     if ($method === 'POST') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO supplier_price_history (supplier_id, product_id, unit_id, unit_price, effective_date, po_reference, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)");
-        $stmt->execute([$input['supplier_id'], $input['product_id'], $input['unit_id'] ?? 1, $input['unit_price'], $input['effective_date'] ?? date('Y-m-d'), $input['po_reference'] ?? null, $input['notes'] ?? null, $_SESSION['user']['id'] ?? null, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO supplier_price_history (supplier_id, product_id, unit_id, unit_price, effective_date, po_reference, notes, created_by, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+        $stmt->execute([$input['supplier_id'], $input['product_id'], $input['unit_id'] ?? 1, $input['unit_price'], $input['effective_date'] ?? date('Y-m-d'), $input['po_reference'] ?? null, $input['notes'] ?? null, $_SESSION['user']['id'] ?? null, $now, $now, $tenantId]);
         created(['id' => $d->lastInsertId()]);
     }
 }
@@ -2239,7 +2415,7 @@ if ($endpoint === 'stock-adjustments') {
 
         $now = date('Y-m-d H:i:s');
         $stmt = $d->prepare("INSERT INTO stock_adjustments (product_id, quantity, adjustment_type, reason, status, created_by, created_at, tenant_id) VALUES (?,?,?,?,'pending',?,?,?)");
-        $stmt->execute([$input['product_id'], $input['quantity'], $input['adjustment_type'] ?? 'correction', $input['reason'] ?? null, $_SESSION['user']['id'] ?? null, $now, null]);
+        $stmt->execute([$input['product_id'], $input['quantity'], $input['adjustment_type'] ?? 'correction', $input['reason'] ?? null, $_SESSION['user']['id'] ?? null, $now, $tenantId]);
         created(['id' => $d->lastInsertId()]);
     }
     if ($method === 'PUT') {
@@ -2252,12 +2428,12 @@ if ($endpoint === 'stock-adjustments') {
             $stmt->execute([$id]);
             $adj = $stmt->fetch();
             if ($adj) {
-                $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)")->execute([
-                    $adj['product_id'], $adj['quantity'], $adj['unit_id'] ?? 1, 'adjustment', 'Approved adj #' . $id, $now
+                $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)")->execute([
+                    $adj['product_id'], $adj['quantity'], $adj['unit_id'] ?? 1, 'adjustment', 'Approved adj #' . $id, $now, $tenantId
                 ]);
             }
         }
-        $d->prepare("UPDATE stock_adjustments SET status = ?, approved_by = ?, approved_at = ? WHERE id = ?")->execute([$status, $_SESSION['user']['id'] ?? null, $now, $id]);
+        $d->prepare("UPDATE stock_adjustments SET status = ?, approved_by = ?, approved_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$status, $_SESSION['user']['id'] ?? null, $now, $id] : [$status, $_SESSION['user']['id'] ?? null, $now, $id, $tenantId]);
         ok(['id' => $id, 'status' => $status]);
     }
 }
@@ -2336,7 +2512,7 @@ if ($endpoint === 'stock-transfers') {
         $trId = $d->lastInsertId();
         foreach ($input['items'] ?? [] as $item) {
             if (empty($item['product_id'])) continue;
-            $d->prepare("INSERT INTO stock_transfer_items (transfer_id, product_id, quantity, created_at, updated_at) VALUES (?,?,?,?,?)")->execute([$trId, $item['product_id'], $item['quantity'], $now, $now]);
+            $d->prepare("INSERT INTO stock_transfer_items (transfer_id, product_id, quantity, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?)")->execute([$trId, $item['product_id'], $item['quantity'], $now, $now, $tenantId]);
         }
         created(['id' => $trId, 'transfer_no' => $transferNo]);
     }
@@ -2349,15 +2525,15 @@ if ($endpoint === 'stock-transfers') {
             $items = $d->prepare("SELECT * FROM stock_transfer_items WHERE transfer_id = ?");
             $items->execute([$id]);
             foreach ($items->fetchAll() as $item) {
-                $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)")->execute([
-                    $item['product_id'], -abs((float)$item['quantity']), $item['unit_id'] ?? 1, 'transfer_out', 'Transfer out #' . $id, $now
+                $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)")->execute([
+                    $item['product_id'], -abs((float)$item['quantity']), $item['unit_id'] ?? 1, 'transfer_out', 'Transfer out #' . $id, $now, $tenantId
                 ]);
-                $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at) VALUES (?,?,?,?,?,?)")->execute([
-                    $item['product_id'], abs((float)$item['quantity']), $item['unit_id'] ?? 1, 'transfer_in', 'Transfer in #' . $id, $now
+                $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)")->execute([
+                    $item['product_id'], abs((float)$item['quantity']), $item['unit_id'] ?? 1, 'transfer_in', 'Transfer in #' . $id, $now, $tenantId
                 ]);
             }
         }
-        $d->prepare("UPDATE stock_transfers SET status = ?, updated_at = ? WHERE id = ?")->execute([$status, $now, $id]);
+        $d->prepare("UPDATE stock_transfers SET status = ?, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$status, $now, $id] : [$status, $now, $id, $tenantId]);
         ok(['id' => $id, 'status' => $status]);
     }
 }
@@ -2375,8 +2551,8 @@ if ($endpoint === 'warehouse-locations') {
     }
     if ($method === 'POST') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO warehouse_locations (warehouse_id, code, name, zone_type, aisle, level, max_weight_kg, capacity_m2, is_active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,1,?,?)");
-        $stmt->execute([$input['warehouse_id'], $input['code'], $input['name'], $input['zone_type'] ?? 'storage', $input['aisle'] ?? null, $input['level'] ?? null, $input['max_weight_kg'] ?? null, $input['capacity_m2'] ?? null, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO warehouse_locations (warehouse_id, code, name, zone_type, aisle, level, max_weight_kg, capacity_m2, is_active, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,1,?,?,?)");
+        $stmt->execute([$input['warehouse_id'], $input['code'], $input['name'], $input['zone_type'] ?? 'storage', $input['aisle'] ?? null, $input['level'] ?? null, $input['max_weight_kg'] ?? 0, $input['capacity_m2'] ?? 0, $now, $now, $tenantId]);
         created(['id' => $d->lastInsertId(), 'code' => $input['code'], 'name' => $input['name']]);
     }
     if ($method === 'DELETE') {
@@ -2390,8 +2566,8 @@ if ($endpoint === 'warehouse-locations') {
         }
         
         // Soft delete
-        $stmt = $d->prepare("UPDATE warehouse_locations SET is_active = 0, updated_at = ? WHERE id = ?");
-        $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        $stmt = $d->prepare("UPDATE warehouse_locations SET is_active = 0, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt->execute($isSuperAdmin ? [date('Y-m-d H:i:s'), $id] : [date('Y-m-d H:i:s'), $id, $tenantId]);
         ok(['message' => 'Warehouse location deleted']);
     }
 }
@@ -2411,8 +2587,8 @@ if ($endpoint === 'status-codes') {
         $input = json_decode(file_get_contents('php://input'), true);
         if (empty($input['name']) || empty($input['code']) || empty($input['module'])) fail('Name, code, and module are required');
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO status_codes (module, code, name, is_active, created_at, updated_at) VALUES (?,?,?,?,?,?)");
-        $stmt->execute([$input['module'], $input['code'], $input['name'], 1, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO status_codes (module, code, name, is_active, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?)");
+        $stmt->execute([$input['module'], $input['code'], $input['name'], 1, $now, $now, $tenantId]);
         ok(['id' => $d->lastInsertId(), 'code' => $input['code'], 'name' => $input['name'], 'module' => $input['module']]);
     }
     if ($method === 'DELETE') {
@@ -2426,8 +2602,8 @@ if ($endpoint === 'status-codes') {
         }
         
         // Soft delete
-        $stmt = $d->prepare("UPDATE status_codes SET is_active = 0, updated_at = ? WHERE id = ?");
-        $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        $stmt = $d->prepare("UPDATE status_codes SET is_active = 0, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt->execute($isSuperAdmin ? [date('Y-m-d H:i:s'), $id] : [date('Y-m-d H:i:s'), $id, $tenantId]);
         ok(['message' => 'Status code deleted']);
     }
 }
@@ -2499,7 +2675,7 @@ if ($endpoint === 'bank-statements') {
         $id = $_GET['id'] ?? $input['id'] ?? null;
         if (!$id) fail('ID required');
         $now = date('Y-m-d H:i:s');
-        $d->prepare("UPDATE bank_statements SET reconciliation_status = 'reconciled', reconciled_at = ?, reconciled_by = ? WHERE id = ?")->execute([$now, $_SESSION['user']['id'] ?? null, $id]);
+        $d->prepare("UPDATE bank_statements SET reconciliation_status = 'reconciled', reconciled_at = ?, reconciled_by = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$now, $_SESSION['user']['id'] ?? null, $id] : [$now, $_SESSION['user']['id'] ?? null, $id, $tenantId]);
         ok(['id' => $id, 'status' => 'reconciled']);
     }
 }
@@ -2589,13 +2765,13 @@ if ($endpoint === 'fixed-assets') {
             $newAccum = (float)$asset['accumulated_depreciation'] + $depAmount;
             $newBookValue = (float)$asset['book_value'] - $depAmount;
 
-            $d->prepare("INSERT INTO asset_depreciations (fixed_asset_id, depreciation_date, amount, accumulated_after, book_value_after, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)")->execute([$id, date('Y-m-d'), $depAmount, $newAccum, $newBookValue, 'Monthly depreciation', $_SESSION['user']['id'] ?? null, $now, $now]);
-            $d->prepare("UPDATE fixed_assets SET accumulated_depreciation = ?, book_value = ?, updated_at = ? WHERE id = ?")->execute([$newAccum, $newBookValue, $now, $id]);
+            $d->prepare("INSERT INTO asset_depreciations (fixed_asset_id, depreciation_date, amount, accumulated_after, book_value_after, notes, created_by, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?)")->execute([$id, date('Y-m-d'), $depAmount, $newAccum, $newBookValue, 'Monthly depreciation', $_SESSION['user']['id'] ?? null, $now, $now, $tenantId]);
+            $d->prepare("UPDATE fixed_assets SET accumulated_depreciation = ?, book_value = ?, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$newAccum, $newBookValue, $now, $id] : [$newAccum, $newBookValue, $now, $id, $tenantId]);
             ok(['id' => $id, 'depreciation' => $depAmount, 'book_value' => $newBookValue]);
         }
 
         $status = $input['status'] ?? 'active';
-        $d->prepare("UPDATE fixed_assets SET status = ?, updated_at = ? WHERE id = ?")->execute([$status, $now, $id]);
+        $d->prepare("UPDATE fixed_assets SET status = ?, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$status, $now, $id] : [$status, $now, $id, $tenantId]);
         ok(['id' => $id, 'status' => $status]);
     }
 }
@@ -2613,15 +2789,15 @@ if ($endpoint === 'vehicles') {
     }
     if ($method === 'POST') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO vehicles (plate_no, vehicle_type, brand, model, capacity_kg, fuel_type, acquisition_date, status, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
-        $stmt->execute([$input['plate_no'], $input['vehicle_type'] ?? 'truck', $input['brand'] ?? null, $input['model'] ?? null, $input['capacity_kg'] ?? null, $input['fuel_type'] ?? 'diesel', $input['acquisition_date'] ?? date('Y-m-d'), 'active', $input['notes'] ?? null, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO vehicles (plate_no, vehicle_type, brand, model, capacity_kg, fuel_type, acquisition_date, status, notes, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
+        $stmt->execute([$input['plate_no'], $input['vehicle_type'] ?? 'truck', $input['brand'] ?? null, $input['model'] ?? null, $input['capacity_kg'] ?? null, $input['fuel_type'] ?? 'diesel', $input['acquisition_date'] ?? date('Y-m-d'), 'active', $input['notes'] ?? null, $now, $now, $tenantId]);
         created(['id' => $d->lastInsertId()]);
     }
     if ($method === 'PUT') {
         $id = $_GET['id'] ?? $input['id'] ?? null;
         if (!$id) fail('ID required');
         $now = date('Y-m-d H:i:s');
-        $d->prepare("UPDATE vehicles SET plate_no=?, vehicle_type=?, brand=?, model=?, capacity_kg=?, fuel_type=?, status=?, notes=?, updated_at=? WHERE id=?")->execute([$input['plate_no'], $input['vehicle_type'] ?? 'truck', $input['brand'] ?? null, $input['model'] ?? null, $input['capacity_kg'] ?? null, $input['fuel_type'] ?? 'diesel', $input['status'] ?? 'active', $input['notes'] ?? null, $now, $id]);
+        $d->prepare("UPDATE vehicles SET plate_no=?, vehicle_type=?, brand=?, model=?, capacity_kg=?, fuel_type=?, status=?, notes=?, updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id=?"))->execute($isSuperAdmin ? [$input['plate_no'], $input['vehicle_type'] ?? 'truck', $input['brand'] ?? null, $input['model'] ?? null, $input['capacity_kg'] ?? null, $input['fuel_type'] ?? 'diesel', $input['status'] ?? 'active', $input['notes'] ?? null, $now, $id] : [$input['plate_no'], $input['vehicle_type'] ?? 'truck', $input['brand'] ?? null, $input['model'] ?? null, $input['capacity_kg'] ?? null, $input['fuel_type'] ?? 'diesel', $input['status'] ?? 'active', $input['notes'] ?? null, $now, $id, $tenantId]);
         ok(['id' => $id]);
     }
     if ($method === 'DELETE') {
@@ -2635,7 +2811,7 @@ if ($endpoint === 'vehicles') {
         }
         
         // Soft delete
-        $d->prepare("UPDATE vehicles SET status='inactive' WHERE id=?")->execute([$id]);
+        $d->prepare("UPDATE vehicles SET status='inactive' WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id=?"))->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
         ok(['id' => $id]);
     }
 }
@@ -2653,8 +2829,8 @@ if ($endpoint === 'vehicle-maintenance') {
     }
     if ($method === 'POST') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO vehicle_maintenance (vehicle_id, maintenance_date, maintenance_type, cost, odometer_km, description, next_maintenance_date, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)");
-        $stmt->execute([$input['vehicle_id'], $input['maintenance_date'] ?? date('Y-m-d'), $input['maintenance_type'] ?? 'service', $input['cost'] ?? 0, $input['odometer_km'] ?? null, $input['description'] ?? null, $input['next_maintenance_date'] ?? null, $_SESSION['user']['id'] ?? null, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO vehicle_maintenance (vehicle_id, maintenance_date, maintenance_type, cost, odometer_km, description, next_maintenance_date, created_by, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+        $stmt->execute([$input['vehicle_id'], $input['maintenance_date'] ?? date('Y-m-d'), $input['maintenance_type'] ?? 'service', $input['cost'] ?? 0, $input['odometer_km'] ?? null, $input['description'] ?? null, $input['next_maintenance_date'] ?? null, $_SESSION['user']['id'] ?? null, $now, $now, $tenantId]);
         created(['id' => $d->lastInsertId()]);
     }
 }
@@ -2678,11 +2854,11 @@ if ($endpoint === 'delivery-routes') {
     if ($method === 'POST') {
         $now = date('Y-m-d H:i:s');
         $routeNo = 'RT-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
-        $stmt = $d->prepare("INSERT INTO delivery_routes (route_no, route_date, vehicle_id, driver_name, status, total_distance_km, estimated_time_minutes, notes, created_by, created_at, updated_at) VALUES (?,?,?,?,?,'planned',?,?,?,?,?)");
-        $stmt->execute([$routeNo, $input['route_date'] ?? date('Y-m-d'), $input['vehicle_id'] ?? null, $input['driver_name'] ?? null, $input['total_distance_km'] ?? null, $input['estimated_time_minutes'] ?? null, $input['notes'] ?? null, $_SESSION['user']['id'] ?? null, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO delivery_routes (route_no, route_date, vehicle_id, driver_name, status, total_distance_km, estimated_time_minutes, notes, created_by, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,'planned',?,?,?,?,?,?)");
+        $stmt->execute([$routeNo, $input['route_date'] ?? date('Y-m-d'), $input['vehicle_id'] ?? null, $input['driver_name'] ?? null, $input['total_distance_km'] ?? null, $input['estimated_time_minutes'] ?? null, $input['notes'] ?? null, $_SESSION['user']['id'] ?? null, $now, $now, $tenantId]);
         $routeId = $d->lastInsertId();
         foreach ($input['stops'] ?? [] as $i => $stop) {
-            $d->prepare("INSERT INTO route_stops (route_id, delivery_id, stop_order, customer_name, address, phone, status, created_at) VALUES (?,?,?,?,?,?,'pending',?)")->execute([$routeId, $stop['delivery_id'] ?? null, $i + 1, $stop['customer_name'] ?? null, $stop['address'] ?? null, $stop['phone'] ?? null, $now]);
+            $d->prepare("INSERT INTO route_stops (route_id, delivery_id, stop_order, customer_name, address, phone, status, created_at, tenant_id) VALUES (?,?,?,?,?,?,'pending',?,?)")->execute([$routeId, $stop['delivery_id'] ?? null, $i + 1, $stop['customer_name'] ?? null, $stop['address'] ?? null, $stop['phone'] ?? null, $now, $tenantId]);
         }
         created(['id' => $routeId, 'route_no' => $routeNo]);
     }
@@ -2696,7 +2872,7 @@ if ($endpoint === 'delivery-routes') {
             $d->prepare("UPDATE route_stops SET status = ?, arrived_at = ? WHERE id = ? AND route_id = ?")->execute([$stopStatus, $now, $input['stop_id'], $id]);
             ok(['id' => $id, 'stop_id' => $input['stop_id'], 'stop_status' => $stopStatus]);
         } else {
-            $d->prepare("UPDATE delivery_routes SET status = ?, updated_at = ? WHERE id = ?")->execute([$status, $now, $id]);
+            $d->prepare("UPDATE delivery_routes SET status = ?, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$status, $now, $id] : [$status, $now, $id, $tenantId]);
             ok(['id' => $id, 'status' => $status]);
         }
     }
@@ -2709,15 +2885,15 @@ if ($endpoint === 'whatsapp-templates') {
     }
     if ($method === 'POST') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO whatsapp_templates (template_name, template_type, message_body, variables, is_active, created_at, updated_at) VALUES (?,?,?,?,1,?,?)");
-        $stmt->execute([$input['template_name'], $input['template_type'] ?? 'notification', $input['message_body'], $input['variables'] ?? null, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO whatsapp_templates (template_name, template_type, message_body, variables, is_active, created_at, updated_at, tenant_id) VALUES (?,?,?,?,1,?,?,?)");
+        $stmt->execute([$input['template_name'], $input['template_type'] ?? 'notification', $input['message_body'], $input['variables'] ?? null, $now, $now, $tenantId]);
         created(['id' => $d->lastInsertId()]);
     }
     if ($method === 'PUT') {
         $id = $_GET['id'] ?? $input['id'] ?? null;
         if (!$id) fail('ID required');
         $now = date('Y-m-d H:i:s');
-        $d->prepare("UPDATE whatsapp_templates SET message_body = ?, variables = ?, updated_at = ? WHERE id = ?")->execute([$input['message_body'], $input['variables'] ?? null, $now, $id]);
+        $d->prepare("UPDATE whatsapp_templates SET message_body = ?, variables = ?, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$input['message_body'], $input['variables'] ?? null, $now, $id] : [$input['message_body'], $input['variables'] ?? null, $now, $id, $tenantId]);
         ok(['id' => $id]);
     }
 }
@@ -2735,8 +2911,8 @@ if ($endpoint === 'whatsapp-messages') {
         if (!$phone || !$msg) fail('Phone and message required');
 
         // Log the message (in production, this would call WhatsApp API)
-        $stmt = $d->prepare("INSERT INTO whatsapp_messages (phone_number, message_body, template_name, reference_type, reference_id, status, sent_at, created_by, created_at) VALUES (?,?,?,?,?,?,'sent',?,?)");
-        $stmt->execute([$phone, $msg, $templateName, $input['reference_type'] ?? null, $input['reference_id'] ?? null, $_SESSION['user']['id'] ?? null, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO whatsapp_messages (phone_number, message_body, template_name, reference_type, reference_id, status, sent_at, created_by, created_at, tenant_id) VALUES (?,?,?,?,?,?,'sent',?,?,?)");
+        $stmt->execute([$phone, $msg, $templateName, $input['reference_type'] ?? null, $input['reference_id'] ?? null, $_SESSION['user']['id'] ?? null, $now, $now, $tenantId]);
         created(['id' => $d->lastInsertId(), 'status' => 'sent']);
     }
 }
@@ -2774,15 +2950,15 @@ if ($endpoint === 'e-faktur') {
         $fakturNo = date('Y') . sprintf('%03d', date('n')) . '-' . str_pad(rand(1, 999999999), 9, '0', STR_PAD_LEFT);
         $dpp = (float)($input['dpp'] ?? 0);
         $ppn = $dpp * 0.11;
-        $stmt = $d->prepare("INSERT INTO e_faktur (faktur_no, faktur_type, transaction_date, counterparty_name, counterparty_npwp, dpp, ppn, description, reference_type, reference_id, export_status, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,'pending',?,?,?)");
-        $stmt->execute([$fakturNo, $input['faktur_type'] ?? 'keluaran', $input['transaction_date'] ?? date('Y-m-d'), $input['counterparty_name'] ?? '', $input['counterparty_npwp'] ?? '', $dpp, $ppn, $input['description'] ?? null, $input['reference_type'] ?? null, $input['reference_id'] ?? null, $_SESSION['user']['id'] ?? null, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO e_faktur (faktur_no, faktur_type, transaction_date, counterparty_name, counterparty_npwp, dpp, ppn, description, reference_type, reference_id, export_status, created_by, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,'pending',?,?,?,?)");
+        $stmt->execute([$fakturNo, $input['faktur_type'] ?? 'keluaran', $input['transaction_date'] ?? date('Y-m-d'), $input['counterparty_name'] ?? '', $input['counterparty_npwp'] ?? '', $dpp, $ppn, $input['description'] ?? null, $input['reference_type'] ?? null, $input['reference_id'] ?? null, $_SESSION['user']['id'] ?? null, $now, $now, $tenantId]);
         created(['id' => $d->lastInsertId(), 'faktur_no' => $fakturNo]);
     }
     if ($method === 'PUT') {
         $id = $_GET['id'] ?? $input['id'] ?? null;
         if (!$id) fail('ID required');
         $now = date('Y-m-d H:i:s');
-        $d->prepare("UPDATE e_faktur SET export_status = 'exported', updated_at = ? WHERE id = ?")->execute([$now, $id]);
+        $d->prepare("UPDATE e_faktur SET export_status = 'exported', updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$now, $id] : [$now, $id, $tenantId]);
         ok(['id' => $id, 'status' => 'exported']);
     }
 }
@@ -2842,8 +3018,8 @@ if ($endpoint === 'landed-cost') {
             $baseUnitCost = (float)$item['unit_price'];
             $fullLandedCost = $baseUnitCost + $landedUnitCost;
             
-            $d->prepare("INSERT INTO landed_cost_distributions (purchase_order_id, product_id, freight_allocated, insurance_allocated, handling_allocated, total_landed_cost, quantity, landed_unit_cost, distribution_method, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)")
-                ->execute([$poId, $item['product_id'], $freightAlloc, $insuranceAlloc, $handlingAlloc, $totalItemLanded, $qty, $landedUnitCost, 'by_value', $now]);
+            $d->prepare("INSERT INTO landed_cost_distributions (purchase_order_id, product_id, freight_allocated, insurance_allocated, handling_allocated, total_landed_cost, quantity, landed_unit_cost, distribution_method, created_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
+                ->execute([$poId, $item['product_id'], $freightAlloc, $insuranceAlloc, $handlingAlloc, $totalItemLanded, $qty, $landedUnitCost, 'by_value', $now, $tenantId]);
             
             // Update product landed_cost
             $d->prepare("UPDATE products SET landed_cost = ? WHERE id = ?")->execute([$fullLandedCost, $item['product_id']]);
@@ -2900,8 +3076,8 @@ if ($endpoint === 'partial-deliveries') {
             
             $status = $remaining == 0 ? 'completed' : 'partial';
             
-            $d->prepare("INSERT INTO partial_deliveries (sale_id, delivery_id, sale_item_id, product_id, ordered_qty, delivered_qty, remaining_qty, delivery_date, status, notes, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
-                ->execute([$saleId, $deliveryId, $saleItemId, $siData['product_id'], $orderedQty, $deliveredQty, $remaining, $deliveryDate, $status, $notes, $now]);
+            $d->prepare("INSERT INTO partial_deliveries (sale_id, delivery_id, sale_item_id, product_id, ordered_qty, delivered_qty, remaining_qty, delivery_date, status, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
+                ->execute([$saleId, $deliveryId, $saleItemId, $siData['product_id'], $orderedQty, $deliveredQty, $remaining, $deliveryDate, $status, $notes, $now, $tenantId]);
             
             $d->prepare("UPDATE sale_items SET remaining_qty = ? WHERE id = ?")->execute([$remaining, $saleItemId]);
         }
@@ -2923,14 +3099,14 @@ if ($endpoint === 'product-batches') {
     }
     if ($method === 'POST') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO product_batches (product_id, batch_no, lot_no, received_date, expiry_date, quantity_received, quantity_remaining, unit_cost, landed_unit_cost, supplier_id, purchase_order_id, status, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?)");
+        $stmt = $d->prepare("INSERT INTO product_batches (product_id, batch_no, lot_no, received_date, expiry_date, quantity_received, quantity_remaining, unit_cost, landed_unit_cost, supplier_id, purchase_order_id, status, notes, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?,?)");
         $stmt->execute([
             $input['product_id'], $input['batch_no'] ?? null, $input['lot_no'] ?? null,
             $input['received_date'] ?? date('Y-m-d'), $input['expiry_date'] ?? null,
             $input['quantity_received'], $input['quantity_received'],
             $input['unit_cost'] ?? 0, $input['landed_unit_cost'] ?? null,
             $input['supplier_id'] ?? null, $input['purchase_order_id'] ?? null,
-            $input['notes'] ?? null, $now, $now
+            $input['notes'] ?? null, $now, $now, $tenantId
         ]);
         created(['id' => $d->lastInsertId()]);
     }
@@ -2940,18 +3116,18 @@ if ($endpoint === 'product-batches') {
         $now = date('Y-m-d H:i:s');
         $qty = $input['quantity_remaining'] ?? null;
         if ($qty !== null) {
-            $d->prepare("UPDATE product_batches SET quantity_remaining = ?, updated_at = ? WHERE id = ?")->execute([$qty, $now, $id]);
+            $d->prepare("UPDATE product_batches SET quantity_remaining = ?, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$qty, $now, $id] : [$qty, $now, $id, $tenantId]);
         }
         $status = $input['status'] ?? null;
         if ($status) {
-            $d->prepare("UPDATE product_batches SET status = ?, updated_at = ? WHERE id = ?")->execute([$status, $now, $id]);
+            $d->prepare("UPDATE product_batches SET status = ?, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$status, $now, $id] : [$status, $now, $id, $tenantId]);
         }
         ok(['id' => $id]);
     }
     if ($method === 'DELETE') {
         $id = $_GET['id'] ?? $input['id'] ?? null;
         if (!$id) fail('ID required');
-        $d->prepare("UPDATE product_batches SET status = 'inactive' WHERE id = ?")->execute([$id]);
+        $d->prepare("UPDATE product_batches SET status = 'inactive' WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
         ok(['id' => $id]);
     }
 }
@@ -3005,21 +3181,35 @@ if ($endpoint === 'cash-flow') {
         $endDate = $_GET['end_date'] ?? date('Y-m-t');
         
         // Operating: cash transactions
-        $operatingIn = (float)$d->query("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND account_type='cash' AND transaction_date BETWEEN '$startDate' AND '$endDate'")->fetchColumn();
-        $operatingOut = (float)$d->query("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND account_type='cash' AND transaction_date BETWEEN '$startDate' AND '$endDate'")->fetchColumn();
+        $stmt = $d->prepare("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND account_type='cash' AND transaction_date BETWEEN ? AND ?");
+        $stmt->execute([$startDate, $endDate]);
+        $operatingIn = (float)$stmt->fetchColumn();
+        $stmt = $d->prepare("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND account_type='cash' AND transaction_date BETWEEN ? AND ?");
+        $stmt->execute([$startDate, $endDate]);
+        $operatingOut = (float)$stmt->fetchColumn();
         
         // Sales cash received
-        $salesCash = (float)$d->query("SELECT COALESCE(SUM(amount),0) FROM payments WHERE payment_date BETWEEN '$startDate' AND '$endDate'")->fetchColumn();
+        $stmt = $d->prepare("SELECT COALESCE(SUM(amount),0) FROM payments WHERE payment_date BETWEEN ? AND ?");
+        $stmt->execute([$startDate, $endDate]);
+        $salesCash = (float)$stmt->fetchColumn();
         
         // Purchase cash paid
-        $purchaseCash = (float)$d->query("SELECT COALESCE(SUM(amount),0) FROM purchase_payments WHERE payment_date BETWEEN '$startDate' AND '$endDate'")->fetchColumn();
+        $stmt = $d->prepare("SELECT COALESCE(SUM(amount),0) FROM purchase_payments WHERE payment_date BETWEEN ? AND ?");
+        $stmt->execute([$startDate, $endDate]);
+        $purchaseCash = (float)$stmt->fetchColumn();
         
         // Investing: fixed asset purchases
-        $assetPurchases = (float)$d->query("SELECT COALESCE(SUM(acquisition_cost),0) FROM fixed_assets WHERE acquisition_date BETWEEN '$startDate' AND '$endDate'")->fetchColumn();
+        $stmt = $d->prepare("SELECT COALESCE(SUM(acquisition_cost),0) FROM fixed_assets WHERE acquisition_date BETWEEN ? AND ?");
+        $stmt->execute([$startDate, $endDate]);
+        $assetPurchases = (float)$stmt->fetchColumn();
         
         // Financing: loan payments (from cash_transactions with category=loan)
-        $financingIn = (float)$d->query("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND category LIKE '%loan%' AND transaction_date BETWEEN '$startDate' AND '$endDate'")->fetchColumn();
-        $financingOut = (float)$d->query("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND category LIKE '%loan%' AND transaction_date BETWEEN '$startDate' AND '$endDate'")->fetchColumn();
+        $stmt = $d->prepare("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND category LIKE '%loan%' AND transaction_date BETWEEN ? AND ?");
+        $stmt->execute([$startDate, $endDate]);
+        $financingIn = (float)$stmt->fetchColumn();
+        $stmt = $d->prepare("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND category LIKE '%loan%' AND transaction_date BETWEEN ? AND ?");
+        $stmt->execute([$startDate, $endDate]);
+        $financingOut = (float)$stmt->fetchColumn();
         
         $operatingNet = $operatingIn + $salesCash - $operatingOut - $purchaseCash;
         $investingNet = -$assetPurchases;
@@ -3027,7 +3217,12 @@ if ($endpoint === 'cash-flow') {
         $netChange = $operatingNet + $investingNet + $financingNet;
         
         // Beginning cash balance
-        $beginningCash = (float)$d->query("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND transaction_date < '$startDate'")->fetchColumn() - (float)$d->query("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND transaction_date < '$startDate'")->fetchColumn();
+        $stmt = $d->prepare("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND transaction_date < ?");
+        $stmt->execute([$startDate]);
+        $beginningIn = (float)$stmt->fetchColumn();
+        $stmt = $d->prepare("SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND transaction_date < ?");
+        $stmt->execute([$startDate]);
+        $beginningCash = $beginningIn - (float)$stmt->fetchColumn();
         $endingCash = $beginningCash + $netChange;
         
         ok([
@@ -3057,8 +3252,8 @@ if ($endpoint === 'period-closings') {
         $existingRow = $existing->fetch();
         if ($existingRow) ok(['id' => $existingRow['id'], 'period' => "$year-$month", 'message' => "Period $year-$month already exists"]);
         
-        $d->prepare("INSERT INTO period_closings (period_year, period_month, status, closed_by, closed_at, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)")
-            ->execute([$year, $month, 'closed', $_SESSION['user']['id'] ?? null, $now, $input['notes'] ?? null, $now, $now]);
+        $d->prepare("INSERT INTO period_closings (period_year, period_month, status, closed_by, closed_at, notes, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?)")
+            ->execute([$year, $month, 'closed', $_SESSION['user']['id'] ?? null, $now, $input['notes'] ?? null, $now, $now, $tenantId]);
         created(['id' => $d->lastInsertId(), 'period' => "$year-$month"]);
     }
     if ($method === 'PUT') {
@@ -3066,13 +3261,13 @@ if ($endpoint === 'period-closings') {
         if (!$id) fail('ID required');
         $now = date('Y-m-d H:i:s');
         $status = $input['status'] ?? 'open';
-        $d->prepare("UPDATE period_closings SET status = ?, notes = ?, updated_at = ? WHERE id = ?")->execute([$status, $input['notes'] ?? null, $now, $id]);
+        $d->prepare("UPDATE period_closings SET status = ?, notes = ?, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$status, $input['notes'] ?? null, $now, $id] : [$status, $input['notes'] ?? null, $now, $id, $tenantId]);
         ok(['id' => $id, 'status' => $status]);
     }
     if ($method === 'DELETE') {
         $id = $_GET['id'] ?? $input['id'] ?? null;
         if (!$id) fail('ID required');
-        $d->prepare("UPDATE period_closings SET status = 'open', updated_at = ? WHERE id = ?")->execute([date('Y-m-d H:i:s'), $id]);
+        $d->prepare("UPDATE period_closings SET status = 'open', updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [date('Y-m-d H:i:s'), $id] : [date('Y-m-d H:i:s'), $id, $tenantId]);
         ok(['id' => $id, 'status' => 'open']);
     }
 }

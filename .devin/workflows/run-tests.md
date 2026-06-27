@@ -26,19 +26,35 @@ description: Run tests for Panglong ERP
    npx playwright test tests/e2e/login.spec.js
    ```
 
-## PHPUnit Tests (Laravel Backend)
+## PHP Syntax Check
 
-1. **Run PHPUnit tests**
+1. **Check single file**
    ```bash
-   /opt/lampp/bin/php artisan test
+   /opt/lampp/bin/php -l frontend/file.php
    ```
 
-2. **Run specific test**
+2. **Check all frontend PHP files**
    ```bash
-   /opt/lampp/bin/php artisan test --filter AuthServiceTest
+   for f in frontend/*.php; do /opt/lampp/bin/php -l "$f"; done
+   ```
+
+## Page HTTP Status Check
+
+1. **Login and save cookies**
+   ```bash
+   curl -s -c /tmp/test_cookies.txt -d 'username=admin&password=password123' http://localhost/panglong/frontend/login.php
+   ```
+
+2. **Check all pages return 200**
+   ```bash
+   for page in index products customers suppliers warehouses sales sales_orders quotations deliveries purchase-orders stock stock_opname stock_transfers batches reorder iot fleet routes accounting cashbook cash_flow fixed_assets e_faktur closing reports ai_insights marketplace landed_cost pricing settings saas users tenants returns whatsapp salesman_app; do
+     code=$(curl -s -o /dev/null -w "%{http_code}" -b /tmp/test_cookies.txt "http://localhost/panglong/frontend/$page.php")
+     echo "$page: $code"
+   done
    ```
 
 ## Notes
-- Playwright tests: 50 tests across 19 specs (all passing)
-- PHPUnit tests: 14 test files for Laravel API
-- Laravel API is scaffolded but not used by frontend
+- Playwright tests: ~55 tests across 23 specs (all passing)
+- Use XAMPP PHP (`/opt/lampp/bin/php`) for syntax checks, NOT system PHP
+- System PHP (8.3.6) does NOT have pdo_sqlite extension
+- Laravel backend is scaffolded but NOT used by frontend

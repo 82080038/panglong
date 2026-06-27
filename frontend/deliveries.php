@@ -31,17 +31,17 @@ renderNav('deliveries');
             <div class="table-responsive"><table class="table table-striped">
                 <thead><tr><th>Nomor Kirim</th><th>Tanggal</th><th>Pelanggan</th><th>Alamat</th><th>Driver</th><th>Vehicle</th><th>Status</th><th>Aksi</th></tr></thead>
                 <tbody>
-                    <?php foreach ($deliveries as $d): ?>
+                    <?php foreach ($deliveries as $del): ?>
                     <tr>
-                        <td><?= htmlspecialchars($d['delivery_no']) ?></td>
-                        <td><?= tglIndo($d['delivery_date']) ?></td>
-                        <td><?= htmlspecialchars($d['customer_name']) ?></td>
-                        <td><?= htmlspecialchars(substr($d['delivery_address'] ?? '', 0, 30)) ?></td>
-                        <td><?= htmlspecialchars($d['driver_name'] ?? '-') ?></td>
-                        <td><?= htmlspecialchars($d['vehicle_plate'] ?? '-') ?></td>
-                        <td><span class="badge bg-<?= $d['status']==='delivered'?'success':($d['status']==='in_transit'?'primary':($d['status']==='failed'?'danger':'warning')) ?>"><?= ucfirst(str_replace('_',' ',$d['status'])) ?></span></td>
+                        <td><?= htmlspecialchars($del['delivery_no']) ?></td>
+                        <td><?= tglIndo($del['delivery_date']) ?></td>
+                        <td><?= htmlspecialchars($del['customer_name']) ?></td>
+                        <td><?= htmlspecialchars(substr($del['delivery_address'] ?? '', 0, 30)) ?></td>
+                        <td><?= htmlspecialchars($del['driver_name'] ?? '-') ?></td>
+                        <td><?= htmlspecialchars($del['vehicle_plate'] ?? '-') ?></td>
+                        <td><span class="badge bg-<?= $del['status']==='delivered'?'success':($del['status']==='in_transit'?'primary':($del['status']==='failed'?'danger':'warning')) ?>"><?= ucfirst(str_replace('_',' ',$del['status'])) ?></span></td>
                         <td>
-                            <select class="form-select form-select-sm d-inline-block" style="width:auto" onchange="updateStatus(<?= $d['id'] ?>, this.value)">
+                            <select class="form-select form-select-sm d-inline-block" style="width:auto" onchange="updateStatus(<?= $del['id'] ?>, this.value)">
                                 <option value="">Update Status</option>
                                 <?php 
                                 $deliveryStatuses = $d->query("SELECT code, name FROM status_codes WHERE module = 'deliveries' AND is_active = 1 ORDER BY name")->fetchAll();
@@ -74,7 +74,10 @@ renderNav('deliveries');
                         <div class="col-md-4"><label class="form-label">Time</label><input type="time" class="form-control" id="delTime"></div>
                         <div class="col-md-4"><label class="form-label">Metode Pengiriman</label><select class="form-select" id="delMethod"><?php if (is_array($deliveryMethods)): foreach ($deliveryMethods as $dm): ?><option value="<?php echo htmlspecialchars($dm['code']); ?>"><?php echo htmlspecialchars($dm['name']); ?></option><?php endforeach; endif; ?></select></div>
                     </div>
-                    <div class="mb-3"><label class="form-label">Nama Sopir</label><input type="text" class="form-control" id="delDriver"></div>
+                    <div class="row mb-3">
+                        <div class="col-md-6"><label class="form-label">Nama Sopir</label><input type="text" class="form-control" id="delDriver"></div>
+                        <div class="col-md-6"><label class="form-label">Plat Kendaraan</label><input type="text" class="form-control" id="delPlate"></div>
+                    </div>
                     <div class="mb-3"><label class="form-label">Catatan</label><textarea class="form-control" id="delNotes" rows="2"></textarea></div>
                 </form>
             </div>

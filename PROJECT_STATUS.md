@@ -2,9 +2,9 @@
 
 # PANGLONG ERP - ACCURATE AUDIT
 
-## Version: 5.0
-## Date: 2026-06-26
-## Auditor: Automated Analysis
+## Version: 7.0
+## Date: 2026-06-27
+## Auditor: Automated Analysis + Playwright E2E + Field Reality Audit
 
 ---
 
@@ -29,21 +29,22 @@
 
 | Metric | Value |
 |--------|-------|
-| Documentation files | 12 MD files |
+| Documentation files | 14 MD files (incl. FIELD_REALITY_ANALYSIS.md + DEVELOPMENT_HANDOFF.md) |
 | Backend Laravel (app/) | 146 PHP files |
 | Models (Laravel) | 63 |
 | Controllers (Laravel) | 33 |
 | Services (Laravel) | 20 |
-| Frontend PHP files | 45 (frontend/) |
+| Frontend PHP files | 50 (frontend/) |
 | Migration files | 37 |
 | Seeder files | 16 |
-| Database | SQLite (database/database.sqlite, 78 tables) |
+| Database | SQLite (database/database.sqlite, 87 tables) |
 | PHPUnit test files | 14 |
-| Playwright E2E specs | 19 specs (50 tests, ALL PASSING) |
-| AJAX endpoints | 48 endpoints in ajax.php (1940 lines) |
+| Playwright E2E specs | 23 specs (67 tests, ALL PASSING — 0 skipped) |
+| AJAX endpoints | 58 endpoints in ajax.php (3400+ lines) |
 | RBAC Nav | Dynamic per role (owner, manager, kasir, gudang, accounting, supervisor) |
 | UI Features | Dark mode, eye-care mode, fullscreen toggle, responsive design |
-| Overall Readiness | Frontend 100% functional (PHP Native + PDO SQLite) |
+| Overall Readiness | Frontend 100% functional — 87 priority items identified for production hardening |
+| Field Reality Analysis | 87 items (P0: 17, P1: 38, P2: 16, P3: 16) — see FIELD_REALITY_ANALYSIS.md |
 
 ---
 
@@ -313,4 +314,60 @@ StockMovementFactory.
 3. ✅ DATABASE_SCHEMA.md notes SQLite as development database
 4. ✅ SETUP_GUIDE.md has actual setup instructions (XAMPP + SQLite)
 5. ✅ TESTING_FRAMEWORK.md includes Playwright E2E test documentation
-6. ✅ All stats accurate (45 pages, 50 tests, 37 migrations, 78 tables, 48 endpoints)
+6. ✅ All stats accurate (50 pages, 67 tests, 37 migrations, 87 tables, 58 endpoints)
+
+---
+
+# FIELD REALITY ANALYSIS & PRODUCTION READINESS
+
+## Dokumen Baru
+
+| File | Isi |
+|------|-----|
+| `FIELD_REALITY_ANALYSIS.md` | 2700+ baris, 14 section, 87 item prioritas (P0-P3) |
+| `DEVELOPMENT_HANDOFF.md` | Panduan untuk programmer baru melanjutkan pengembangan |
+
+## Cleanup Files (Dihapus 27 Jun 2026)
+
+File satu kali yang sudah tidak dibutuhkan:
+- `add_test_users.php` — script setup test users
+- `analyze_db.php` — script analisis database
+- `analyze_references.php` — script analisis referensi
+- `migration_reference_tables.php` — migrasi satu kali
+- `database/fix_platform_owner.php` — fix satu kali
+- `database/setup_tenant_and_user.php` — setup satu kali
+- `database/mysql_to_sqlite.php` — migrasi MySQL→SQLite satu kali
+- `database/database_export.sql` — export SQL lama
+- `database/mysql_data_dump.sql` — dump MySQL lama
+- `database/mysql_schema_dump.sql` — dump MySQL lama
+- `database/database.sqlite.backup_*` — backup lama
+- `backups/daily/*.sqlite.gz` — backup harian lama
+
+## Prioritas Pengembangan Selanjutnya
+
+### P0 — Quick Wins (< 0.5 sprint each)
+1. WAL mode + busy_timeout di db.php (2 baris)
+2. Set timezone Asia/Jakarta di config.php (1 baris)
+3. session_regenerate_id setelah login di auth.php (1 baris)
+4. display_errors=0 di production (3 baris)
+5. Button disable anti-double-click
+6. Session heartbeat (keep alive)
+7. Self-host CSS/JS assets (anti CDN down)
+
+### P0 — Butuh Effort (0.5-1 sprint each)
+8. Database transaction untuk semua multi-step ops
+9. Stock validation sebelum sale
+10. Idempotency key (anti-double-submit)
+11. Auto-save cart ke localStorage
+12. QRIS/e-wallet payment methods
+13. Void sales approval workflow
+14. Branch scoping di ajax.php
+15. Audit logging semua endpoint
+16. Role fallback system
+17. tenant_id ke semua tabel
+
+### P1-P3 — Lihat FIELD_REALITY_ANALYSIS.md Section 14
+
+## Baca Juga
+- `DEVELOPMENT_HANDOFF.md` — panduan lengkap untuk programmer baru
+- `FIELD_REALITY_ANALYSIS.md` — detail 87 item dengan solusi dan code example

@@ -25,7 +25,7 @@ renderNav('routes');
                     <td><?= htmlspecialchars($r['route_date']) ?></td>
                     <td><?= htmlspecialchars($r['plate_no'] ?? '-') ?></td>
                     <td><?= htmlspecialchars($r['driver_name'] ?? '-') ?></td>
-                    <td><?= $r['total_distance_km'] ? number_format($r['total_distance_km'], 1) . ' km' : '-' ?></td>
+                    <td><?= (isset($r['total_distance_km']) && is_numeric($r['total_distance_km']) && $r['total_distance_km'] > 0) ? number_format($r['total_distance_km'], 1) . ' km' : '-' ?></td>
                     <td><span class="badge bg-<?= $r['status']==='completed'?'success':($r['status']==='in_progress'?'info':'warning') ?>"><?= ucfirst(str_replace('_',' ',$r['status'])) ?></span></td>
                     <td>
                         <button class="btn btn-sm btn-info" onclick="viewRoute(<?= $r['id'] ?>)"><i class="bi bi-eye"></i></button>

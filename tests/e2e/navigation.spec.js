@@ -1,8 +1,10 @@
 const { test, expect } = require('@playwright/test');
 
+const FRONTEND_BASE = 'http://localhost/panglong/frontend';
+
 // Navigation test for all user roles
 const roles = [
-  { username: 'admin', password: 'password123', role: 'Owner' },
+  { username: 'admin', password: 'password123', role: 'Super Admin' },
   { username: 'manager1', password: 'password123', role: 'Manager' },
   { username: 'kasir1', password: 'password123', role: 'Kasir' },
   { username: 'gudang1', password: 'password123', role: 'Gudang' },
@@ -11,51 +13,57 @@ const roles = [
 ];
 
 test.describe('Navigation Tests', () => {
-  test('Navigation for Owner (admin)', async ({ page }) => {
-    console.log(`\n=== Testing navigation for Owner ===`);
+  for (const r of roles) {
+    test(`Navigation for ${r.role} (${r.username})`, async ({ page }) => {
+      await page.goto(`${FRONTEND_BASE}/login.php`);
+      await page.fill('input[name="username"]', r.username);
+      await page.fill('input[name="password"]', r.password);
+      await page.click('button[type="submit"]');
+      await page.waitForURL('**/index.php');
+      const currentUrl = page.url();
+      expect(currentUrl).toContain('panglong/frontend');
+      await expect(page.locator('h1')).toBeVisible();
+    });
+  }
 
-    // Login
-    await page.goto('http://localhost/panglong/frontend/login.php');
+  test('Responsive navigation test', async ({ page }) => {
+    await page.goto(`${FRONTEND_BASE}/login.php`);
     await page.fill('input[name="username"]', 'admin');
     await page.fill('input[name="password"]', 'password123');
     await page.click('button[type="submit"]');
+    await page.waitForURL('**/index.php');
 
-    // Wait for navigation to complete
-    await page.waitForTimeout(3000);
+    // Desktop view
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await expect(page.locator('.navbar')).toBeVisible();
 
-    // Check if we're on a page (either dashboard or error page)
-    const currentUrl = page.url();
-    console.log(`Current URL for Owner: ${currentUrl}`);
+    // Tablet view
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.waitForTimeout(500);
+    await expect(page.locator('.navbar')).toBeVisible();
 
-    // Verify page loaded
-    expect(currentUrl).toContain('panglong/frontend');
+    // Mobile view
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.waitForTimeout(500);
+    await expect(page.locator('.navbar')).toBeVisible();
   });
 
-  test.skip('Navigation for Manager', async ({ page }) => {
-    // Skipped: Requires tenant setup
-  });
+  test('Dropdown navigation test', async ({ page }) => {
+    await page.goto(`${FRONTEND_BASE}/login.php`);
+    await page.fill('input[name="username"]', 'admin');
+    await page.fill('input[name="password"]', 'password123');
+    await page.click('button[type="submit"]');
+    await page.waitForURL('**/index.php');
 
-  test.skip('Navigation for Kasir', async ({ page }) => {
-    // Skipped: Requires tenant setup
-  });
+    // Find dropdown toggle buttons in nav
+    const dropdowns = page.locator('.navbar .dropdown-toggle');
+    const count = await dropdowns.count();
+    expect(count).toBeGreaterThan(0);
 
-  test.skip('Navigation for Gudang', async ({ page }) => {
-    // Skipped: Requires tenant setup
-  });
-
-  test.skip('Navigation for Akuntansi', async ({ page }) => {
-    // Skipped: Requires tenant setup
-  });
-
-  test.skip('Navigation for Supervisor', async ({ page }) => {
-    // Skipped: Requires tenant setup
-  });
-
-  test.skip('Responsive navigation test', async ({ page }) => {
-    // Skipped: Complex UI test
-  });
-
-  test.skip('Dropdown navigation test', async ({ page }) => {
-    // Skipped: Complex UI test
+    // Click first dropdown and verify menu appears
+    await dropdowns.first().click();
+    await page.waitForTimeout(500);
+    const menu = page.locator('.navbar .dropdown-menu').first();
+    await expect(menu).toBeVisible();
   });
 });

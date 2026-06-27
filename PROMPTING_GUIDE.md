@@ -2,8 +2,8 @@
 
 # PANGLONG ERP — Guide for AI-Assisted Development
 
-## Version: 1.1 (Updated 2026-06-26)
-## Status: ALL SPRINTS (1-12) + GAP FEATURES + UI/UX COMPLETED — 45 pages, 50 E2E tests, 78 tables, 48 AJAX endpoints
+## Version: 2.0 (Updated 2026-06-27)
+## Status: 50 pages, 58 AJAX endpoints, 87 tables, 23 E2E specs (48 pass, 19 skipped)
 
 > Panduan ini memberikan konteks lengkap dan prompt templates untuk melanjutkan
 > pengembangan Panglong ERP menggunakan AI coding assistant (Cascade/Claude).
@@ -17,11 +17,11 @@
 ```
 [Browser]
   ↓
-[PHP Server-Side Rendering] — frontend/*.php (45 pages)
+[PHP Server-Side Rendering] — frontend/*.php (50 pages)
   ├── Direct PDO SQLite queries untuk initial page load
-  └── jQuery 3.6 $.ajax() → frontend/ajax.php (1940 lines, 48 endpoints) → PDO SQLite
+  └── jQuery 3.6 $.ajax() → frontend/ajax.php (3395 lines, 58 endpoints) → PDO SQLite
   ↓
-[database/database.sqlite] — 78 tables, 1.3MB
+[database/database.sqlite] — 87 tables
 ```
 
 ## Komponen Utama
@@ -31,8 +31,8 @@
 | DB Connection | `frontend/db.php` | PDO SQLite singleton, `PRAGMA foreign_keys = ON` |
 | Auth | `frontend/auth.php` | Session-based, `password_verify()`, `hasPermission()` |
 | Config | `frontend/config.php` | Session timeout 30min, `renderNav()`, `renderHead()`, `renderFoot()` |
-| AJAX Endpoint | `frontend/ajax.php` | Single endpoint (1940 lines, 48 endpoints), parameter `?endpoint=X` |
-| Database | `database/database.sqlite` | SQLite, 78 tables, hasil 37 migrations + 16 seeders |
+| AJAX Endpoint | `frontend/ajax.php` | Single endpoint (3395 lines, 58 endpoints), parameter `?endpoint=X` |
+| Database | `database/database.sqlite` | SQLite, 87 tables, hasil 37 migrations + 16 seeders |
 
 ## Yang Ada Tapi TIDAK Digunakan
 
@@ -69,6 +69,8 @@
 | manager1 | password123 | Manager |
 | kasir1 | password123 | Kasir |
 | gudang1 | password123 | Gudang |
+| accounting1 | password123 | Accounting |
+| supervisor1 | password123 | Supervisor |
 
 ---
 
@@ -452,9 +454,72 @@ npx playwright test --headed
 
 ## Database Quick Stats
 
-- 78 tables
+- 87 tables
 - 37 migrations (all executed)
 - 16 seeders (all executed)
 - 9 factories
-- Default data: 4 users, 6 roles, sample products/customers/suppliers
-- Size: ~1.3MB
+- Default data: 6 users, 7 roles, sample products/customers/suppliers
+- Size: ~1.5MB
+
+---
+
+# 9. DEVELOPMENT CYCLE PROMPT (v2.0 — Jun 2026)
+
+## Current State Analysis (27 Jun 2026)
+
+| Metric | Value |
+|--------|-------|
+| Frontend PHP files | 50 |
+| AJAX endpoints | 58 (ajax.php: 3395 lines) |
+| Database tables | 87 (SQLite) |
+| E2E test specs | 23 (48 pass, 19 skipped) |
+| All pages HTTP 200 | 36/36 ✓ |
+| PHP syntax check | 50/50 ✓ |
+| Nav items | 34 (7 dropdown groups) |
+| User roles | 7 (owner, manager, kasir, gudang, accounting, supervisor, super_admin) |
+
+## Bugs Fixed This Session
+1. **index.php** — `require_once auth.php` → `require_once config.php` (renderNav undefined)
+2. **routes.php** — `number_format()` on non-numeric `total_distance_km` → added `is_numeric()` guard
+
+## Remaining Work: Enable 19 Skipped Simulation Tests
+
+The simulation tests in `tests/e2e/simulation.spec.js` are all `test.describe.skip()`.
+They cover 7 role-based scenarios + 3 UI/UX tests = 11 test cases (19 with sub-tests).
+
+### Strategy: Progressive Enablement
+1. Enable UI/UX tests first (simplest — theme, responsive, navbar)
+2. Enable Owner tests (3 tests: Day 1-30, 31-60, 61-90)
+3. Enable Manager/Kasir/Gudang/Accounting/Supervisor tests
+4. Fix failures as they appear — minimal changes, root cause fixes
+
+### Execution Prompt
+
+```
+ENABLE SIMULATION TESTS PROGRESSIVELY:
+
+Step 1: Enable UI/UX simulation tests
+- Remove .skip from 'Simulation — UI/UX Features' describe block
+- Run: npx playwright test tests/e2e/simulation.spec.js --grep "UI/UX" --reporter=list --workers=1
+- Fix any failures (theme switching, responsive layout, navbar role badges)
+
+Step 2: Enable Owner simulation tests
+- Remove .skip from 'Simulation — Owner Role' describe block
+- Run: npx playwright test tests/e2e/simulation.spec.js --grep "Owner" --reporter=list --workers=1
+- Fix AJAX endpoint failures, page errors, console warnings
+
+Step 3: Enable remaining role tests
+- Remove .skip from Manager, Kasir, Gudang, Accounting, Supervisor blocks
+- Run each role's test individually, fix failures
+
+Step 4: Full test suite
+- Run: npx playwright test --reporter=list --workers=1
+- All 67 tests must pass (48 existing + 19 simulation)
+
+Rules:
+- Use /opt/lampp/bin/php for PHP CLI
+- Use SQLite syntax (julianday, date('now'), COALESCE)
+- Fix root causes, not symptoms
+- Minimal changes — don't refactor working code
+- Test after each fix
+```

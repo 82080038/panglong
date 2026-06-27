@@ -83,7 +83,7 @@ async function visitPage(page, monitors, path, label) {
 
 // === Helper: AJAX call via page context ===
 async function ajaxGet(page, endpoint, params = {}) {
-  const qs = new URLSearchParams({ endpoint, ...params }).toString();
+  const qs = new URLSearchParams({ endpoint, test_mode: 'true', ...params }).toString();
   const response = await page.evaluate(async (qs) => {
     const res = await fetch(`ajax.php?${qs}`, { credentials: 'same-origin' });
     const text = await res.text();
@@ -94,7 +94,7 @@ async function ajaxGet(page, endpoint, params = {}) {
 }
 
 async function ajaxPost(page, endpoint, body, action = '') {
-  const qs = action ? `?endpoint=${endpoint}&action=${action}` : `?endpoint=${endpoint}`;
+  const qs = action ? `?endpoint=${endpoint}&action=${action}&test_mode=true` : `?endpoint=${endpoint}&test_mode=true`;
   const response = await page.evaluate(async ({ qs, body }) => {
     const res = await fetch(`ajax.php${qs}`, {
       method: 'POST',
@@ -110,7 +110,7 @@ async function ajaxPost(page, endpoint, body, action = '') {
 }
 
 async function ajaxPut(page, endpoint, body, id) {
-  const qs = id ? `?endpoint=${endpoint}&id=${id}` : `?endpoint=${endpoint}`;
+  const qs = id ? `?endpoint=${endpoint}&id=${id}&test_mode=true` : `?endpoint=${endpoint}&test_mode=true`;
   const response = await page.evaluate(async ({ qs, body }) => {
     const res = await fetch(`ajax.php${qs}`, {
       method: 'PUT',
@@ -126,7 +126,7 @@ async function ajaxPut(page, endpoint, body, id) {
 }
 
 async function ajaxDelete(page, endpoint, id) {
-  const qs = `?endpoint=${endpoint}&id=${id}`;
+  const qs = `?endpoint=${endpoint}&id=${id}&test_mode=true`;
   const response = await page.evaluate(async (qs) => {
     const res = await fetch(`ajax.php${qs}`, { method: 'DELETE', credentials: 'same-origin' });
     const text = await res.text();
@@ -139,10 +139,10 @@ async function ajaxDelete(page, endpoint, id) {
 // ═══════════════════════════════════════════════════════════════
 // OWNER ROLE — All 35 menus + CRUD operations
 // ═══════════════════════════════════════════════════════════════
-test.describe.skip('Simulation — Owner Role (Full Access)', () => {
+test.describe('Simulation — Owner Role (Full Access)', () => {
   test('Day 1-30: Navigate all pages, CRUD products, customers, suppliers', async ({ page }) => {
     const m = attachMonitors(page, {});
-    await loginAs(page, 'admin');
+    await loginAs(page, 'ownertest');
 
     // Visit all owner pages
     const pages = [
@@ -190,7 +190,7 @@ test.describe.skip('Simulation — Owner Role (Full Access)', () => {
     // CRUD: Create product
     const prodRes = await ajaxPost(page, 'products', {
       code: 'SIM-TEST-' + Date.now(),
-      name: 'Semen Portland Test',
+      name: 'Semen Portland Test ' + Date.now(),
       category_id: 1,
       brand: 'Semen Gresik',
       min_stock: 10,
@@ -199,17 +199,18 @@ test.describe.skip('Simulation — Owner Role (Full Access)', () => {
       sell_price: 55000,
       units: [{ unit_name: 'sak', conversion_factor: 1, price_per_unit: 55000 }]
     });
+    if (!prodRes.body.success) console.log('Product create failed:', JSON.stringify(prodRes.body));
     expect(prodRes.body.success).toBe(true);
     const productId = prodRes.body.data.id;
 
     // CRUD: Read product
     const getProd = await ajaxGet(page, 'products', { id: productId });
     expect(getProd.body.success).toBe(true);
-    expect(getProd.body.data.name).toBe('Semen Portland Test');
+    expect(getProd.body.data.name).toContain('Semen Portland Test');
 
     // CRUD: Update product
     const updProd = await ajaxPut(page, 'products', {
-      name: 'Semen Portland Updated',
+      name: 'Semen Portland Updated ' + Date.now(),
       category_id: 1,
       brand: 'Semen Gresik',
       min_stock: 20,
@@ -259,7 +260,7 @@ test.describe.skip('Simulation — Owner Role (Full Access)', () => {
     if (poDetail.body.success && poDetail.body.data && poDetail.body.data.items) {
       for (const item of poDetail.body.data.items) {
         await page.evaluate(async ({ poId, itemId, qty }) => {
-          await fetch(`ajax.php?endpoint=purchase-orders&action=receive&id=${poId}`, {
+          await fetch(`ajax.php?endpoint=purchase-orders&action=receive&id=${poId}&test_mode=true`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ items: [{ purchase_item_id: itemId, received_quantity: qty }] }),
@@ -281,7 +282,7 @@ test.describe.skip('Simulation — Owner Role (Full Access)', () => {
 
     // Sale payment (endpoint is 'sale-payment' singular, with id in query string)
     const payRes2 = await page.evaluate(async ({ saleId }) => {
-      const res = await fetch('ajax.php?endpoint=sale-payment&id=' + saleId, {
+      const res = await fetch('ajax.php?endpoint=sale-payment&id=' + saleId + '&test_mode=true', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: 638000, payment_method: 'cash', payment_date: '2026-04-15' }),
@@ -346,7 +347,7 @@ test.describe.skip('Simulation — Owner Role (Full Access)', () => {
 
   test('Day 31-60: Advanced features — pricing, fleet, routes, WhatsApp, e-Faktur, landed cost, batches', async ({ page }) => {
     const m = attachMonitors(page, {});
-    await loginAs(page, 'admin');
+    await loginAs(page, 'ownertest');
 
     // Visit advanced pages
     await visitPage(page, m, 'pricing.php', 'Owner:Pricing');
@@ -546,7 +547,7 @@ test.describe.skip('Simulation — Owner Role (Full Access)', () => {
 
   test('Day 61-90: Quotations, Sales Orders, Returns, Stock Transfers, Reports', async ({ page }) => {
     const m = attachMonitors(page, {});
-    await loginAs(page, 'admin');
+    await loginAs(page, 'ownertest');
 
     // Visit transaction pages
     await visitPage(page, m, 'quotations.php', 'Owner:Quotations');
@@ -658,7 +659,7 @@ test.describe.skip('Simulation — Owner Role (Full Access)', () => {
 // ═══════════════════════════════════════════════════════════════
 // MANAGER ROLE — 34 menus (no SaaS)
 // ═══════════════════════════════════════════════════════════════
-test.describe.skip('Simulation — Manager Role', () => {
+test.describe('Simulation — Manager Role', () => {
   test('Navigate all manager pages + CRUD operations', async ({ page }) => {
     const m = attachMonitors(page, {});
     await loginAs(page, 'manager1');
@@ -711,8 +712,8 @@ test.describe.skip('Simulation — Manager Role', () => {
 
     // CRUD operations
     const prodRes = await ajaxPost(page, 'products', {
-      code: 'MGR-TEST-001',
-      name: 'Bata Ringan Manager Test',
+      code: 'MGR-TEST-' + Date.now(),
+      name: 'Bata Ringan Manager Test ' + Date.now(),
       category_id: 1,
       brand: 'Hebel',
       min_stock: 5,
@@ -745,7 +746,7 @@ test.describe.skip('Simulation — Manager Role', () => {
 // ═══════════════════════════════════════════════════════════════
 // KASIR ROLE — POS focus
 // ═══════════════════════════════════════════════════════════════
-test.describe.skip('Simulation — Kasir Role (POS)', () => {
+test.describe('Simulation — Kasir Role (POS)', () => {
   test('Day 1-90: POS transactions, deliveries, returns, quotations, WhatsApp', async ({ page }) => {
     const m = attachMonitors(page, {});
     await loginAs(page, 'kasir1');
@@ -791,7 +792,7 @@ test.describe.skip('Simulation — Kasir Role (POS)', () => {
       // Payment for cash sales
       if (i % 2 === 0) {
         const payRes = await page.evaluate(async ({ saleId, qty }) => {
-          const res = await fetch('ajax.php?endpoint=sale-payment&id=' + saleId, {
+          const res = await fetch('ajax.php?endpoint=sale-payment&id=' + saleId + '&test_mode=true', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ amount: 121000 * qty, payment_method: 'cash', payment_date: '2026-04-10' }),
@@ -840,7 +841,7 @@ test.describe.skip('Simulation — Kasir Role (POS)', () => {
 // ═══════════════════════════════════════════════════════════════
 // GUDANG ROLE — Inventory focus
 // ═══════════════════════════════════════════════════════════════
-test.describe.skip('Simulation — Gudang Role (Inventory)', () => {
+test.describe('Simulation — Gudang Role (Inventory)', () => {
   test('Day 1-90: Products, stock, PO, transfers, batches, fleet, routes, IoT', async ({ page }) => {
     const m = attachMonitors(page, {});
     await loginAs(page, 'gudang1');
@@ -963,7 +964,7 @@ test.describe.skip('Simulation — Gudang Role (Inventory)', () => {
 // ═══════════════════════════════════════════════════════════════
 // ACCOUNTING ROLE — Finance focus
 // ═══════════════════════════════════════════════════════════════
-test.describe.skip('Simulation — Accounting Role', () => {
+test.describe('Simulation — Accounting Role', () => {
   test('Day 1-90: Journal, cashbook, assets, cash flow, e-Faktur, closing', async ({ page }) => {
     const m = attachMonitors(page, {});
     await loginAs(page, 'accounting1');
@@ -1064,7 +1065,7 @@ test.describe.skip('Simulation — Accounting Role', () => {
 // ═══════════════════════════════════════════════════════════════
 // SUPERVISOR ROLE — Dashboard + Reports only
 // ═══════════════════════════════════════════════════════════════
-test.describe.skip('Simulation — Supervisor Role', () => {
+test.describe('Simulation — Supervisor Role', () => {
   test('Dashboard + Reports view', async ({ page }) => {
     const m = attachMonitors(page, {});
     await loginAs(page, 'supervisor1');
@@ -1085,7 +1086,7 @@ test.describe.skip('Simulation — Supervisor Role', () => {
 // ═══════════════════════════════════════════════════════════════
 // THEME + UI TESTS — Dark mode, eye-care, fullscreen
 // ═══════════════════════════════════════════════════════════════
-test.describe.skip('Simulation — UI/UX Features', () => {
+test.describe('Simulation — UI/UX Features', () => {
   test('Dark mode, eye-care mode, fullscreen toggle', async ({ page }) => {
     const m = attachMonitors(page, {});
     await loginAs(page, 'admin');
@@ -1156,7 +1157,7 @@ test.describe.skip('Simulation — UI/UX Features', () => {
 
   test('Navbar shows correct user name and role for each role', async ({ page }) => {
     const roles = [
-      ['admin', 'Owner'],
+      ['ownertest', 'Owner'],
       ['manager1', 'Manager'],
       ['kasir1', 'Kasir'],
       ['gudang1', 'Gudang'],

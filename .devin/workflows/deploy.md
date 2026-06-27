@@ -6,23 +6,7 @@ description: Deploy Panglong ERP to production
 
 ## Deployment Options
 
-### Option 1: Docker Deployment
-
-1. **Build Docker image**
-   ```bash
-   docker build -t panglong-erp .
-   ```
-
-2. **Run with Docker Compose**
-   ```bash
-   docker-compose up -d
-   ```
-
-3. **Access application**
-   - Frontend: http://localhost
-   - Laravel API: http://localhost:8000
-
-### Option 2: XAMPP Deployment
+### Option 1: XAMPP Deployment (Recommended)
 
 1. **Copy files to production server**
    ```bash
@@ -48,7 +32,7 @@ description: Deploy Panglong ERP to production
    </VirtualHost>
    ```
 
-### Option 3: Production Database Migration
+### Option 2: Production Database Migration
 
 If migrating from SQLite to MySQL for production:
 
@@ -72,6 +56,15 @@ If migrating from SQLite to MySQL for production:
    ```php
    $db = new PDO('mysql:host=localhost;dbname=panglong_prod', 'username', 'password');
    ```
+
+## Application Stats (Jun 2026)
+- 50 frontend PHP pages
+- 58 AJAX endpoints in ajax.php (3213 lines)
+- 86 SQLite tables
+- 23 Playwright E2E test specs (~55 test cases)
+- 7 user roles: owner, manager, kasir, gudang, accounting, supervisor, super_admin
+- 34 nav items (7 dropdown groups)
+- Tech stack: PHP Native procedural + PDO SQLite + jQuery AJAX + Bootstrap 5
 
 ## Security Checklist
 

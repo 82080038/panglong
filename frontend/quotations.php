@@ -133,6 +133,7 @@ function addQuoteRow() {
 
 function onQuoteProductChange(sel) {
     const opt = sel.selectedOptions[0];
+    if (!opt) return;
     const row = sel.closest('tr');
     row.querySelectorAll('input')[2].value = opt.dataset.price || 0;
     calcQuoteRow(row);
