@@ -1,5 +1,9 @@
 <?php
 
+date_default_timezone_set('Asia/Jakarta');
+ini_set('display_errors', '0');
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
+
 require_once __DIR__ . '/auth.php';
 
 // === FUNGSI BAHASA INDONESIA ===
@@ -400,6 +404,71 @@ function renderFoot() {
             \'X-CSRF-Token\': CSRF_TOKEN
         }
     });
+
+    // Anti-double-click: disable submit buttons on form submit, re-enable after
+    (function() {
+        document.addEventListener(\'submit\', function(e) {
+            var form = e.target;
+            if (form.dataset.submitting === \'1\') {
+                e.preventDefault();
+                return;
+            }
+            form.dataset.submitting = \'1\';
+            var btns = form.querySelectorAll(\'button[type="submit"], input[type="submit"]\');
+            btns.forEach(function(btn) {
+                btn.dataset.origHtml = btn.innerHTML;
+                btn.disabled = true;
+                if (btn.tagName === \'BUTTON\') {
+                    btn.innerHTML = \'<span class="spinner-border spinner-border-sm" role="status"></span> Memproses...\';
+                }
+            });
+            setTimeout(function() {
+                form.dataset.submitting = \'0\';
+                btns.forEach(function(btn) {
+                    btn.disabled = false;
+                    if (btn.dataset.origHtml) {
+                        btn.innerHTML = btn.dataset.origHtml;
+                        delete btn.dataset.origHtml;
+                    }
+                });
+            }, 10000);
+        }, true);
+    })();
+
+    // Anti-double-click for AJAX buttons with data-loading attribute
+    (function() {
+        document.addEventListener(\'click\', function(e) {
+            var btn = e.target.closest(\'[data-loading="true"]\');
+            if (!btn || btn.disabled) return;
+            btn.disabled = true;
+            btn.dataset.origHtml = btn.innerHTML;
+            if (btn.tagName === \'BUTTON\') {
+                btn.innerHTML = \'<span class="spinner-border spinner-border-sm" role="status"></span>\';
+            }
+            setTimeout(function() {
+                btn.disabled = false;
+                if (btn.dataset.origHtml) {
+                    btn.innerHTML = btn.dataset.origHtml;
+                    delete btn.dataset.origHtml;
+                }
+            }, 15000);
+        }, true);
+    })();
+
+    // Session heartbeat: ping server every 5 minutes to keep session alive
+    (function() {
+        var heartbeatInterval = 5 * 60 * 1000;
+        setInterval(function() {
+            fetch(\'ajax.php\', {
+                method: \'POST\',
+                headers: {
+                    \'Content-Type\': \'application/x-www-form-urlencoded\',
+                    \'X-CSRF-Token\': CSRF_TOKEN
+                },
+                body: \'endpoint=heartbeat\'
+            }).catch(function(){});
+        }, heartbeatInterval);
+    })();
 
     // Auto-refresh session timer (warn 2 min before timeout)
     (function() {

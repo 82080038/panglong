@@ -339,6 +339,12 @@ function checkReferences($table, $id, $field = 'id') {
     return ['has_references' => false];
 }
 
+// === HEARTBEAT (session keep-alive) ===
+if ($endpoint === 'heartbeat') {
+    $_SESSION['last_activity'] = time();
+    ok(['alive' => true, 'time' => time()]);
+}
+
 // === PRODUCTS ===
 if ($endpoint === 'products') {
     if ($method === 'GET') {
@@ -1286,33 +1292,63 @@ if ($endpoint === 'sales') {
         $tax = $taxable * $taxRate;
         $total = $taxable + $tax;
 
-        $stmt = $d->prepare("INSERT INTO sales (invoice_no, customer_id, customer_name_snapshot, sale_date, subtotal, discount, tax, total, delivery_cost, payment_method, payment_status, status, notes, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,0,?,?,'completed',?,?,?,?)");
-        $stmt->execute([
-            $invoiceNo, $input['customer_id'] ?? null, $input['customer_name'] ?? 'Walk-in Customer',
-            $input['sale_date'] ?? date('Y-m-d'),
-            $subtotal, $globalDiscount, $tax, $total,
-            $input['payment_method'] ?? 'cash', 'unpaid',
-            $input['notes'] ?? null, $now, $now, $tenantId
-        ]);
-        $saleId = $d->lastInsertId();
+        try {
+            $d->beginTransaction();
 
-        foreach ($input['items'] ?? [] as $item) {
-            if (empty($item['product_id'])) continue;
-            $lineSubtotal = ($item['quantity'] * $item['unit_price']) - ($item['discount'] ?? 0);
-            $stmt = $d->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, bonus_qty, unit_id, unit_price, discount, subtotal, created_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?)");
-            $stmt->execute([
-                $saleId, $item['product_id'], $item['quantity'],
-                $item['bonus_qty'] ?? 0, $item['unit_id'] ?? 1,
-                $item['unit_price'], $item['discount'] ?? 0, $lineSubtotal, $now, $tenantId
-            ]);
+            // P0 #2: Stock validation before sale
+            foreach ($input['items'] as $item) {
+                if (empty($item['product_id'])) continue;
+                $stockStmt = $d->prepare("SELECT COALESCE((SELECT SUM(quantity) FROM stock_movements WHERE product_id = p.id), 0) as current_stock, p.name, p.allow_negative_stock FROM products p WHERE p.id = ?");
+                $stockStmt->execute([$item['product_id']]);
+                $product = $stockStmt->fetch();
+                if (!$product) {
+                    $d->rollBack();
+                    fail('Product ID ' . $item['product_id'] . ' not found', 404);
+                }
+                $currentStock = (float)$product['current_stock'];
+                $qtyNeeded = abs((float)$item['quantity']);
+                $allowNegative = (int)($product['allow_negative_stock'] ?? 0);
+                if (!$allowNegative && $currentStock < $qtyNeeded) {
+                    $d->rollBack();
+                    fail('Stok tidak cukup untuk "' . $product['name'] . '". Stok tersedia: ' . $currentStock . ', diminta: ' . $qtyNeeded);
+                }
+            }
 
-            $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)");
+            $stmt = $d->prepare("INSERT INTO sales (invoice_no, customer_id, customer_name_snapshot, sale_date, subtotal, discount, tax, total, delivery_cost, payment_method, payment_status, status, notes, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,0,?,?,'completed',?,?,?,?)");
             $stmt->execute([
-                $item['product_id'], -abs((float)$item['quantity']),
-                $item['unit_id'] ?? 1, 'sale', 'Sale ' . $invoiceNo, $now, $tenantId
+                $invoiceNo, $input['customer_id'] ?? null, $input['customer_name'] ?? 'Walk-in Customer',
+                $input['sale_date'] ?? date('Y-m-d'),
+                $subtotal, $globalDiscount, $tax, $total,
+                $input['payment_method'] ?? 'cash', 'unpaid',
+                $input['notes'] ?? null, $now, $now, $tenantId
             ]);
+            $saleId = $d->lastInsertId();
+
+            foreach ($input['items'] ?? [] as $item) {
+                if (empty($item['product_id'])) continue;
+                $lineSubtotal = ($item['quantity'] * $item['unit_price']) - ($item['discount'] ?? 0);
+                $stmt = $d->prepare("INSERT INTO sale_items (sale_id, product_id, quantity, bonus_qty, unit_id, unit_price, discount, subtotal, created_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?)");
+                $stmt->execute([
+                    $saleId, $item['product_id'], $item['quantity'],
+                    $item['bonus_qty'] ?? 0, $item['unit_id'] ?? 1,
+                    $item['unit_price'], $item['discount'] ?? 0, $lineSubtotal, $now, $tenantId
+                ]);
+
+                $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)");
+                $stmt->execute([
+                    $item['product_id'], -abs((float)$item['quantity']),
+                    $item['unit_id'] ?? 1, 'sale', 'Sale ' . $invoiceNo, $now, $tenantId
+                ]);
+            }
+
+            $d->commit();
+            created(['id' => $saleId, 'invoice_no' => $invoiceNo]);
+        } catch (Exception $e) {
+            if ($d->inTransaction()) {
+                $d->rollBack();
+            }
+            fail('Gagal membuat penjualan: ' . $e->getMessage(), 500);
         }
-        created(['id' => $saleId, 'invoice_no' => $invoiceNo]);
     }
 
     if ($method === 'DELETE') {

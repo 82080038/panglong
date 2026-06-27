@@ -57,6 +57,9 @@ function login($username, $password) {
     $attemptKey = 'login_attempts_' . md5($username);
     unset($_SESSION[$attemptKey]);
 
+    // Regenerate session ID to prevent session fixation
+    session_regenerate_id(true);
+
     db()->prepare('UPDATE users SET last_login_at = datetime("now") WHERE id = ?')->execute([$user['id']]);
 
     return ['success' => true, 'user' => $_SESSION['user']];

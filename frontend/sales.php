@@ -362,6 +362,7 @@ function addProductToSale(product) {
 }
 
 function resetSaleForm() {
+    clearCartStorage();
     document.getElementById('saleForm').reset();
     document.getElementById('saleDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('customerSelect').value = '';
@@ -475,9 +476,84 @@ function calcTotal() {
     document.getElementById('discountDisplay').textContent = 'Rp ' + Math.round(globalDiscount).toLocaleString('id-ID');
     document.getElementById('taxDisplay').textContent = 'Rp ' + Math.round(tax).toLocaleString('id-ID');
     document.getElementById('grandTotalDisplay').textContent = 'Rp ' + Math.round(total).toLocaleString('id-ID');
+    saveCartToStorage();
+}
+
+// P0 #5: Auto-save cart to localStorage
+function saveCartToStorage() {
+    const cart = {
+        customer_id: document.getElementById('customerSelect').value,
+        sale_date: document.getElementById('saleDate').value,
+        payment_method: document.getElementById('paymentMethod').value,
+        delivery_address: document.getElementById('deliveryAddress').value,
+        global_discount: document.getElementById('globalDiscount').value,
+        notes: document.getElementById('saleCatatan').value,
+        items: []
+    };
+    document.querySelectorAll('.item-row').forEach(row => {
+        const productId = row.querySelector('.productSelect').value;
+        if (!productId) return;
+        cart.items.push({
+            product_id: productId,
+            product_name: row.querySelector('.productSelect').selectedOptions[0]?.text || '',
+            quantity: row.querySelector('.qtyInput').value,
+            unit_id: row.querySelector('.unitSelect').value,
+            unit_price: row.querySelector('.priceInput').value,
+            discount: row.querySelector('.discountInput').value,
+        });
+    });
+    try {
+        localStorage.setItem('panglong_sale_cart', JSON.stringify(cart));
+    } catch(e) {}
+}
+
+function restoreCartFromStorage() {
+    try {
+        const saved = localStorage.getItem('panglong_sale_cart');
+        if (!saved) return false;
+        const cart = JSON.parse(saved);
+        if (!cart || !cart.items || cart.items.length === 0) return false;
+
+        if (cart.customer_id) document.getElementById('customerSelect').value = cart.customer_id;
+        if (cart.sale_date) document.getElementById('saleDate').value = cart.sale_date;
+        if (cart.payment_method) document.getElementById('paymentMethod').value = cart.payment_method;
+        if (cart.delivery_address) document.getElementById('deliveryAddress').value = cart.delivery_address;
+        if (cart.global_discount) document.getElementById('globalDiscount').value = cart.global_discount;
+        if (cart.notes) document.getElementById('saleCatatan').value = cart.notes;
+
+        const tbody = document.getElementById('itemsBody');
+        tbody.innerHTML = '';
+        cart.items.forEach(item => {
+            addItemRow();
+            const row = tbody.lastElementChild;
+            row.querySelector('.productSelect').value = item.product_id;
+            row.querySelector('.qtyInput').value = item.quantity;
+            row.querySelector('.priceInput').value = item.unit_price;
+            row.querySelector('.discountInput').value = item.discount;
+            if (item.unit_id) {
+                const unitSelect = row.querySelector('.unitSelect');
+                if (unitSelect) unitSelect.value = item.unit_id;
+            }
+            calcRow(row.querySelector('.qtyInput'));
+        });
+        calcTotal();
+        return true;
+    } catch(e) {
+        return false;
+    }
+}
+
+function clearCartStorage() {
+    try {
+        localStorage.removeItem('panglong_sale_cart');
+    } catch(e) {}
 }
 
 function submitSale() {
+    var btn = document.getElementById('submitSaleBtn');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Memproses...';
     const items = [];
     document.querySelectorAll('.item-row').forEach(row => {
         const productId = row.querySelector('.productSelect').value;
@@ -485,12 +561,12 @@ function submitSale() {
         items.push({
             product_id: parseInt(productId),
             quantity: parseFloat(row.querySelector('.qtyInput').value),
-            unit_id: parseInt(productId),
+            unit_id: parseInt(row.querySelector('.unitSelect').value || productId),
             unit_price: parseFloat(row.querySelector('.priceInput').value),
             discount: parseFloat(row.querySelector('.discountInput').value) || 0,
         });
     });
-    if (items.length === 0) { alert('Add at least 1 item'); return; }
+    if (items.length === 0) { alert('Add at least 1 item'); btn.disabled = false; btn.innerHTML = 'Create Sale'; return; }
     const data = {
         customer_id: document.getElementById('customerSelect').value || null,
         sale_date: document.getElementById('saleDate').value,
@@ -504,8 +580,12 @@ function submitSale() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
     }).then(r => r.json()).then(res => {
-        if (res.success) { alert('Sale created: ' + res.data.invoice_no); location.reload(); }
-        else { alert('Kesalahan: ' + res.message); }
+        if (res.success) { clearCartStorage(); alert('Sale created: ' + res.data.invoice_no); location.reload(); }
+        else { alert('Kesalahan: ' + res.message); btn.disabled = false; btn.innerHTML = 'Create Sale'; }
+    }).catch(err => {
+        alert('Terjadi kesalahan jaringan');
+        btn.disabled = false;
+        btn.innerHTML = 'Create Sale';
     });
 }
 
@@ -766,6 +846,10 @@ function changePage(dir) {
     loadSales();
 }
 
-$(function() { resetSaleForm(); });
+$(function() {
+    if (!restoreCartFromStorage()) {
+        resetSaleForm();
+    }
+});
 </script>
 <?php renderFoot(); ?>
