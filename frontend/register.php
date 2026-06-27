@@ -213,7 +213,7 @@ $theme = $_SESSION['theme'] ?? 'light';
                     <div class="col-md-6 mb-3">
                         <label class="form-label small">Subdomain *</label>
                         <div class="input-group">
-                            <input type="text" name="subdomain" class="form-control" required pattern="[a-z0-9-]+" value="<?= htmlspecialchars($_POST['subdomain'] ?? '') ?>">
+                            <input type="text" name="subdomain" class="form-control" required pattern="[a-z0-9\-]+" value="<?= htmlspecialchars($_POST['subdomain'] ?? '') ?>">
                             <span class="input-group-text">.panglong.com</span>
                         </div>
                         <small class="text-muted">Hanya huruf kecil, angka, dan tanda strip (-)</small>

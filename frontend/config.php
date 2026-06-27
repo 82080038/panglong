@@ -276,7 +276,7 @@ function renderHead($title) {
     <link href="assets/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/bootstrap-icons.css">
     <script src="assets/js/jquery-3.6.0.min.js"></script>
-    <script>const API_URL="ajax.php";const API_TOKEN="";const CSRF_TOKEN="' . htmlspecialchars($csrfToken) . '";</script>
+    <script>const API_URL="ajax.php";const API_TOKEN="";const CSRF_TOKEN="' . htmlspecialchars($csrfToken) . '";const TEST_MODE=true;</script>
     <meta name="csrf-token" content="' . htmlspecialchars($csrfToken) . '">
     <script>
     // Screen detection and dynamic layout adjustment
