@@ -256,6 +256,13 @@ function renderNav($active = '') {
 function renderHead($title) {
     global $theme;
     $themeAttr = htmlspecialchars($theme);
+    $csrfToken = generateCsrfToken();
+    
+    // Security headers
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: DENY');
+    header('X-XSS-Protection: 1; mode=block');
+    
     echo '<!DOCTYPE html>
 <html lang="id" data-bs-theme="' . $themeAttr . '">
 <head>
@@ -265,7 +272,8 @@ function renderHead($title) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>const API_URL="ajax.php";const API_TOKEN="";</script>
+    <script>const API_URL="ajax.php";const API_TOKEN="";const CSRF_TOKEN="' . htmlspecialchars($csrfToken) . '";</script>
+    <meta name="csrf-token" content="' . htmlspecialchars($csrfToken) . '">
     <script>
     // Screen detection and dynamic layout adjustment
     function adjustLayout() {
@@ -384,6 +392,13 @@ function renderFoot() {
     var tooltipTriggerList = [].slice.call(document.querySelectorAll(\'[data-bs-toggle="tooltip"]\'));
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Setup AJAX to include CSRF token
+    $.ajaxSetup({
+        headers: {
+            \'X-CSRF-Token\': CSRF_TOKEN
+        }
     });
 
     // Auto-refresh session timer (warn 2 min before timeout)

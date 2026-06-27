@@ -102,3 +102,96 @@ function requirePermission($slug) {
         die('Akses ditolak. Permission required: ' . htmlspecialchars($slug));
     }
 }
+
+// CSRF Protection
+function generateCsrfToken() {
+    if (!isset($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function verifyCsrfToken($token) {
+    if (!isset($_SESSION['csrf_token']) || $token !== $_SESSION['csrf_token']) {
+        return false;
+    }
+    return true;
+}
+
+function requireCsrfToken() {
+    $token = $_POST['csrf_token'] ?? $_GET['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    if (!verifyCsrfToken($token)) {
+        http_response_code(403);
+        die('CSRF token validation failed. Please refresh the page and try again.');
+    }
+}
+
+// Rate Limiting
+function checkRateLimit($key, $maxRequests = 60, $windowSeconds = 60) {
+    $now = time();
+    $windowStart = $now - $windowSeconds;
+    
+    if (!isset($_SESSION[$key])) {
+        $_SESSION[$key] = [];
+    }
+    
+    // Clean old requests
+    $_SESSION[$key] = array_filter($_SESSION[$key], function($timestamp) use ($windowStart) {
+        return $timestamp > $windowStart;
+    });
+    
+    // Check if limit exceeded
+    if (count($_SESSION[$key]) >= $maxRequests) {
+        $retryAfter = $_SESSION[$key][0] + $windowSeconds - $now;
+        header('X-RateLimit-Limit: ' . $maxRequests);
+        header('X-RateLimit-Remaining: 0');
+        header('X-RateLimit-Reset: ' . ($_SESSION[$key][0] + $windowSeconds));
+        header('Retry-After: ' . $retryAfter);
+        return false;
+    }
+    
+    // Add current request
+    $_SESSION[$key][] = $now;
+    
+    header('X-RateLimit-Limit: ' . $maxRequests);
+    header('X-RateLimit-Remaining: ' . ($maxRequests - count($_SESSION[$key])));
+    header('X-RateLimit-Reset: ' . ($windowStart + $windowSeconds));
+    
+    return true;
+}
+
+// Input Validation Functions
+function validateEmail($email) {
+    return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+}
+
+function validatePhone($phone) {
+    // Allow digits, spaces, +, -, (, )
+    return preg_match('/^[\d\s\+\-\(\)]+$/', $phone) && strlen($phone) >= 10;
+}
+
+function validateNumeric($value, $min = null, $max = null) {
+    if (!is_numeric($value)) return false;
+    $num = floatval($value);
+    if ($min !== null && $num < $min) return false;
+    if ($max !== null && $num > $max) return false;
+    return true;
+}
+
+function validateStringLength($value, $min = 0, $max = null) {
+    $len = strlen($value);
+    if ($len < $min) return false;
+    if ($max !== null && $len > $max) return false;
+    return true;
+}
+
+function validateEnum($value, $allowedValues) {
+    return in_array($value, $allowedValues, true);
+}
+
+function sanitizeInput($input) {
+    if (is_array($input)) {
+        return array_map('sanitizeInput', $input);
+    }
+    return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+}

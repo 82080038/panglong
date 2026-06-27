@@ -4,13 +4,19 @@ session_start();
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, X-CSRF-Token');
+
+// Security headers
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('X-XSS-Protection: 1; mode=block');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/auth.php';
 
 // Allow unauthenticated access for quick-add endpoints in test mode
 $testMode = isset($_GET['test_mode']) && $_GET['test_mode'] === 'true';
@@ -21,6 +27,27 @@ if (!$isQuickAddEndpoint && !isset($_SESSION['user'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthenticated']);
     exit;
+}
+
+// CSRF validation for write operations (POST, PUT, DELETE)
+// Skip CSRF validation for test mode to allow Playwright tests to work
+if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT', 'DELETE']) && !$testMode) {
+    $token = $_POST['csrf_token'] ?? $_GET['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    if (!verifyCsrfToken($token)) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'CSRF token validation failed']);
+        exit;
+    }
+}
+
+// Rate limiting for write operations (stricter than read operations)
+if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT', 'DELETE']) && !$testMode) {
+    $rateLimitKey = 'rate_limit_' . ($user['id'] ?? 'guest');
+    if (!checkRateLimit($rateLimitKey, 30, 60)) { // 30 requests per minute for writes
+        http_response_code(429);
+        echo json_encode(['success' => false, 'message' => 'Too many requests. Please slow down.']);
+        exit;
+    }
 }
 
 $endpoint = $_GET['endpoint'] ?? '';
@@ -263,6 +290,16 @@ if ($endpoint === 'products') {
             }
         }
         $sql .= " ORDER BY p.id DESC LIMIT $per_page OFFSET $offset";
+        
+        // Apply caching only for non-search queries (5 min TTL)
+        $cacheKey = "products_list_{$tenantId}_{$per_page}_{$page}";
+        if (!$search) {
+            $cached = getCache($cacheKey, 300);
+            if ($cached !== null) {
+                ok($cached['data'], $cached['meta']);
+            }
+        }
+        
         $stmt = $d->prepare($sql);
         $stmt->execute($params);
         $products = $stmt->fetchAll();
@@ -287,10 +324,37 @@ if ($endpoint === 'products') {
             $p['category'] = ['id' => $p['category_id'], 'name' => $p['category_name'] ?? 'N/A'];
         }
 
-        ok($products, ['total' => (int)$total, 'per_page' => $per_page, 'current_page' => $page, 'last_page' => (int)ceil($total / $per_page)]);
+        $meta = ['total' => (int)$total, 'per_page' => $per_page, 'current_page' => $page, 'last_page' => (int)ceil($total / $per_page)];
+        
+        // Cache the result for non-search queries
+        if (!$search) {
+            setCache($cacheKey, ['data' => $products, 'meta' => $meta]);
+        }
+        
+        ok($products, $meta);
     }
 
     if ($method === 'POST') {
+        // Input validation
+        if (empty($input['name']) || !validateStringLength($input['name'], 1, 255)) {
+            fail('Name is required and must be 1-255 characters');
+        }
+        if (!empty($input['code']) && !validateStringLength($input['code'], 1, 50)) {
+            fail('Code must be 1-50 characters');
+        }
+        if (!validateNumeric($input['buy_price'] ?? 0, 0, 999999999)) {
+            fail('Buy price must be a positive number');
+        }
+        if (!validateNumeric($input['sell_price'] ?? 0, 0, 999999999)) {
+            fail('Sell price must be a positive number');
+        }
+        if (!validateNumeric($input['min_stock'] ?? 0, 0, 999999999)) {
+            fail('Min stock must be a positive number');
+        }
+        if (!validateNumeric($input['max_stock'] ?? 0, 0, 999999999)) {
+            fail('Max stock must be a positive number');
+        }
+
         $now = date('Y-m-d H:i:s');
         $code = $input['code'] ?? '';
         
@@ -324,6 +388,10 @@ if ($endpoint === 'products') {
         $stmt->execute([$pid, $qrData, $now]);
         
         logAudit('create', 'products', $pid, null, ['code' => $code, 'name' => $input['name'] ?? '']);
+        
+        // Clear product cache
+        clearCache('products_list');
+        
         created(['id' => $pid, 'code' => $code, 'qr_data' => $qrData]);
     }
 
@@ -351,6 +419,10 @@ if ($endpoint === 'products') {
         $afterData = $after->fetch();
         
         logAudit('update', 'products', $id, $beforeData, $afterData);
+        
+        // Clear product cache
+        clearCache('products_list');
+        
         ok(['id' => $id]);
     }
 
@@ -373,6 +445,10 @@ if ($endpoint === 'products') {
         $d->prepare("DELETE FROM products WHERE id = ?")->execute([$id]);
         
         logAudit('delete', 'products', $id, $beforeData, null);
+        
+        // Clear product cache
+        clearCache('products_list');
+        
         ok(['id' => $id]);
     }
 }
@@ -380,7 +456,18 @@ if ($endpoint === 'products') {
 // === CATEGORIES ===
 if ($endpoint === 'categories') {
     if ($method === 'GET') {
+        // Apply caching (30 min TTL)
+        $cacheKey = "categories_list";
+        $cached = getCache($cacheKey, 1800);
+        if ($cached !== null) {
+            ok($cached);
+        }
+        
         $cats = $d->query("SELECT * FROM categories ORDER BY name")->fetchAll();
+        
+        // Cache the result
+        setCache($cacheKey, $cats);
+        
         ok($cats);
     }
     if ($method === 'POST') {
@@ -389,6 +476,10 @@ if ($endpoint === 'categories') {
         $now = date('Y-m-d H:i:s');
         $stmt = $d->prepare("INSERT INTO categories (name, created_at, updated_at) VALUES (?,?,?)");
         $stmt->execute([$input['name'], $now, $now]);
+        
+        // Clear category cache
+        clearCache('categories_list');
+        
         ok(['id' => $d->lastInsertId(), 'name' => $input['name']]);
     }
     if ($method === 'DELETE') {
@@ -404,6 +495,10 @@ if ($endpoint === 'categories') {
         // Soft delete
         $stmt = $d->prepare("UPDATE categories SET is_active = 0, updated_at = ? WHERE id = ?");
         $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        
+        // Clear category cache
+        clearCache('categories_list');
+        
         ok(['message' => 'Category deleted']);
     }
 }
@@ -433,7 +528,19 @@ if ($endpoint === 'brands') {
 // === REFERENCE TABLES ===
 if ($endpoint === 'payment-methods') {
     if ($method === 'GET') {
-        ok($d->query("SELECT * FROM payment_methods WHERE is_active = 1 ORDER BY name")->fetchAll());
+        // Apply caching (30 min TTL)
+        $cacheKey = "payment_methods_list";
+        $cached = getCache($cacheKey, 1800);
+        if ($cached !== null) {
+            ok($cached);
+        }
+        
+        $methods = $d->query("SELECT * FROM payment_methods WHERE is_active = 1 ORDER BY name")->fetchAll();
+        
+        // Cache the result
+        setCache($cacheKey, $methods);
+        
+        ok($methods);
     }
     if ($method === 'POST') {
         $input = json_decode(file_get_contents('php://input'), true);
@@ -441,6 +548,10 @@ if ($endpoint === 'payment-methods') {
         $now = date('Y-m-d H:i:s');
         $stmt = $d->prepare("INSERT INTO payment_methods (code, name, is_active, created_at, updated_at) VALUES (?,?,?,?,?)");
         $stmt->execute([$input['code'], $input['name'], 1, $now, $now]);
+        
+        // Clear payment methods cache
+        clearCache('payment_methods_list');
+        
         created(['id' => $d->lastInsertId(), 'code' => $input['code'], 'name' => $input['name']]);
     }
     if ($method === 'DELETE') {
@@ -456,6 +567,10 @@ if ($endpoint === 'payment-methods') {
         // Soft delete
         $stmt = $d->prepare("UPDATE payment_methods SET is_active = 0, updated_at = ? WHERE id = ?");
         $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        
+        // Clear payment methods cache
+        clearCache('payment_methods_list');
+        
         ok(['message' => 'Payment method deleted']);
     }
 }
@@ -627,6 +742,11 @@ if ($endpoint === 'product-units') {
 if ($endpoint === 'customers') {
     if ($method === 'GET') {
         $search = $_GET['search'] ?? '';
+        $per_page = (int)($_GET['per_page'] ?? 50);
+        $page = (int)($_GET['page'] ?? 1);
+        $offset = ($page - 1) * $per_page;
+        $per_page = min(max($per_page, 1), 100); // Clamp between 1-100
+        
         $sql = "SELECT c.*, g.name as group_name FROM customers c LEFT JOIN customer_groups g ON c.group_id = g.id";
         $params = [];
         if ($search) {
@@ -641,16 +761,69 @@ if ($endpoint === 'customers') {
                 $sql .= " WHERE c.tenant_id = $tenantId";
             }
         }
-        $sql .= " ORDER BY c.id DESC LIMIT 100";
+        $sql .= " ORDER BY c.id DESC LIMIT $per_page OFFSET $offset";
+        
+        // Apply caching only for non-search queries (5 min TTL)
+        $cacheKey = "customers_list_{$tenantId}_{$per_page}_{$page}";
+        if (!$search) {
+            $cached = getCache($cacheKey, 300);
+            if ($cached !== null) {
+                ok($cached['data'], $cached['meta']);
+            }
+        }
+        
         $stmt = $d->prepare($sql);
         $stmt->execute($params);
         $customers = $stmt->fetchAll();
         foreach ($customers as &$c) {
             $c['group'] = ['id' => $c['group_id'], 'name' => $c['group_name'] ?? 'N/A'];
         }
-        ok($customers);
+        
+        // Get total count
+        $countSql = "SELECT COUNT(*) FROM customers c";
+        $countParams = [];
+        if ($search) {
+            $countSql .= " WHERE (c.name LIKE ? OR c.phone LIKE ?)";
+            $countParams = [$q, $q];
+        }
+        if (!$isSuperAdmin && $tenantId) {
+            if ($search) {
+                $countSql .= " AND c.tenant_id = $tenantId";
+            } else {
+                $countSql .= " WHERE c.tenant_id = $tenantId";
+            }
+        }
+        $totalStmt = $d->prepare($countSql);
+        $totalStmt->execute($countParams);
+        $total = $totalStmt->fetchColumn();
+        
+        $meta = ['total' => (int)$total, 'per_page' => $per_page, 'current_page' => $page, 'last_page' => (int)ceil($total / $per_page)];
+        
+        // Cache the result for non-search queries
+        if (!$search) {
+            setCache($cacheKey, ['data' => $customers, 'meta' => $meta]);
+        }
+        
+        ok($customers, $meta);
     }
     if ($method === 'POST') {
+        // Input validation
+        if (empty($input['name']) || !validateStringLength($input['name'], 1, 255)) {
+            fail('Name is required and must be 1-255 characters');
+        }
+        if (!empty($input['email']) && !validateEmail($input['email'])) {
+            fail('Invalid email format');
+        }
+        if (!empty($input['phone']) && !validatePhone($input['phone'])) {
+            fail('Invalid phone number format');
+        }
+        if (!validateNumeric($input['credit_limit'] ?? 0, 0, 999999999)) {
+            fail('Credit limit must be a positive number');
+        }
+        if (!validateNumeric($input['payment_terms'] ?? 30, 0, 365)) {
+            fail('Payment terms must be between 0 and 365 days');
+        }
+
         $now = date('Y-m-d H:i:s');
         $stmt = $d->prepare("INSERT INTO customers (name, address, phone, email, group_id, credit_limit, payment_terms, is_active, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,1,?,?,?)");
         $stmt->execute([
@@ -658,6 +831,10 @@ if ($endpoint === 'customers') {
             $input['email'] ?? null, $input['group_id'] ?? null,
             $input['credit_limit'] ?? 0, $input['payment_terms'] ?? 30, $now, $now, $tenantId
         ]);
+        
+        // Clear customer cache
+        clearCache('customers_list');
+        
         created(['id' => $d->lastInsertId()]);
     }
     if ($method === 'PUT') {
@@ -671,6 +848,10 @@ if ($endpoint === 'customers') {
             $input['credit_limit'] ?? 0, $input['payment_terms'] ?? 30,
             isset($input['is_active']) ? 1 : 0, $now, $id
         ]);
+        
+        // Clear customer cache
+        clearCache('customers_list');
+        
         ok(['id' => $id]);
     }
     if ($method === 'DELETE') {
@@ -724,6 +905,11 @@ if ($endpoint === 'customer-groups') {
 if ($endpoint === 'suppliers') {
     if ($method === 'GET') {
         $search = $_GET['search'] ?? '';
+        $per_page = (int)($_GET['per_page'] ?? 50);
+        $page = (int)($_GET['page'] ?? 1);
+        $offset = ($page - 1) * $per_page;
+        $per_page = min(max($per_page, 1), 100); // Clamp between 1-100
+        
         $sql = "SELECT * FROM suppliers";
         $params = [];
         if ($search) {
@@ -738,12 +924,66 @@ if ($endpoint === 'suppliers') {
                 $sql .= " WHERE tenant_id = $tenantId";
             }
         }
-        $sql .= " ORDER BY id DESC LIMIT 100";
+        $sql .= " ORDER BY id DESC LIMIT $per_page OFFSET $offset";
+        
+        // Apply caching only for non-search queries (5 min TTL)
+        $cacheKey = "suppliers_list_{$tenantId}_{$per_page}_{$page}";
+        if (!$search) {
+            $cached = getCache($cacheKey, 300);
+            if ($cached !== null) {
+                ok($cached['data'], $cached['meta']);
+            }
+        }
+        
         $stmt = $d->prepare($sql);
         $stmt->execute($params);
-        ok($stmt->fetchAll());
+        $suppliers = $stmt->fetchAll();
+        
+        // Get total count
+        $countSql = "SELECT COUNT(*) FROM suppliers";
+        $countParams = [];
+        if ($search) {
+            $countSql .= " WHERE (name LIKE ? OR phone LIKE ?)";
+            $countParams = [$q, $q];
+        }
+        if (!$isSuperAdmin && $tenantId) {
+            if ($search) {
+                $countSql .= " AND tenant_id = $tenantId";
+            } else {
+                $countSql .= " WHERE tenant_id = $tenantId";
+            }
+        }
+        $totalStmt = $d->prepare($countSql);
+        $totalStmt->execute($countParams);
+        $total = $totalStmt->fetchColumn();
+        
+        $meta = ['total' => (int)$total, 'per_page' => $per_page, 'current_page' => $page, 'last_page' => (int)ceil($total / $per_page)];
+        
+        // Cache the result for non-search queries
+        if (!$search) {
+            setCache($cacheKey, ['data' => $suppliers, 'meta' => $meta]);
+        }
+        
+        ok($suppliers, $meta);
     }
     if ($method === 'POST') {
+        // Input validation
+        if (empty($input['name']) || !validateStringLength($input['name'], 1, 255)) {
+            fail('Name is required and must be 1-255 characters');
+        }
+        if (!empty($input['email']) && !validateEmail($input['email'])) {
+            fail('Invalid email format');
+        }
+        if (!empty($input['phone']) && !validatePhone($input['phone'])) {
+            fail('Invalid phone number format');
+        }
+        if (!validateNumeric($input['credit_limit'] ?? 0, 0, 999999999)) {
+            fail('Credit limit must be a positive number');
+        }
+        if (!validateNumeric($input['payment_terms'] ?? 30, 0, 365)) {
+            fail('Payment terms must be between 0 and 365 days');
+        }
+
         $now = date('Y-m-d H:i:s');
         $stmt = $d->prepare("INSERT INTO suppliers (name, address, phone, email, payment_terms, credit_limit, is_active, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,1,?,?,?)");
         $stmt->execute([
@@ -751,6 +991,10 @@ if ($endpoint === 'suppliers') {
             $input['email'] ?? null, $input['payment_terms'] ?? 30,
             $input['credit_limit'] ?? 0, $now, $now, $tenantId
         ]);
+        
+        // Clear supplier cache
+        clearCache('suppliers_list');
+        
         created(['id' => $d->lastInsertId()]);
     }
     if ($method === 'DELETE') {
@@ -766,6 +1010,10 @@ if ($endpoint === 'suppliers') {
         // Soft delete
         $stmt = $d->prepare("UPDATE suppliers SET is_active = 0, updated_at = ? WHERE id = ?");
         $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        
+        // Clear supplier cache
+        clearCache('suppliers_list');
+        
         ok(['id' => $id]);
     }
 }
@@ -826,6 +1074,34 @@ if ($endpoint === 'sales') {
     }
 
     if ($method === 'POST') {
+        // Input validation
+        if (empty($input['items']) || !is_array($input['items'])) {
+            fail('Items are required');
+        }
+        if (count($input['items']) === 0) {
+            fail('At least one item is required');
+        }
+        foreach ($input['items'] as $item) {
+            if (!validateNumeric($item['quantity'] ?? 0, 0.01, 999999)) {
+                fail('Item quantity must be a positive number');
+            }
+            if (!validateNumeric($item['unit_price'] ?? 0, 0, 999999999)) {
+                fail('Item unit price must be a positive number');
+            }
+            if (!validateNumeric($item['discount'] ?? 0, 0, 999999999)) {
+                fail('Item discount must be a positive number');
+            }
+        }
+        if (!validateNumeric($input['discount'] ?? 0, 0, 999999999)) {
+            fail('Discount must be a positive number');
+        }
+        if (!validateEnum($input['payment_method'] ?? 'cash', ['cash', 'credit', 'transfer'])) {
+            fail('Invalid payment method');
+        }
+        if (!empty($input['sale_date']) && !strtotime($input['sale_date'])) {
+            fail('Invalid sale date');
+        }
+
         $now = date('Y-m-d H:i:s');
         $invoiceNo = 'INV-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
 
@@ -1015,12 +1291,53 @@ if ($endpoint === 'deliveries') {
                 $sql .= " WHERE tenant_id = $tenantId";
             }
         }
-        $sql .= " ORDER BY id DESC LIMIT 100";
+        $per_page = (int)($_GET['per_page'] ?? 50);
+        $page = (int)($_GET['page'] ?? 1);
+        $offset = ($page - 1) * $per_page;
+        $per_page = min(max($per_page, 1), 100); // Clamp between 1-100
+        
+        $sql .= " ORDER BY id DESC LIMIT $per_page OFFSET $offset";
         $stmt = $d->prepare($sql);
         $stmt->execute($params);
-        ok($stmt->fetchAll());
+        $deliveries = $stmt->fetchAll();
+        
+        // Get total count
+        $countSql = "SELECT COUNT(*) FROM deliveries";
+        $countParams = [];
+        if ($search) {
+            $countSql .= " WHERE (delivery_no LIKE ? OR customer_name LIKE ?)";
+            $countParams = [$q, $q];
+        }
+        if (!$isSuperAdmin && $tenantId) {
+            if ($search) {
+                $countSql .= " AND tenant_id = $tenantId";
+            } else {
+                $countSql .= " WHERE tenant_id = $tenantId";
+            }
+        }
+        $totalStmt = $d->prepare($countSql);
+        $totalStmt->execute($countParams);
+        $total = $totalStmt->fetchColumn();
+        
+        $meta = ['total' => (int)$total, 'per_page' => $per_page, 'current_page' => $page, 'last_page' => (int)ceil($total / $per_page)];
+        
+        ok($deliveries, $meta);
     }
     if ($method === 'POST') {
+        // Input validation
+        if (empty($input['customer_name']) || !validateStringLength($input['customer_name'], 1, 255)) {
+            fail('Customer name is required and must be 1-255 characters');
+        }
+        if (!empty($input['phone']) && !validatePhone($input['phone'])) {
+            fail('Invalid phone number format');
+        }
+        if (!empty($input['delivery_date']) && !strtotime($input['delivery_date'])) {
+            fail('Invalid delivery date');
+        }
+        if (!empty($input['delivery_time']) && !preg_match('/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/', $input['delivery_time'])) {
+            fail('Invalid delivery time format (use HH:MM)');
+        }
+
         $now = date('Y-m-d H:i:s');
         $deliveryNo = 'SJ-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
         $stmt = $d->prepare("INSERT INTO deliveries (delivery_no, sale_id, customer_name, delivery_address, phone, delivery_date, delivery_time, driver_name, vehicle_plate, notes, status, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?,'pending',?,?,?)");
@@ -1075,12 +1392,33 @@ if ($endpoint === 'purchase-orders') {
             $po['payments'] = $pays->fetchAll();
             ok($po);
         }
-        $stmt = $d->query("SELECT po.*, s.name as supplier_name FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id = s.id ORDER BY po.id DESC LIMIT 100");
+        
+        $per_page = (int)($_GET['per_page'] ?? 50);
+        $page = (int)($_GET['page'] ?? 1);
+        $offset = ($page - 1) * $per_page;
+        $per_page = min(max($per_page, 1), 100); // Clamp between 1-100
+        
+        $sql = "SELECT po.*, s.name as supplier_name FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id = s.id";
+        if (!$isSuperAdmin && $tenantId) {
+            $sql .= " WHERE po.tenant_id = $tenantId";
+        }
+        $sql .= " ORDER BY po.id DESC LIMIT $per_page OFFSET $offset";
+        $stmt = $d->query($sql);
         $pos = $stmt->fetchAll();
         foreach ($pos as &$po) {
             $po['supplier'] = ['name' => $po['supplier_name'] ?? ''];
         }
-        ok($pos);
+        
+        // Get total count
+        $countSql = "SELECT COUNT(*) FROM purchase_orders po";
+        if (!$isSuperAdmin && $tenantId) {
+            $countSql .= " WHERE po.tenant_id = $tenantId";
+        }
+        $total = $d->query($countSql)->fetchColumn();
+        
+        $meta = ['total' => (int)$total, 'per_page' => $per_page, 'current_page' => $page, 'last_page' => (int)ceil($total / $per_page)];
+        
+        ok($pos, $meta);
     }
 
     if ($method === 'POST' && $action === 'receive') {
@@ -1136,6 +1474,34 @@ if ($endpoint === 'purchase-orders') {
     }
 
     if ($method === 'POST') {
+        // Input validation
+        if (empty($input['items']) || !is_array($input['items'])) {
+            fail('Items are required');
+        }
+        if (count($input['items']) === 0) {
+            fail('At least one item is required');
+        }
+        foreach ($input['items'] as $item) {
+            if (empty($item['product_id'])) {
+                fail('Product ID is required for each item');
+            }
+            if (!validateNumeric($item['quantity'] ?? 0, 0.01, 999999)) {
+                fail('Item quantity must be a positive number');
+            }
+            if (!validateNumeric($item['unit_price'] ?? 0, 0, 999999999)) {
+                fail('Item unit price must be a positive number');
+            }
+            if (!validateNumeric($item['bonus_qty'] ?? 0, 0, 999999)) {
+                fail('Item bonus quantity must be a positive number');
+            }
+        }
+        if (!validateNumeric($input['discount'] ?? 0, 0, 999999999)) {
+            fail('Discount must be a positive number');
+        }
+        if (!empty($input['po_date']) && !strtotime($input['po_date'])) {
+            fail('Invalid PO date');
+        }
+
         $now = date('Y-m-d H:i:s');
         $poNumber = 'PO-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
 
@@ -1357,12 +1723,39 @@ if ($endpoint === 'settings') {
 // === WAREHOUSES ===
 if ($endpoint === 'warehouses') {
     if ($method === 'GET') {
+        $per_page = (int)($_GET['per_page'] ?? 50);
+        $page = (int)($_GET['page'] ?? 1);
+        $offset = ($page - 1) * $per_page;
+        $per_page = min(max($per_page, 1), 100); // Clamp between 1-100
+        
         $sql = "SELECT * FROM warehouses";
         if (!$isSuperAdmin && $tenantId) {
             $sql .= " WHERE tenant_id = $tenantId";
         }
-        $sql .= " ORDER BY id";
-        ok($d->query($sql)->fetchAll());
+        $sql .= " ORDER BY id LIMIT $per_page OFFSET $offset";
+        
+        // Apply caching (10 min TTL)
+        $cacheKey = "warehouses_list_{$tenantId}_{$per_page}_{$page}";
+        $cached = getCache($cacheKey, 600);
+        if ($cached !== null) {
+            ok($cached['data'], $cached['meta']);
+        }
+        
+        $warehouses = $d->query($sql)->fetchAll();
+        
+        // Get total count
+        $countSql = "SELECT COUNT(*) FROM warehouses";
+        if (!$isSuperAdmin && $tenantId) {
+            $countSql .= " WHERE tenant_id = $tenantId";
+        }
+        $total = $d->query($countSql)->fetchColumn();
+        
+        $meta = ['total' => (int)$total, 'per_page' => $per_page, 'current_page' => $page, 'last_page' => (int)ceil($total / $per_page)];
+        
+        // Cache the result
+        setCache($cacheKey, ['data' => $warehouses, 'meta' => $meta]);
+        
+        ok($warehouses, $meta);
     }
     if ($method === 'DELETE') {
         $id = $_GET['id'] ?? null;
@@ -1377,6 +1770,10 @@ if ($endpoint === 'warehouses') {
         // Soft delete
         $stmt = $d->prepare("UPDATE warehouses SET is_active = 0, updated_at = ? WHERE id = ?");
         $stmt->execute([date('Y-m-d H:i:s'), $id]);
+        
+        // Clear warehouse cache
+        clearCache('warehouses_list');
+        
         ok(['id' => $id]);
     }
 }
@@ -1545,15 +1942,60 @@ if ($endpoint === 'quotations') {
             $quote['items'] = $items->fetchAll();
             ok($quote);
         }
+        
+        $per_page = (int)($_GET['per_page'] ?? 50);
+        $page = (int)($_GET['page'] ?? 1);
+        $offset = ($page - 1) * $per_page;
+        $per_page = min(max($per_page, 1), 100); // Clamp between 1-100
+        
         $quoteSql = "SELECT q.*, c.name as customer_name FROM quotations q LEFT JOIN customers c ON q.customer_id = c.id";
         if (!$isSuperAdmin && $tenantId) {
             $quoteSql .= " WHERE q.tenant_id = $tenantId";
         }
-        $quoteSql .= " ORDER BY q.id DESC LIMIT 100";
+        $quoteSql .= " ORDER BY q.id DESC LIMIT $per_page OFFSET $offset";
         $stmt = $d->query($quoteSql);
-        ok($stmt->fetchAll());
+        $quotations = $stmt->fetchAll();
+        
+        // Get total count
+        $countSql = "SELECT COUNT(*) FROM quotations q";
+        if (!$isSuperAdmin && $tenantId) {
+            $countSql .= " WHERE q.tenant_id = $tenantId";
+        }
+        $total = $d->query($countSql)->fetchColumn();
+        
+        $meta = ['total' => (int)$total, 'per_page' => $per_page, 'current_page' => $page, 'last_page' => (int)ceil($total / $per_page)];
+        
+        ok($quotations, $meta);
     }
     if ($method === 'POST') {
+        // Input validation
+        if (empty($input['items']) || !is_array($input['items'])) {
+            fail('Items are required');
+        }
+        if (count($input['items']) === 0) {
+            fail('At least one item is required');
+        }
+        foreach ($input['items'] as $item) {
+            if (!validateNumeric($item['quantity'] ?? 0, 0.01, 999999)) {
+                fail('Item quantity must be a positive number');
+            }
+            if (!validateNumeric($item['unit_price'] ?? 0, 0, 999999999)) {
+                fail('Item unit price must be a positive number');
+            }
+            if (!validateNumeric($item['discount'] ?? 0, 0, 999999999)) {
+                fail('Item discount must be a positive number');
+            }
+        }
+        if (!validateNumeric($input['discount'] ?? 0, 0, 999999999)) {
+            fail('Discount must be a positive number');
+        }
+        if (!empty($input['quote_date']) && !strtotime($input['quote_date'])) {
+            fail('Invalid quote date');
+        }
+        if (!empty($input['valid_until']) && !strtotime($input['valid_until'])) {
+            fail('Invalid valid until date');
+        }
+
         $now = date('Y-m-d H:i:s');
         $quoteNo = 'QT-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
 
@@ -1756,9 +2198,45 @@ if ($endpoint === 'stock-adjustments') {
             $stmt->execute([$id]);
             ok($stmt->fetch());
         }
-        ok($d->query("SELECT sa.*, p.name as product_name, p.code as product_code FROM stock_adjustments sa LEFT JOIN products p ON sa.product_id = p.id ORDER BY sa.id DESC LIMIT 100")->fetchAll());
+        
+        $per_page = (int)($_GET['per_page'] ?? 50);
+        $page = (int)($_GET['page'] ?? 1);
+        $offset = ($page - 1) * $per_page;
+        $per_page = min(max($per_page, 1), 100); // Clamp between 1-100
+        
+        $sql = "SELECT sa.*, p.name as product_name, p.code as product_code FROM stock_adjustments sa LEFT JOIN products p ON sa.product_id = p.id";
+        if (!$isSuperAdmin && $tenantId) {
+            $sql .= " WHERE sa.tenant_id = $tenantId";
+        }
+        $sql .= " ORDER BY sa.id DESC LIMIT $per_page OFFSET $offset";
+        $adjustments = $d->query($sql)->fetchAll();
+        
+        // Get total count
+        $countSql = "SELECT COUNT(*) FROM stock_adjustments sa";
+        if (!$isSuperAdmin && $tenantId) {
+            $countSql .= " WHERE sa.tenant_id = $tenantId";
+        }
+        $total = $d->query($countSql)->fetchColumn();
+        
+        $meta = ['total' => (int)$total, 'per_page' => $per_page, 'current_page' => $page, 'last_page' => (int)ceil($total / $per_page)];
+        
+        ok($adjustments, $meta);
     }
     if ($method === 'POST') {
+        // Input validation
+        if (empty($input['product_id'])) {
+            fail('Product ID is required');
+        }
+        if (!validateNumeric($input['quantity'] ?? 0, -999999, 999999)) {
+            fail('Quantity must be a valid number');
+        }
+        if (!validateEnum($input['adjustment_type'] ?? 'correction', ['correction', 'damage', 'loss', 'theft', 'return'])) {
+            fail('Invalid adjustment type');
+        }
+        if (!empty($input['reason']) && !validateStringLength($input['reason'], 1, 500)) {
+            fail('Reason must be 1-500 characters');
+        }
+
         $now = date('Y-m-d H:i:s');
         $stmt = $d->prepare("INSERT INTO stock_adjustments (product_id, quantity, adjustment_type, reason, status, created_by, created_at, tenant_id) VALUES (?,?,?,?,'pending',?,?,?)");
         $stmt->execute([$input['product_id'], $input['quantity'], $input['adjustment_type'] ?? 'correction', $input['reason'] ?? null, $_SESSION['user']['id'] ?? null, $now, null]);
@@ -1798,14 +2276,59 @@ if ($endpoint === 'stock-transfers') {
             $tr['items'] = $items->fetchAll();
             ok($tr);
         }
+        
+        $per_page = (int)($_GET['per_page'] ?? 50);
+        $page = (int)($_GET['page'] ?? 1);
+        $offset = ($page - 1) * $per_page;
+        $per_page = min(max($per_page, 1), 100); // Clamp between 1-100
+        
         $transferSql = "SELECT st.*, wf.name as from_warehouse, wt.name as to_warehouse FROM stock_transfers st LEFT JOIN warehouses wf ON st.from_warehouse_id = wf.id LEFT JOIN warehouses wt ON st.to_warehouse_id = wt.id";
         if (!$isSuperAdmin && $tenantId) {
             $transferSql .= " WHERE st.tenant_id = $tenantId";
         }
-        $transferSql .= " ORDER BY st.id DESC LIMIT 100";
-        ok($d->query($transferSql)->fetchAll());
+        $transferSql .= " ORDER BY st.id DESC LIMIT $per_page OFFSET $offset";
+        $transfers = $d->query($transferSql)->fetchAll();
+        
+        // Get total count
+        $countSql = "SELECT COUNT(*) FROM stock_transfers st";
+        if (!$isSuperAdmin && $tenantId) {
+            $countSql .= " WHERE st.tenant_id = $tenantId";
+        }
+        $total = $d->query($countSql)->fetchColumn();
+        
+        $meta = ['total' => (int)$total, 'per_page' => $per_page, 'current_page' => $page, 'last_page' => (int)ceil($total / $per_page)];
+        
+        ok($transfers, $meta);
     }
     if ($method === 'POST') {
+        // Input validation
+        if (empty($input['from_warehouse_id'])) {
+            fail('From warehouse ID is required');
+        }
+        if (empty($input['to_warehouse_id'])) {
+            fail('To warehouse ID is required');
+        }
+        if ($input['from_warehouse_id'] == $input['to_warehouse_id']) {
+            fail('From and to warehouse cannot be the same');
+        }
+        if (empty($input['items']) || !is_array($input['items'])) {
+            fail('Items are required');
+        }
+        if (count($input['items']) === 0) {
+            fail('At least one item is required');
+        }
+        foreach ($input['items'] as $item) {
+            if (empty($item['product_id'])) {
+                fail('Product ID is required for each item');
+            }
+            if (!validateNumeric($item['quantity'] ?? 0, 0.01, 999999)) {
+                fail('Item quantity must be a positive number');
+            }
+        }
+        if (!empty($input['transfer_date']) && !strtotime($input['transfer_date'])) {
+            fail('Invalid transfer date');
+        }
+
         $now = date('Y-m-d H:i:s');
         $transferNo = 'TR-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
         $stmt = $d->prepare("INSERT INTO stock_transfers (transfer_no, transfer_date, from_warehouse_id, to_warehouse_id, status, notes, created_by, created_at, updated_at, tenant_id) VALUES (?,?,?,?,'pending',?,?,?,?,?)");
@@ -1995,14 +2518,51 @@ if ($endpoint === 'fixed-assets') {
             $asset['depreciations'] = $deps->fetchAll();
             ok($asset);
         }
+        
+        $per_page = (int)($_GET['per_page'] ?? 50);
+        $page = (int)($_GET['page'] ?? 1);
+        $offset = ($page - 1) * $per_page;
+        $per_page = min(max($per_page, 1), 100); // Clamp between 1-100
+        
         $assetSql = "SELECT * FROM fixed_assets";
         if (!$isSuperAdmin && $tenantId) {
             $assetSql .= " WHERE tenant_id = $tenantId";
         }
-        $assetSql .= " ORDER BY id DESC LIMIT 100";
-        ok($d->query($assetSql)->fetchAll());
+        $assetSql .= " ORDER BY id DESC LIMIT $per_page OFFSET $offset";
+        $assets = $d->query($assetSql)->fetchAll();
+        
+        // Get total count
+        $countSql = "SELECT COUNT(*) FROM fixed_assets";
+        if (!$isSuperAdmin && $tenantId) {
+            $countSql .= " WHERE tenant_id = $tenantId";
+        }
+        $total = $d->query($countSql)->fetchColumn();
+        
+        $meta = ['total' => (int)$total, 'per_page' => $per_page, 'current_page' => $page, 'last_page' => (int)ceil($total / $per_page)];
+        
+        ok($assets, $meta);
     }
     if ($method === 'POST') {
+        // Input validation
+        if (empty($input['name']) || !validateStringLength($input['name'], 1, 255)) {
+            fail('Asset name is required and must be 1-255 characters');
+        }
+        if (!validateNumeric($input['acquisition_cost'] ?? 0, 0, 999999999)) {
+            fail('Acquisition cost must be a positive number');
+        }
+        if (!validateNumeric($input['salvage_value'] ?? 0, 0, 999999999)) {
+            fail('Salvage value must be a positive number');
+        }
+        if (!validateNumeric($input['useful_life_months'] ?? 60, 1, 600)) {
+            fail('Useful life must be between 1 and 600 months');
+        }
+        if (!empty($input['acquisition_date']) && !strtotime($input['acquisition_date'])) {
+            fail('Invalid acquisition date');
+        }
+        if (!validateEnum($input['depreciation_method'] ?? 'straight_line', ['straight_line', 'declining_balance', 'units_of_production'])) {
+            fail('Invalid depreciation method');
+        }
+
         $now = date('Y-m-d H:i:s');
         $assetCode = 'FA-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
         $cost = (float)($input['acquisition_cost'] ?? 0);
