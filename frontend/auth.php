@@ -40,6 +40,16 @@ function login($username, $password) {
         $perms[] = $row['name'];
     }
 
+    // P0 #10: Role fallback - merge extra_permissions from user record
+    $extraPerms = [];
+    if (!empty($user['extra_permissions'])) {
+        $decoded = json_decode($user['extra_permissions'], true);
+        if (is_array($decoded)) {
+            $extraPerms = $decoded;
+        }
+    }
+    $perms = array_unique(array_merge($perms, $extraPerms));
+
     $_SESSION['user'] = [
         'id' => $user['id'],
         'username' => $user['username'],
@@ -51,6 +61,7 @@ function login($username, $password) {
         'tenant_id' => $user['tenant_id'],
         'branch_id' => $user['branch_id'],
         'permissions' => $perms,
+        'extra_permissions' => $extraPerms,
     ];
 
     // Clear failed attempts on successful login
@@ -87,8 +98,11 @@ function userFullName() {
 function hasPermission($slug) {
     $u = currentUser();
     if (!$u) return false;
-    if ($u['role_slug'] === 'owner') return true;
-    return in_array($slug, $u['permissions'] ?? []);
+    if ($u['role_slug'] === 'owner' || $u['role_slug'] === 'super_admin') return true;
+    if (in_array($slug, $u['permissions'] ?? [])) return true;
+    // P0 #10: Check extra_permissions fallback
+    if (in_array($slug, $u['extra_permissions'] ?? [])) return true;
+    return false;
 }
 
 function requireLogin() {

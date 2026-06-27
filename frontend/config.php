@@ -273,9 +273,9 @@ function renderHead($title) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>' . htmlspecialchars($title) . ' - Panglong ERP</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="assets/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/bootstrap-icons.css">
+    <script src="assets/js/jquery-3.6.0.min.js"></script>
     <script>const API_URL="ajax.php";const API_TOKEN="";const CSRF_TOKEN="' . htmlspecialchars($csrfToken) . '";</script>
     <meta name="csrf-token" content="' . htmlspecialchars($csrfToken) . '">
     <script>
@@ -374,7 +374,7 @@ function renderHead($title) {
 function renderFoot() {
     echo '
     <button class="btn btn-sm btn-danger fs-exit-btn nav-btn-icon" onclick="toggleFullscreen()" title="Keluar Layar Penuh"><i class="bi bi-fullscreen-exit"></i></button>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/bootstrap.bundle.min.js"></script>
     <script>
     // Fullscreen toggle
     function toggleFullscreen() {
@@ -476,6 +476,35 @@ function renderFoot() {
         document.addEventListener("mousemove", function(){ idleTime = 0; });
         document.addEventListener("keypress", function(){ idleTime = 0; });
         setInterval(function(){ idleTime += 1; }, 60000);
+    })();
+
+    // P1 #45: Global AJAX error handler
+    (function() {
+        var origFetch = window.fetch;
+        window.fetch = function() {
+            return origFetch.apply(this, arguments).then(function(response) {
+                if (!response.ok && response.status === 403) {
+                    console.error("AJAX 403: Akses ditolak. Session mungkin berakhir.");
+                }
+                return response;
+            }).catch(function(err) {
+                console.error("Network error:", err.message);
+                throw err;
+            });
+        };
+
+        // P1 #35: Connection status indicator
+        var statusDiv = document.createElement("div");
+        statusDiv.id = "conn-status";
+        statusDiv.style.cssText = "position:fixed;bottom:0;left:0;right:0;text-align:center;padding:4px;font-size:11px;z-index:9999;display:none;background:#dc3545;color:#fff";
+        statusDiv.textContent = "Koneksi terputus - perubahan mungkin tidak tersimpan";
+        document.body.appendChild(statusDiv);
+        window.addEventListener("online", function() {
+            statusDiv.style.display = "none";
+        });
+        window.addEventListener("offline", function() {
+            statusDiv.style.display = "block";
+        });
     })();
     </script>
 </body>

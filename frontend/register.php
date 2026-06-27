@@ -149,8 +149,8 @@ $theme = $_SESSION['theme'] ?? 'light';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <title>Daftar - Panglong ERP</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link href="assets/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/bootstrap-icons.css">
     <style>
       body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a4d8f 0%,#0d6efd 50%,#1a4d8f 100%);padding:1rem}
       .register-card{max-width:600px;width:100%;border:none;border-radius:1rem;box-shadow:0 8px 32px rgba(0,0,0,.2)}

@@ -575,6 +575,7 @@ function submitSale() {
         payment_method: document.getElementById('paymentMethod').value,
         notes: document.getElementById('saleCatatan').value,
         delivery_address: document.getElementById('deliveryAddress').value,
+        idempotency_key: 'sale_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
     };
     fetch(API_URL+'?endpoint=sales', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },

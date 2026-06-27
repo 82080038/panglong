@@ -1000,7 +1000,9 @@ if ($endpoint === 'customers') {
         // Clear customer cache
         clearCache('customers_list');
         
-        created(['id' => $d->lastInsertId()]);
+        $custId = $d->lastInsertId();
+        logAudit('create', 'customers', $custId, null, ['name' => $input['name']]);
+        created(['id' => $custId]);
     }
     if ($method === 'PUT') {
         $id = $_GET['id'] ?? $input['id'] ?? null;
@@ -1022,6 +1024,7 @@ if ($endpoint === 'customers') {
         // Clear customer cache
         clearCache('customers_list');
         
+        logAudit('update', 'customers', $id, null, ['name' => $input['name'] ?? '']);
         ok(['id' => $id]);
     }
     if ($method === 'DELETE') {
@@ -1037,6 +1040,7 @@ if ($endpoint === 'customers') {
         // Soft delete
         $stmt = $d->prepare("UPDATE customers SET is_active = 0, updated_at = ? WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
         $stmt->execute($isSuperAdmin ? [date('Y-m-d H:i:s'), $id] : [date('Y-m-d H:i:s'), $id, $tenantId]);
+        logAudit('delete', 'customers', $id, null, null);
         ok(['id' => $id]);
     }
 }
@@ -1171,7 +1175,9 @@ if ($endpoint === 'suppliers') {
         // Clear supplier cache
         clearCache('suppliers_list');
         
-        created(['id' => $d->lastInsertId()]);
+        $supId = $d->lastInsertId();
+        logAudit('create', 'suppliers', $supId, null, ['name' => $input['name']]);
+        created(['id' => $supId]);
     }
     if ($method === 'DELETE') {
         $id = $_GET['id'] ?? $input['id'] ?? null;
@@ -1190,6 +1196,7 @@ if ($endpoint === 'suppliers') {
         // Clear supplier cache
         clearCache('suppliers_list');
         
+        logAudit('delete', 'suppliers', $id, null, null);
         ok(['id' => $id]);
     }
 }
@@ -1271,11 +1278,23 @@ if ($endpoint === 'sales') {
         if (!validateNumeric($input['discount'] ?? 0, 0, 999999999)) {
             fail('Discount must be a positive number');
         }
-        if (!validateEnum($input['payment_method'] ?? 'cash', ['cash', 'credit', 'transfer'])) {
+        if (!validateEnum($input['payment_method'] ?? 'cash', ['cash', 'credit', 'transfer', 'qris', 'ewallet', 'dana', 'gopay', 'ovo', 'shopeepay'])) {
             fail('Invalid payment method');
         }
         if (!empty($input['sale_date']) && !strtotime($input['sale_date'])) {
             fail('Invalid sale date');
+        }
+
+        // P0 #3: Idempotency key check - prevent duplicate sale submissions
+        $idempotencyKey = $input['idempotency_key'] ?? null;
+        if ($idempotencyKey) {
+            $checkStmt = $d->prepare("SELECT id, invoice_no FROM sales WHERE idempotency_key = ? LIMIT 1");
+            $checkStmt->execute([$idempotencyKey]);
+            $existing = $checkStmt->fetch();
+            if ($existing) {
+                // Return the existing sale instead of creating a duplicate
+                created(['id' => $existing['id'], 'invoice_no' => $existing['invoice_no'], 'duplicate' => true]);
+            }
         }
 
         $now = date('Y-m-d H:i:s');
@@ -1291,6 +1310,29 @@ if ($endpoint === 'sales') {
         $taxable = $subtotal - $globalDiscount;
         $tax = $taxable * $taxRate;
         $total = $taxable + $tax;
+
+        // P1 #24: Discount approval threshold - warn if discount > 10% for non-managers
+        $userRole = $_SESSION['user']['role_slug'] ?? '';
+        $canApproveDiscount = in_array($userRole, ['owner', 'super_admin', 'manager']);
+        $discountPercent = $subtotal > 0 ? ($globalDiscount / $subtotal) * 100 : 0;
+        if ($discountPercent > 10 && !$canApproveDiscount) {
+            fail('Diskon melebihi 10% memerlukan persetujuan manager. Diskon saat ini: ' . round($discountPercent, 1) . '%');
+        }
+
+        // P1 #26: Customer credit limit enforcement
+        $customerId = $input['customer_id'] ?? null;
+        if ($customerId && ($input['payment_method'] ?? 'cash') === 'credit') {
+            $custStmt = $d->prepare("SELECT name, credit_limit, COALESCE((SELECT SUM(total) FROM sales WHERE customer_id = c.id AND payment_status != 'paid' AND status != 'voided'), 0) as outstanding FROM customers c WHERE c.id = ?");
+            $custStmt->execute([$customerId]);
+            $custData = $custStmt->fetch();
+            if ($custData) {
+                $creditLimit = (float)($custData['credit_limit'] ?? 0);
+                $outstanding = (float)$custData['outstanding'];
+                if ($creditLimit > 0 && ($outstanding + $total) > $creditLimit) {
+                    fail('Kredit limit terlampaui untuk "' . $custData['name'] . '". Limit: ' . $creditLimit . ', Outstanding: ' . $outstanding . ', Penjualan ini: ' . $total);
+                }
+            }
+        }
 
         try {
             $d->beginTransaction();
@@ -1314,13 +1356,13 @@ if ($endpoint === 'sales') {
                 }
             }
 
-            $stmt = $d->prepare("INSERT INTO sales (invoice_no, customer_id, customer_name_snapshot, sale_date, subtotal, discount, tax, total, delivery_cost, payment_method, payment_status, status, notes, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,0,?,?,'completed',?,?,?,?)");
+            $stmt = $d->prepare("INSERT INTO sales (invoice_no, customer_id, customer_name_snapshot, sale_date, subtotal, discount, tax, total, delivery_cost, payment_method, payment_status, status, notes, created_at, updated_at, tenant_id, idempotency_key) VALUES (?,?,?,?,?,?,?,?,0,?,?,'completed',?,?,?,?,?)");
             $stmt->execute([
                 $invoiceNo, $input['customer_id'] ?? null, $input['customer_name'] ?? 'Walk-in Customer',
                 $input['sale_date'] ?? date('Y-m-d'),
                 $subtotal, $globalDiscount, $tax, $total,
                 $input['payment_method'] ?? 'cash', 'unpaid',
-                $input['notes'] ?? null, $now, $now, $tenantId
+                $input['notes'] ?? null, $now, $now, $tenantId, $idempotencyKey
             ]);
             $saleId = $d->lastInsertId();
 
@@ -1342,6 +1384,7 @@ if ($endpoint === 'sales') {
             }
 
             $d->commit();
+            logAudit('create', 'sales', $saleId, null, ['invoice_no' => $invoiceNo, 'total' => $total]);
             created(['id' => $saleId, 'invoice_no' => $invoiceNo]);
         } catch (Exception $e) {
             if ($d->inTransaction()) {
@@ -1355,19 +1398,59 @@ if ($endpoint === 'sales') {
         $id = $_GET['id'] ?? $input['id'] ?? null;
         if (!$id) fail('ID required');
         $now = date('Y-m-d H:i:s');
+        $voidReason = $input['void_reason'] ?? $_GET['void_reason'] ?? null;
+        $action = $input['void_action'] ?? $_GET['void_action'] ?? 'void';
 
-        $items = $d->prepare("SELECT product_id, quantity FROM sale_items WHERE sale_id = ?");
-        $items->execute([$id]);
-        foreach ($items->fetchAll() as $item) {
-            $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)");
-            $stmt->execute([
-                $item['product_id'], abs((float)$item['quantity']),
-                1, 'adjustment', 'Void sale #' . $id, $now, $tenantId
-            ]);
+        // P0 #7: Void approval workflow
+        $userRole = $_SESSION['user']['role_slug'] ?? '';
+        $canDirectVoid = in_array($userRole, ['owner', 'super_admin', 'manager']);
+
+        if ($action === 'request_void' && !$canDirectVoid) {
+            // Kasir requests void - needs approval
+            $d->prepare("UPDATE sales SET void_status='pending', void_requested_by=?, void_reason=?, void_requested_at=?, updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id=?"))
+                ->execute($isSuperAdmin ? [$_SESSION['user']['id'], $voidReason, $now, $now, $id] : [$_SESSION['user']['id'], $voidReason, $now, $now, $id, $tenantId]);
+            logAudit('void_request', 'sales', $id, null, ['void_status' => 'pending']);
+            ok(['id' => $id, 'void_status' => 'pending', 'message' => 'Void request submitted for approval']);
         }
 
-        $d->prepare("UPDATE sales SET status='voided', updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id=?"))->execute($isSuperAdmin ? [$now, $id] : [$now, $id, $tenantId]);
-        ok(['id' => $id]);
+        if ($action === 'approve_void') {
+            if (!$canDirectVoid) fail('Only managers and above can approve voids');
+            // Approve and execute void
+            $items = $d->prepare("SELECT product_id, quantity FROM sale_items WHERE sale_id = ?");
+            $items->execute([$id]);
+            foreach ($items->fetchAll() as $item) {
+                $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)");
+                $stmt->execute([$item['product_id'], abs((float)$item['quantity']), 1, 'adjustment', 'Void sale #' . $id, $now, $tenantId]);
+            }
+            $d->prepare("UPDATE sales SET status='voided', void_status='approved', void_approved_by=?, void_approved_at=?, updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id=?"))
+                ->execute($isSuperAdmin ? [$_SESSION['user']['id'], $now, $now, $id] : [$_SESSION['user']['id'], $now, $now, $id, $tenantId]);
+            logAudit('void_approve', 'sales', $id, null, ['status' => 'voided', 'void_status' => 'approved']);
+            ok(['id' => $id, 'status' => 'voided', 'message' => 'Void approved and executed']);
+        }
+
+        if ($action === 'reject_void') {
+            if (!$canDirectVoid) fail('Only managers and above can reject voids');
+            $d->prepare("UPDATE sales SET void_status='rejected', void_approved_by=?, void_approved_at=?, updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id=?"))
+                ->execute($isSuperAdmin ? [$_SESSION['user']['id'], $now, $now, $id] : [$_SESSION['user']['id'], $now, $now, $id, $tenantId]);
+            logAudit('void_reject', 'sales', $id, null, ['void_status' => 'rejected']);
+            ok(['id' => $id, 'void_status' => 'rejected', 'message' => 'Void request rejected']);
+        }
+
+        // Direct void for owners/managers
+        if ($canDirectVoid) {
+            $items = $d->prepare("SELECT product_id, quantity FROM sale_items WHERE sale_id = ?");
+            $items->execute([$id]);
+            foreach ($items->fetchAll() as $item) {
+                $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)");
+                $stmt->execute([$item['product_id'], abs((float)$item['quantity']), 1, 'adjustment', 'Void sale #' . $id, $now, $tenantId]);
+            }
+            $d->prepare("UPDATE sales SET status='voided', void_status='approved', void_approved_by=?, void_approved_at=?, updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id=?"))
+                ->execute($isSuperAdmin ? [$_SESSION['user']['id'], $now, $now, $id] : [$_SESSION['user']['id'], $now, $now, $id, $tenantId]);
+            logAudit('void', 'sales', $id, null, ['status' => 'voided']);
+            ok(['id' => $id, 'status' => 'voided']);
+        } else {
+            fail('You do not have permission to directly void sales. Use request_void action.');
+        }
     }
 }
 
@@ -1391,6 +1474,7 @@ if ($endpoint === 'sale-payment') {
         $status = $newPaid >= (float)$sale['total'] ? 'paid' : 'partial';
         $d->prepare("UPDATE sales SET payment_status=?, updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id=?"))->execute($isSuperAdmin ? [$status, $now, $id] : [$status, $now, $id, $tenantId]);
 
+        logAudit('payment', 'sale_payments', $d->lastInsertId(), null, ['sale_id' => $id, 'amount' => $amount, 'status' => $status]);
         ok(['sale_id' => $id, 'paid' => $newPaid, 'status' => $status]);
     }
 }
