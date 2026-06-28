@@ -1,16 +1,18 @@
 <?php
-// Root index.php — gerbang utama aplikasi Panglong ERP
-// Mengarahkan ke frontend/login.php atau frontend/index.php
+/**
+ * Gerbang utama aplikasi Panglong ERP
+ * Mengarahkan ke dashboard jika sudah login, atau ke halaman login jika belum
+ */
 
 session_start();
 
 // Cek apakah user sudah login
-if (isset($_SESSION['user']) && !empty($_SESSION['user'])) {
-    // Sudah login → arahkan ke dashboard frontend
+if (isset($_SESSION['user']) && !empty($_SESSION['user']['id'])) {
+    // Sudah login - arahkan ke dashboard
     header('Location: frontend/index.php');
     exit;
 }
 
-// Belum login → arahkan ke halaman login
+// Belum login - arahkan ke halaman login
 header('Location: frontend/login.php');
 exit;

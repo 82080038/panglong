@@ -37,7 +37,7 @@ $transfers = $transferStmt->fetchAll();
 $productSql = "SELECT id, code, name FROM products WHERE is_active = 1";
 $productParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $productSql .= " AND tenant_id = ?";
+    $productSql .= " AND (tenant_id = ? OR tenant_id IS NULL)";
     $productParams[] = $tenantId;
 }
 $productSql .= " ORDER BY name LIMIT 100";

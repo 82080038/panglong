@@ -68,6 +68,7 @@ $isSuperAdmin = ($user['role_slug'] ?? '') === 'super_admin';
 // Role-based endpoint permission map
 $endpointRoles = [
     'products' => ['owner','manager','gudang','kasir'],
+    'master-products' => ['owner','manager','gudang','kasir'],
     'categories' => ['owner','manager','gudang'],
     'brands' => ['owner','manager','gudang'],
     'product-units' => ['owner','manager','gudang'],
@@ -142,7 +143,9 @@ function getDefaultTaxRate($d, $tenantId) {
     $stmt = $d->prepare("SELECT rate FROM tax_rates WHERE (tenant_id IS NULL OR tenant_id = ?) AND is_active = 1 ORDER BY tenant_id IS NULL DESC, id DESC LIMIT 1");
     $stmt->execute([$tenantId]);
     $rate = $stmt->fetchColumn();
-    return $rate !== false ? (float)$rate : 0.11;
+    if ($rate === false) return 0.11;
+    $rate = (float)$rate;
+    return $rate > 1 ? $rate / 100 : $rate;
 }
 // Audit logging function
 function logAudit($action, $table, $record_id = null, $before = null, $after = null) {
@@ -194,6 +197,19 @@ function addTenantFilter($sql, $alias, $tenantId, $isSuperAdmin, &$params) {
             $sql .= " AND {$alias}.tenant_id = ?";
         } else {
             $sql .= " WHERE {$alias}.tenant_id = ?";
+        }
+        $params[] = $tenantId;
+    }
+    return $sql;
+}
+
+// Helper: add tenant filter with master catalog (tenant_id = ? OR tenant_id IS NULL)
+function addTenantFilterWithMaster($sql, $alias, $tenantId, $isSuperAdmin, &$params) {
+    if (!$isSuperAdmin && $tenantId) {
+        if (preg_match('/\bWHERE\b/i', $sql)) {
+            $sql .= " AND ({$alias}.tenant_id = ? OR {$alias}.tenant_id IS NULL)";
+        } else {
+            $sql .= " WHERE ({$alias}.tenant_id = ? OR {$alias}.tenant_id IS NULL)";
         }
         $params[] = $tenantId;
     }
@@ -374,7 +390,7 @@ if ($endpoint === 'products') {
         $offset = ($page - 1) * $per_page;
 
         if ($id) {
-            $stmt = $d->prepare("SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?" . ($isSuperAdmin ? "" : " AND p.tenant_id = ?"));
+            $stmt = $d->prepare("SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?" . ($isSuperAdmin ? "" : " AND (p.tenant_id = ? OR p.tenant_id IS NULL)"));
             $stmt->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
             $product = $stmt->fetch();
             if (!$product) fail('Product not found', 404);
@@ -398,7 +414,7 @@ if ($endpoint === 'products') {
             $q = "%$search%";
             $params = [$q, $q, $q];
         }
-        $sql = addTenantFilter($sql, 'p', $tenantId, $isSuperAdmin, $params);
+        $sql = addTenantFilterWithMaster($sql, 'p', $tenantId, $isSuperAdmin, $params);
         $sql .= " ORDER BY p.id DESC LIMIT ? OFFSET ?";
         $params[] = $per_page;
         $params[] = $offset;
@@ -423,7 +439,7 @@ if ($endpoint === 'products') {
             $q = "%$search%";
             $countParams = [$q, $q, $q];
         }
-        $countSql = addTenantFilter($countSql, 'p', $tenantId, $isSuperAdmin, $countParams);
+        $countSql = addTenantFilterWithMaster($countSql, 'p', $tenantId, $isSuperAdmin, $countParams);
         $countStmt = $d->prepare($countSql);
         $countStmt->execute($countParams);
         $total = $countStmt->fetchColumn();
@@ -509,6 +525,20 @@ if ($endpoint === 'products') {
         
         logAudit('create', 'products', $pid, null, ['code' => $code, 'name' => $input['name'] ?? '']);
         
+        // Sync to master catalog if product doesn't exist there
+        if (!$isSuperAdmin && $tenantId) {
+            $masterCheck = $d->prepare("SELECT id FROM products WHERE name = ? AND tenant_id IS NULL");
+            $masterCheck->execute([$input['name'] ?? '']);
+            if (!$masterCheck->fetchColumn()) {
+                $masterCode = 'MST-' . str_pad(time() % 1000000, 6, '0', STR_PAD_LEFT);
+                $d->prepare("INSERT INTO products (code, name, alias, category_id, brand, min_stock, max_stock, location, buy_price, sell_price, is_active, created_at, updated_at, weight_kg, length_cm, width_cm, height_cm, tenant_id) VALUES (?,?,?,?,?,?,?,'',?,?,1,?,?,0,0,0,0,NULL)")
+                  ->execute([$masterCode, $input['name'] ?? '', $input['alias'] ?? null,
+                      $input['category_id'] ?? null, $input['brand'] ?? null,
+                      $input['min_stock'] ?? 0, $input['max_stock'] ?? 0,
+                      $input['buy_price'] ?? 0, $input['sell_price'] ?? 0, $now, $now]);
+            }
+        }
+        
         // Clear product cache
         clearCache('products_list');
         
@@ -580,6 +610,111 @@ if ($endpoint === 'products') {
     }
 }
 
+// === MASTER CATALOG ===
+if ($endpoint === 'master-products') {
+    if ($method === 'GET') {
+        $search = $_GET['search'] ?? '';
+        $categoryId = $_GET['category_id'] ?? null;
+        $per_page = (int)($_GET['per_page'] ?? 50);
+        $page = (int)($_GET['page'] ?? 1);
+        $offset = ($page - 1) * $per_page;
+
+        $sql = "SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.tenant_id IS NULL";
+        $params = [];
+        if ($search) {
+            $sql .= " AND (p.name LIKE ? OR p.code LIKE ? OR p.brand LIKE ?)";
+            $q = "%$search%";
+            $params = [$q, $q, $q];
+        }
+        if ($categoryId) {
+            $sql .= " AND p.category_id = ?";
+            $params[] = $categoryId;
+        }
+        $sql .= " ORDER BY p.name LIMIT ? OFFSET ?";
+        $params[] = $per_page;
+        $params[] = $offset;
+
+        $stmt = $d->prepare($sql);
+        $stmt->execute($params);
+        $products = $stmt->fetchAll();
+
+        $countSql = "SELECT COUNT(*) FROM products p WHERE p.tenant_id IS NULL";
+        $countParams = [];
+        if ($search) {
+            $countSql .= " AND (p.name LIKE ? OR p.code LIKE ? OR p.brand LIKE ?)";
+            $q = "%$search%";
+            $countParams = [$q, $q, $q];
+        }
+        if ($categoryId) {
+            $countSql .= " AND p.category_id = ?";
+            $countParams[] = $categoryId;
+        }
+        $total = $d->prepare($countSql);
+        $total->execute($countParams);
+        $totalCount = $total->fetchColumn();
+
+        foreach ($products as &$p) {
+            $p['category'] = ['id' => $p['category_id'], 'name' => $p['category_name'] ?? 'N/A'];
+        }
+
+        $meta = ['total' => (int)$totalCount, 'per_page' => $per_page, 'current_page' => $page, 'last_page' => (int)ceil($totalCount / $per_page)];
+        ok($products, $meta);
+    }
+
+    // Import master product to tenant's catalog
+    if ($method === 'POST') {
+        $masterId = $input['master_product_id'] ?? null;
+        if (!$masterId) fail('Master product ID required');
+
+        $master = $d->prepare("SELECT * FROM products WHERE id = ? AND tenant_id IS NULL");
+        $master->execute([$masterId]);
+        $mp = $master->fetch();
+        if (!$mp) fail('Master product not found', 404);
+
+        // Check if tenant already has this product (by name)
+        $existing = $d->prepare("SELECT id FROM products WHERE name = ? AND tenant_id = ?");
+        $existing->execute([$mp['name'], $tenantId]);
+        if ($existing->fetchColumn()) {
+            fail('Product already exists in your catalog', 409);
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $code = $input['code'] ?? $mp['code'];
+        $sellPrice = $input['sell_price'] ?? $mp['sell_price'];
+        $buyPrice = $input['buy_price'] ?? $mp['buy_price'];
+
+        try {
+            $d->beginTransaction();
+            $stmt = $d->prepare("INSERT INTO products (code, name, alias, category_id, brand, min_stock, max_stock, location, buy_price, sell_price, is_active, created_at, updated_at, weight_kg, length_cm, width_cm, height_cm, tenant_id) VALUES (?,?,?,?,?,?,?,'',?,?,1,?,?,0,0,0,0,?)");
+            $stmt->execute([$code, $mp['name'], $mp['alias'], $mp['category_id'], $mp['brand'], $mp['min_stock'], $mp['max_stock'], $buyPrice, $sellPrice, $now, $now, $tenantId]);
+            $pid = $d->lastInsertId();
+
+            // Copy units from master
+            $masterUnits = $d->prepare("SELECT * FROM product_units WHERE product_id = ?");
+            $masterUnits->execute([$masterId]);
+            foreach ($masterUnits->fetchAll() as $mu) {
+                $d->prepare("INSERT INTO product_units (product_id, unit_name, conversion_factor, is_base_unit, price_per_unit, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,?,?,?)")
+                  ->execute([$pid, $mu['unit_name'], $mu['conversion_factor'], $mu['is_base_unit'], $mu['price_per_unit'], $now, $now, $tenantId]);
+            }
+
+            // Create barcode
+            $qrData = "PROD:$pid:$code";
+            $d->prepare("INSERT INTO barcodes (product_id, barcode, is_primary, created_at, tenant_id) VALUES (?, ?, 1, ?, ?)")
+              ->execute([$pid, $qrData, $now, $tenantId]);
+
+            $d->commit();
+        } catch (PDOException $e) {
+            if ($d->inTransaction()) $d->rollBack();
+            if ($e->getCode() == 23000) fail('Product with this name or code already exists', 409);
+            fail('Database error: ' . $e->getMessage(), 500);
+        }
+
+        logAudit('create', 'products', $pid, null, ['code' => $code, 'name' => $mp['name'], 'imported_from_master' => $masterId]);
+        clearCache('products_list');
+        created(['id' => $pid, 'code' => $code, 'name' => $mp['name'], 'qr_data' => $qrData]);
+    }
+}
+
 // === CATEGORIES ===
 if ($endpoint === 'categories') {
     if ($method === 'GET') {
@@ -643,7 +778,7 @@ if ($endpoint === 'brands') {
     if ($method === 'GET') {
         $brandParams = [];
         $brandSql = "SELECT DISTINCT brand as name FROM products WHERE brand IS NOT NULL AND brand != ''";
-        $brandSql = addTenantFilter($brandSql, 'products', $tenantId, $isSuperAdmin, $brandParams);
+        $brandSql = addTenantFilterWithMaster($brandSql, 'products', $tenantId, $isSuperAdmin, $brandParams);
         $brandSql .= " ORDER BY brand";
         $brandStmt = $d->prepare($brandSql);
         $brandStmt->execute($brandParams);
@@ -1299,8 +1434,12 @@ if ($endpoint === 'sales') {
         if (!validateNumeric($input['discount'] ?? 0, 0, 999999999)) {
             fail('Discount must be a positive number');
         }
-        if (!validateEnum($input['payment_method'] ?? 'cash', ['cash', 'credit', 'transfer', 'qris', 'ewallet', 'dana', 'gopay', 'ovo', 'shopeepay'])) {
-            fail('Invalid payment method');
+        // Validate payment method against database (tenants may have custom methods)
+        $pmCode = $input['payment_method'] ?? 'cash';
+        $pmStmt = $d->prepare("SELECT id FROM payment_methods WHERE code = ? AND is_active = 1 AND (tenant_id = ? OR tenant_id IS NULL) LIMIT 1");
+        $pmStmt->execute([$pmCode, $tenantId]);
+        if (!$pmStmt->fetchColumn()) {
+            fail('Invalid payment method: ' . $pmCode);
         }
         if (!empty($input['sale_date']) && !strtotime($input['sale_date'])) {
             fail('Invalid sale date');
@@ -1361,7 +1500,7 @@ if ($endpoint === 'sales') {
             // P0 #2: Stock validation before sale
             foreach ($input['items'] as $item) {
                 if (empty($item['product_id'])) continue;
-                $stockStmt = $d->prepare("SELECT COALESCE((SELECT SUM(quantity) FROM stock_movements WHERE product_id = p.id), 0) as current_stock, p.name, p.allow_negative_stock FROM products p WHERE p.id = ?" . ($isSuperAdmin ? "" : " AND p.tenant_id = ?"));
+                $stockStmt = $d->prepare("SELECT COALESCE((SELECT SUM(quantity) FROM stock_movements WHERE product_id = p.id), 0) as current_stock, p.name, p.allow_negative_stock FROM products p WHERE p.id = ?" . ($isSuperAdmin ? "" : " AND (p.tenant_id = ? OR p.tenant_id IS NULL)"));
                 $stockStmt->execute($isSuperAdmin ? [$item['product_id']] : [$item['product_id'], $tenantId]);
                 $product = $stockStmt->fetch();
                 if (!$product) {
@@ -1397,10 +1536,10 @@ if ($endpoint === 'sales') {
                     $item['unit_price'], $item['discount'] ?? 0, $lineSubtotal, $now, $tenantId
                 ]);
 
-                $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)");
+                $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, reference_id, reference_type, notes, created_by, created_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?)");
                 $stmt->execute([
                     $item['product_id'], -abs((float)$item['quantity']),
-                    $item['unit_id'] ?? 1, 'sale', 'Sale ' . $invoiceNo, $now, $tenantId
+                    $item['unit_id'] ?? 1, 'sale', $saleId, 'sale', 'Sale ' . $invoiceNo, $_SESSION['user']['id'] ?? null, $now, $tenantId
                 ]);
             }
 
@@ -1442,8 +1581,8 @@ if ($endpoint === 'sales') {
                 $items = $d->prepare("SELECT product_id, quantity FROM sale_items WHERE sale_id = ?");
                 $items->execute([$id]);
                 foreach ($items->fetchAll() as $item) {
-                    $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)");
-                    $stmt->execute([$item['product_id'], abs((float)$item['quantity']), 1, 'adjustment', 'Void sale #' . $id, $now, $tenantId]);
+                    $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, reference_id, reference_type, notes, created_by, created_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?)");
+                    $stmt->execute([$item['product_id'], abs((float)$item['quantity']), 1, 'adjustment', $id, 'sale_void', 'Void sale #' . $id, $_SESSION['user']['id'] ?? null, $now, $tenantId]);
                 }
                 $d->prepare("UPDATE sales SET status='voided', void_status='approved', void_approved_by=?, void_approved_at=?, updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id=? AND branch_id=?"))
                     ->execute($isSuperAdmin ? [$_SESSION['user']['id'], $now, $now, $id] : [$_SESSION['user']['id'], $now, $now, $id, $tenantId, $branchId]);
@@ -1473,8 +1612,8 @@ if ($endpoint === 'sales') {
                 $items = $d->prepare("SELECT product_id, quantity FROM sale_items WHERE sale_id = ?");
                 $items->execute([$id]);
                 foreach ($items->fetchAll() as $item) {
-                    $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)");
-                    $stmt->execute([$item['product_id'], abs((float)$item['quantity']), 1, 'adjustment', 'Void sale #' . $id, $now, $tenantId]);
+                    $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, reference_id, reference_type, notes, created_by, created_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?)");
+                    $stmt->execute([$item['product_id'], abs((float)$item['quantity']), 1, 'adjustment', $id, 'sale_void', 'Void sale #' . $id, $_SESSION['user']['id'] ?? null, $now, $tenantId]);
                 }
                 $d->prepare("UPDATE sales SET status='voided', void_status='approved', void_approved_by=?, void_approved_at=?, updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id=? AND branch_id=?"))
                     ->execute($isSuperAdmin ? [$_SESSION['user']['id'], $now, $now, $id] : [$_SESSION['user']['id'], $now, $now, $id, $tenantId, $branchId]);
@@ -1585,7 +1724,7 @@ if ($endpoint === 'stock') {
 if ($endpoint === 'barcode-lookup') {
     if ($method === 'GET') {
         $barcode = $_GET['barcode'] ?? '';
-        $stmt = $d->prepare("SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.code = ?" . ($isSuperAdmin ? "" : " AND p.tenant_id = ?") . " LIMIT 1");
+        $stmt = $d->prepare("SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.code = ?" . ($isSuperAdmin ? "" : " AND (p.tenant_id = ? OR p.tenant_id IS NULL)") . " LIMIT 1");
         $stmt->execute($isSuperAdmin ? [$barcode] : [$barcode, $tenantId]);
         $product = $stmt->fetch();
         if (!$product) fail('Product not found', 404);
@@ -1602,7 +1741,7 @@ if ($endpoint === 'barcode-lookup') {
 if ($endpoint === 'sales-price') {
     if ($method === 'GET') {
         $productId = $_GET['product_id'] ?? null;
-        $stmt = $d->prepare("SELECT sell_price FROM products WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $stmt = $d->prepare("SELECT sell_price FROM products WHERE id = ?" . ($isSuperAdmin ? "" : " AND (tenant_id = ? OR tenant_id IS NULL)"));
         $stmt->execute($isSuperAdmin ? [$productId] : [$productId, $tenantId]);
         $row = $stmt->fetch();
         ok(['unit_price' => $row['sell_price'] ?? 0]);
@@ -1782,8 +1921,8 @@ if ($endpoint === 'purchase-orders') {
                 $newReceived = (float)$item['received_quantity'] + $qty;
                 $d->prepare("UPDATE purchase_items SET received_quantity = ? WHERE id = ?")->execute([$newReceived, $itemId]);
 
-                $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, notes, created_at, tenant_id) VALUES (?,?,?,?,?,?,?)")->execute([
-                    $item['pid'], $qty, $item['unit_id'] ?? 1, 'purchase', 'PO receive #' . $id, $now, $tenantId
+                $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, reference_id, reference_type, notes, created_by, created_at, tenant_id) VALUES (?,?,?,?,?,?,?,?,?,?)")->execute([
+                    $item['pid'], $qty, $item['unit_id'] ?? 1, 'purchase', $id, 'purchase_order', 'PO receive #' . $id, $_SESSION['user']['id'] ?? null, $now, $tenantId
                 ]);
             }
 

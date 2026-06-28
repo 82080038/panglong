@@ -1,23 +1,5 @@
-# Environment
-.env
-.env.backup
-.env.production
-
-# Dependencies
-vendor/
+# Dependencies (kept for reference, not used by pure PHP app)
 node_modules/
-
-# Storage
-storage/logs/*
-storage/framework/sessions/*
-storage/framework/views/*
-storage/framework/cache/*
-storage/app/*
-!storage/logs/.gitkeep
-!storage/framework/sessions/.gitkeep
-!storage/framework/views/.gitkeep
-!storage/framework/cache/.gitkeep
-!storage/app/.gitkeep
 
 # Database — COMMITTED to repo so other developers have working database
 # Only ignore backup files and SQLite journals (temporary runtime files)
@@ -25,6 +7,7 @@ database/*.sqlite-journal
 database/*.sqlite-wal
 database/*.sqlite-shm
 database/*.sqlite.backup.*
+database/*.sqlite.bak
 
 # IDE
 .idea/
@@ -46,5 +29,7 @@ coverage/*.xml
 # Test artifacts
 test-results/
 playwright-report/
-.phpunit.result.cache
-.phpunit.cache/
+
+# Backups
+backups/*/*.sqlite.gz
+backups/*/*.sqlite

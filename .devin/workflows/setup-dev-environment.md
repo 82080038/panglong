@@ -42,12 +42,15 @@ description: Setup development environment for Panglong ERP
    - Password: password123
 
 ## Notes
-- Database SQLite already contains 86 tables with seed data
+- Database SQLite already contains 87 tables with seed data
 - No migration or seeder needed for frontend
 - Frontend uses PHP Native + PDO SQLite + jQuery AJAX
-- Use XAMPP PHP (`/opt/lampp/bin/php`) for all PHP CLI tasks, NOT system PHP
+- Use XAMPP PHP (`/opt/lampp/bin/php` 8.2.12) for all PHP CLI tasks, NOT system PHP
 - System PHP (8.3.6) does NOT have pdo_sqlite extension
 - Apache user is `daemon` — database file must be `chmod 666` and dir `chmod 777`
 - 7 user roles: owner, manager, kasir, gudang, accounting, supervisor, super_admin
-- 58 AJAX endpoints in `frontend/ajax.php` (3213 lines)
-- 50 frontend PHP pages, 23 E2E test specs (~55 test cases)
+- 58+ AJAX endpoints in `frontend/ajax.php` (3905 lines)
+- 51 frontend PHP pages, 26 E2E test specs (~88 test cases)
+- 39 migrations, 63 models, 32 controllers, 20 services (Laravel backend — unused by frontend)
+- Git remote: https://github.com/82080038/panglong.git (branch: master)
+- Sync from GitHub: `git pull origin master`

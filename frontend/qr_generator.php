@@ -3,15 +3,10 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/auth.php';
 requirePermission('view_dashboard');
 
-require_once __DIR__ . '/vendor/autoload.php';
-
-use Endroid\QrCode\QrCode;
-use Endroid\QrCode\Writer\PngWriter;
-
 header('Content-Type: image/png');
 
 $data = $_GET['data'] ?? '';
-$size = $_GET['size'] ?? 200;
+$size = (int)($_GET['size'] ?? 200);
 
 if (empty($data)) {
     http_response_code(400);
@@ -19,11 +14,26 @@ if (empty($data)) {
     exit;
 }
 
-$qrCode = QrCode::create($data)
-    ->setSize($size)
-    ->setMargin(10);
+// Use Google Chart API as QR code generator (no Composer dependency needed)
+$url = 'https://chart.googleapis.com/chart?cht=qr&chs=' . $size . 'x' . $size . '&chl=' . urlencode($data) . '&choe=UTF-8';
 
-$writer = new PngWriter();
-$result = $writer->write($qrCode);
+$ch = curl_init($url);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+$result = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
 
-echo $result->getString();
+if ($result && $httpCode === 200) {
+    echo $result;
+} else {
+    // Fallback: generate a simple placeholder image using GD
+    $img = imagecreate($size, $size);
+    $bg = imagecolorallocate($img, 255, 255, 255);
+    $fg = imagecolorallocate($img, 0, 0, 0);
+    imagestring($img, 2, 5, 5, 'QR Error', $fg);
+    imagestring($img, 1, 5, 25, substr($data, 0, 30), $fg);
+    imagepng($img);
+    imagedestroy($img);
+}

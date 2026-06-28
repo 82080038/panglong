@@ -38,7 +38,7 @@ If migrating from SQLite to MySQL for production:
 
 1. **Export SQLite data**
    ```bash
-   /opt/lampp/bin/php database/export_sqlite.php
+   /opt/lampp/bin/php scripts/export_sqlite.php
    ```
 
 2. **Create MySQL database**
@@ -58,13 +58,14 @@ If migrating from SQLite to MySQL for production:
    ```
 
 ## Application Stats (Jun 2026)
-- 50 frontend PHP pages
-- 58 AJAX endpoints in ajax.php (3213 lines)
-- 86 SQLite tables
-- 23 Playwright E2E test specs (~55 test cases)
+- 51 frontend PHP pages
+- 58+ AJAX endpoints in ajax.php (3905 lines)
+- 87 SQLite tables
+- 26 Playwright E2E test specs (~88 test cases)
 - 7 user roles: owner, manager, kasir, gudang, accounting, supervisor, super_admin
-- 34 nav items (7 dropdown groups)
-- Tech stack: PHP Native procedural + PDO SQLite + jQuery AJAX + Bootstrap 5
+- 39 migrations, 63 models, 32 controllers, 20 services (Laravel backend — unused by frontend)
+- Tech stack: PHP Native procedural + PDO SQLite + jQuery AJAX + Bootstrap 5.3
+- Git remote: https://github.com/82080038/panglong.git (branch: master)
 
 ## Security Checklist
 

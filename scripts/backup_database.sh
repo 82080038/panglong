@@ -23,14 +23,20 @@ backup() {
     local type=$1
     local retention=$2
     local dest_dir="$BACKUP_DIR/$type"
+    local backup_file="$dest_dir/panglong_erp_${type}_${TIMESTAMP}.sqlite"
     
     echo "[$(date)] Starting $type backup..."
     
-    # Copy database
-    cp "$DATABASE_FILE" "$dest_dir/panglong_erp_${type}_${TIMESTAMP}.sqlite"
+    # Use sqlite3 .backup for consistent backup (handles WAL mode)
+    if command -v sqlite3 &> /dev/null; then
+        sqlite3 "$DATABASE_FILE" ".backup '$backup_file'"
+    else
+        # Fallback: copy the file
+        cp "$DATABASE_FILE" "$backup_file"
+    fi
     
     # Compress
-    gzip "$dest_dir/panglong_erp_${type}_${TIMESTAMP}.sqlite"
+    gzip "$backup_file"
     
     echo "[$(date)] $type backup completed: panglong_erp_${type}_${TIMESTAMP}.sqlite.gz"
     

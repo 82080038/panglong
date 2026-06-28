@@ -54,7 +54,11 @@ description: Run tests for Panglong ERP
    ```
 
 ## Notes
-- Playwright tests: ~55 tests across 23 specs (all passing)
-- Use XAMPP PHP (`/opt/lampp/bin/php`) for syntax checks, NOT system PHP
+- Playwright tests: ~88 tests across 26 specs
+- Use XAMPP PHP (`/opt/lampp/bin/php` 8.2.12) for syntax checks, NOT system PHP
 - System PHP (8.3.6) does NOT have pdo_sqlite extension
 - Laravel backend is scaffolded but NOT used by frontend
+- Frontend uses PHP Native + PDO SQLite + jQuery AJAX (51 pages, 3905-line ajax.php)
+- 87 SQLite tables, 7 user roles
+- Git remote: https://github.com/82080038/panglong.git (branch: master)
+- Sync from GitHub: `git pull origin master`

@@ -99,6 +99,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $now
                 ]);
                 
+                $owner_id = $db->lastInsertId();
+                
+                // Create default branch
+                $stmt = $db->prepare("INSERT INTO branches (code, name, address, phone, email, manager_name, type, is_active, tenant_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)");
+                $stmt->execute(['BR-001', 'Kantor Pusat', $address, $phone, $email, $full_name, 'main', $tenant_id, $now, $now]);
+                $branch_id = $db->lastInsertId();
+                
+                // Link owner to branch
+                $db->prepare("UPDATE users SET branch_id = ? WHERE id = ?")->execute([$branch_id, $owner_id]);
+                
+                // Create default warehouse
+                $stmt = $db->prepare("INSERT INTO warehouses (code, name, address, is_active, tenant_id, branch_id, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?, ?, ?)");
+                $stmt->execute(['WH-001', 'Gudang Utama', $address, $tenant_id, $branch_id, $now, $now]);
+                $warehouse_id = $db->lastInsertId();
+                
+                // Create default warehouse location
+                $stmt = $db->prepare("INSERT INTO warehouse_locations (code, name, warehouse_id, is_active, tenant_id, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?, ?)");
+                $stmt->execute(['LOC-001', 'Rak Utama', $warehouse_id, $tenant_id, $now, $now]);
+                
                 // Set default app settings
                 $default_settings = [
                     'company_name' => $company_name,
@@ -127,11 +146,135 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ];
                 
                 foreach ($default_settings as $key => $value) {
-                    $stmt = $db->prepare("
-                        INSERT INTO app_settings (tenant_id, key, value, type, created_at, updated_at)
-                        VALUES (?, ?, ?, 'string', ?, ?)
-                    ");
+                    $stmt = $db->prepare("INSERT INTO app_settings (tenant_id, key, value, type, created_at, updated_at) VALUES (?, ?, ?, 'string', ?, ?)");
                     $stmt->execute([$tenant_id, $key, $value, $now, $now]);
+                }
+                
+                // Seed default unit measurements
+                $units = [
+                    ['pcs', 'Pieces'],
+                    ['box', 'Box'],
+                    ['lusin', 'Lusin'],
+                    ['kg', 'Kilogram'],
+                    ['gr', 'Gram'],
+                    ['liter', 'Liter'],
+                    ['ml', 'Milliliter'],
+                    ['m', 'Meter'],
+                    ['cm', 'Centimeter'],
+                    ['roll', 'Roll'],
+                    ['pack', 'Pack'],
+                    ['ikat', 'Ikat'],
+                ];
+                foreach ($units as $u) {
+                    $stmt = $db->prepare("INSERT INTO unit_measurements (code, name, is_active, tenant_id, created_at, updated_at) VALUES (?, ?, 1, ?, ?, ?)");
+                    $stmt->execute([$u[0], $u[1], $tenant_id, $now, $now]);
+                }
+                
+                // Seed default categories
+                $categories = ['Umum', 'Makanan', 'Minuman', 'ATK', 'Kebersihan', 'Lainnya'];
+                foreach ($categories as $cat) {
+                    $stmt = $db->prepare("INSERT INTO categories (name, is_active, tenant_id, created_at, updated_at) VALUES (?, 1, ?, ?, ?)");
+                    $stmt->execute([$cat, $tenant_id, $now, $now]);
+                }
+                
+                // Seed default payment methods
+                $paymentMethods = [
+                    ['cash', 'Tunai'],
+                    ['transfer', 'Transfer Bank'],
+                    ['credit', 'Kredit'],
+                    ['qris', 'QRIS'],
+                    ['ewallet', 'E-Wallet'],
+                ];
+                foreach ($paymentMethods as $pm) {
+                    $code = 'PAY-' . strtoupper(substr($pm[0], 0, 4)) . '-' . substr($tenant_id, -3);
+                    $stmt = $db->prepare("INSERT INTO payment_methods (code, name, is_active, tenant_id, created_at, updated_at) VALUES (?, ?, 1, ?, ?, ?)");
+                    $stmt->execute([$code, $pm[1], $tenant_id, $now, $now]);
+                }
+                
+                // Seed default adjustment types
+                $adjustmentTypes = [
+                    ['ADJ-DAMAGE-' . $tenant_id, 'Kerusakan', 'Penyesuaian stok karena rusak'],
+                    ['ADJ-LOSS-' . $tenant_id, 'Hilang', 'Penyesuaian stok karena hilang'],
+                    ['ADJ-FOUND-' . $tenant_id, 'Ditemukan', 'Penyesuaian stok karena ditemukan'],
+                    ['ADJ-CORRECTION-' . $tenant_id, 'Koreksi', 'Koreksi stok'],
+                    ['ADJ-SAMPLE-' . $tenant_id, 'Sample', 'Barang keluar untuk sample'],
+                ];
+                foreach ($adjustmentTypes as $at) {
+                    $stmt = $db->prepare("INSERT INTO adjustment_types (code, name, description, is_active, tenant_id, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?, ?)");
+                    $stmt->execute([$at[0], $at[1], $at[2], $tenant_id, $now, $now]);
+                }
+                
+                // Seed default tax rates
+                $taxRates = [
+                    ['NON', 'Non PPN', 0, 1],
+                    ['PPN11', 'PPN 11%', 11, 1],
+                ];
+                foreach ($taxRates as $tr) {
+                    $stmt = $db->prepare("INSERT INTO tax_rates (code, name, rate, is_active, tenant_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([$tr[0], $tr[1], $tr[2], $tr[3], $tenant_id, $now, $now]);
+                }
+                
+                // Seed default delivery methods
+                $deliveryMethods = [
+                    ['PICKUP', 'Diambil Sendiri'],
+                    ['DELIVERY', 'Diantar'],
+                    ['EXPEDISI', 'Ekspedisi'],
+                ];
+                foreach ($deliveryMethods as $dm) {
+                    $stmt = $db->prepare("INSERT INTO delivery_methods (code, name, is_active, tenant_id, created_at, updated_at) VALUES (?, ?, 1, ?, ?, ?)");
+                    $stmt->execute([$dm[0], $dm[1], $tenant_id, $now, $now]);
+                }
+                
+                // Seed default status codes
+                $statusCodes = [
+                    ['sales', 'PENDING', 'Pending'],
+                    ['sales', 'CONFIRMED', 'Confirmed'],
+                    ['sales', 'COMPLETED', 'Completed'],
+                    ['sales', 'CANCELLED', 'Cancelled'],
+                    ['purchase', 'PENDING', 'Pending'],
+                    ['purchase', 'CONFIRMED', 'Confirmed'],
+                    ['purchase', 'RECEIVED', 'Received'],
+                    ['purchase', 'PARTIAL', 'Partially Received'],
+                    ['delivery', 'PENDING', 'Pending'],
+                    ['delivery', 'SHIPPED', 'Shipped'],
+                    ['delivery', 'DELIVERED', 'Delivered'],
+                ];
+                foreach ($statusCodes as $sc) {
+                    $stmt = $db->prepare("INSERT INTO status_codes (module, code, name, is_active, tenant_id, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?, ?)");
+                    $stmt->execute([$sc[0], $sc[1], $sc[2], $tenant_id, $now, $now]);
+                }
+                
+                // Seed default customer groups
+                $customerGroups = [
+                    ['Umum', 0, 1000000],
+                    ['Reseller', 5, 5000000],
+                    ['VIP', 10, 10000000],
+                    ['Korporat', 15, 20000000],
+                ];
+                foreach ($customerGroups as $cg) {
+                    $stmt = $db->prepare("INSERT INTO customer_groups (name, discount_pct, credit_limit, is_active, tenant_id, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?, ?)");
+                    $stmt->execute([$cg[0], $cg[1], $cg[2], $tenant_id, $now, $now]);
+                }
+                
+                // Seed default e_faktur types
+                $efakturTypes = [
+                    ['PK', 'Faktur Penjualan', 'Faktur Pajak Keluaran'],
+                    ['PM', 'Faktur Pembelian', 'Faktur Pajak Masukan'],
+                ];
+                foreach ($efakturTypes as $et) {
+                    $stmt = $db->prepare("INSERT INTO e_faktur_types (code, name, description, is_active, tenant_id, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?, ?)");
+                    $stmt->execute([$et[0], $et[1], $et[2], $tenant_id, $now, $now]);
+                }
+                
+                // Seed default whatsapp template types
+                $waTypes = [
+                    ['ORDER_CONFIRM', 'Konfirmasi Pesanan', 'Template konfirmasi pesanan'],
+                    ['DELIVERY_NOTIF', 'Notifikasi Pengiriman', 'Template notifikasi pengiriman'],
+                    ['PAYMENT_REMINDER', 'Pengingat Pembayaran', 'Template pengingat pembayaran'],
+                ];
+                foreach ($waTypes as $wt) {
+                    $stmt = $db->prepare("INSERT INTO whatsapp_template_types (code, name, description, is_active, tenant_id, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?, ?)");
+                    $stmt->execute([$wt[0], $wt[1], $wt[2], $tenant_id, $now, $now]);
                 }
                 
                 $success = 'Pendaftaran berhasil! Silakan login dengan username: ' . $username;

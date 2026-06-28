@@ -98,25 +98,8 @@ if ($isSuperAdmin) {
     }
 }
 ?>
-<?php
-$theme = $_SESSION['theme'] ?? 'light';
-?>
-<!DOCTYPE html>
-<html lang="id" data-bs-theme="<?= htmlspecialchars($theme) ?>">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-    <title>Beranda - Panglong ERP</title>
-    <link href="assets/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/bootstrap-icons.css">
-    <style>
-      body{background:#f8f9fa}
-      [data-bs-theme="dark"] body{background:#0d1117}
-      [data-bs-theme="eyecare"] body{background:#faf3e3}
-    </style>
-</head>
-<body>
-    <?php renderNav('dashboard'); ?>
+<?php renderHead('Beranda - Panglong ERP'); ?>
+<?php renderNav('dashboard'); ?>
     
     <div class="container mt-4">
         <div class="d-flex justify-content-between align-items-center mb-3">

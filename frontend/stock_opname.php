@@ -10,7 +10,7 @@ $isSuperAdmin = $user['role_slug'] === 'super_admin';
 $productSql = "SELECT id, code, name FROM products WHERE is_active = 1";
 $productParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $productSql .= " AND tenant_id = ?";
+    $productSql .= " AND (tenant_id = ? OR tenant_id IS NULL)";
     $productParams[] = $tenantId;
 }
 $productSql .= " ORDER BY name LIMIT 100";
@@ -29,16 +29,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
     $now = date('Y-m-d H:i:s');
     $opnameNo = 'OP-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
     if (!empty($_POST['physical_qty'])) {
+        $created = false;
         foreach ($_POST['physical_qty'] as $pid => $qty) {
             if ($qty !== '') {
                 $sysQty = $stockData[$pid] ?? 0;
                 $diff = (float)$qty - (float)$sysQty;
-                $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, movement_type, notes, created_at) VALUES (?,?,?,?,?)");
-                $stmt->execute([(int)$pid, $diff, 'physical_count', 'Stok opname ' . $opnameNo, $now]);
+
+                $unitStmt = $d->prepare("SELECT id FROM product_units WHERE product_id = ? AND is_base_unit = 1 LIMIT 1");
+                $unitStmt->execute([(int)$pid]);
+                $unitId = $unitStmt->fetchColumn() ?: 1;
+
+                $stmt = $d->prepare("INSERT INTO stock_movements (tenant_id, product_id, quantity, unit_id, movement_type, reference_type, notes, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)");
+                $stmt->execute([$tenantId, (int)$pid, $diff, $unitId, 'physical_count', 'opname', 'Stok opname ' . $opnameNo, $user['id'], $now]);
+                $created = true;
             }
         }
-        header('Location: stock_opname.php?msg=created');
-        exit;
+        if ($created) {
+            header('Location: stock_opname.php?msg=created');
+            exit;
+        }
     }
     header('Location: stock_opname.php?msg=error');
     exit;

@@ -12,10 +12,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($action === 'adjustment') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO stock_movements (product_id, quantity, movement_type, notes, created_at) VALUES (?,?,?,?,?)");
+        $pid = (int)$_POST['product_id'];
+
+        $unitStmt = $d->prepare("SELECT id FROM product_units WHERE product_id = ? AND is_base_unit = 1 LIMIT 1");
+        $unitStmt->execute([$pid]);
+        $unitId = $unitStmt->fetchColumn() ?: 1;
+
+        $stmt = $d->prepare("INSERT INTO stock_movements (tenant_id, product_id, quantity, unit_id, movement_type, reference_type, notes, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)");
         $stmt->execute([
-            (int)$_POST['product_id'], (float)$_POST['quantity'],
-            $_POST['adjustment_type'], $_POST['reason'], $now
+            $tenantId, $pid, (float)$_POST['quantity'],
+            $unitId, $_POST['adjustment_type'], 'manual_adjustment',
+            $_POST['reason'], $user['id'], $now
         ]);
         header('Location: stock.php?msg=adjustment_created');
         exit;
@@ -29,7 +36,7 @@ $stockSql = "SELECT p.id, p.name as product_name, p.code as product_code, p.min_
     WHERE p.is_active = 1";
 $stockParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $stockSql .= " AND p.tenant_id = ?";
+    $stockSql .= " AND (p.tenant_id = ? OR p.tenant_id IS NULL)";
     $stockParams[] = $tenantId;
 }
 $stockSql .= " ORDER BY p.id DESC LIMIT 200";
@@ -40,7 +47,7 @@ $stockItems = $stockStmt->fetchAll();
 $adjParams = [];
 $adjSql = "SELECT * FROM adjustment_types WHERE is_active = 1";
 if (!$isSuperAdmin && $tenantId) {
-    $adjSql .= " AND tenant_id = ?";
+    $adjSql .= " AND (tenant_id = ? OR tenant_id IS NULL)";
     $adjParams[] = $tenantId;
 }
 $adjSql .= " ORDER BY name";
@@ -57,7 +64,7 @@ foreach ($stockItems as &$item) {
 $productSql = "SELECT id, name, code FROM products WHERE is_active = 1";
 $productParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $productSql .= " AND tenant_id = ?";
+    $productSql .= " AND (tenant_id = ? OR tenant_id IS NULL)";
     $productParams[] = $tenantId;
 }
 $productSql .= " ORDER BY name LIMIT 200";

@@ -333,7 +333,7 @@ function submitQuickAdd() {
         return;
     }
     
-    fetch('ajax.php?endpoint=customer-groups', {
+    fetch(API_URL + '?endpoint=customer-groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: value })
