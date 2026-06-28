@@ -134,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
             }
         }
-        header('Lokasi: products.php?msg=created');
+        header('Location: products.php?msg=created');
         exit;
     } elseif ($action === 'edit') {
         $id = $_POST['id'];
@@ -160,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ];
         if (!$isSuperAdmin && $tenantId) $editParams[] = $tenantId;
         $stmt->execute($editParams);
-        header('Lokasi: products.php?msg=updated');
+        header('Location: products.php?msg=updated');
         exit;
     } elseif ($action === 'delete') {
         $id = $_POST['id'];
@@ -175,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $purchasesCount = $hasPurchases->fetchColumn();
         
         if ($salesCount > 0 || $purchasesCount > 0) {
-            header('Lokasi: products.php?error=has_transactions&sales=' . $salesCount . '&purchases=' . $purchasesCount);
+            header('Location: products.php?error=has_transactions&sales=' . $salesCount . '&purchases=' . $purchasesCount);
             exit;
         }
         
@@ -187,7 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $delParams[] = $tenantId;
         }
         $d->prepare($delSql)->execute($delParams);
-        header('Lokasi: products.php?msg=deactivated');
+        header('Location: products.php?msg=deactivated');
         exit;
     }
 }

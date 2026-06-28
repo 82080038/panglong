@@ -85,7 +85,7 @@ renderNav('quotations');
             <div class="modal-body">
                 <form id="quoteForm">
                     <div class="row mb-3">
-                        <div class="col-md-6"><label class="form-label">Customer *</label><select class="form-select" id="quoteCustomer" required><option value="">Select Customer</option><?php foreach ($customers as $c): ?><option value="<?= $c['id'] ?>" data-name="<?= htmlspecialchars($c['name']) ?>"><?= htmlspecialchars($c['name']) ?></option><?php endforeach; ?></select></div>
+                        <div class="col-md-6"><label class="form-label">Customer *</label><select class="form-select" id="quoteCustomer" name="customer_id" required><option value="">Select Customer</option><?php foreach ($customers as $c): ?><option value="<?= $c['id'] ?>" data-name="<?= htmlspecialchars($c['name']) ?>"><?= htmlspecialchars($c['name']) ?></option><?php endforeach; ?></select></div>
                         <div class="col-md-3"><label class="form-label">Quote Date</label><input type="date" class="form-control" id="quoteDate" required></div>
                         <div class="col-md-3"><label class="form-label">Berlaku Sampai</label><input type="date" class="form-control" id="quoteValidUntil"></div>
                     </div>
@@ -133,11 +133,11 @@ function addQuoteRow() {
     const row = document.createElement('tr');
     row.className = 'quote-item-row';
     const opts = productsJson.map(p => `<option value="${p.id}" data-price="${p.sell_price}">${p.code} - ${p.name}</option>`).join('');
-    row.innerHTML = `<td><select class="form-select form-select-sm" onchange="onQuoteProductChange(this)">${opts}</select></td>
-        <td><input type="number" class="form-control form-control-sm" step="0.001" min="0.001" value="1" oninput="calcQuoteRow(this); calcQuoteTotal()"></td>
-        <td><input type="number" class="form-control form-control-sm" step="0.001" min="0" value="0"></td>
-        <td><input type="number" class="form-control form-control-sm" min="0" value="0" oninput="calcQuoteRow(this); calcQuoteTotal()"></td>
-        <td><input type="number" class="form-control form-control-sm" min="0" value="0" oninput="calcQuoteRow(this); calcQuoteTotal()"></td>
+    row.innerHTML = `<td><select class="form-select form-select-sm productSelect" onchange="onQuoteProductChange(this)">${opts}</select></td>
+        <td><input type="number" class="form-control form-control-sm qtyInput" step="0.001" min="0.001" value="1" oninput="calcQuoteRow(this); calcQuoteTotal()"></td>
+        <td><input type="number" class="form-control form-control-sm bonusInput" step="0.001" min="0" value="0"></td>
+        <td><input type="number" class="form-control form-control-sm priceInput" min="0" value="0" oninput="calcQuoteRow(this); calcQuoteTotal()"></td>
+        <td><input type="number" class="form-control form-control-sm discountInput" min="0" value="0" oninput="calcQuoteRow(this); calcQuoteTotal()"></td>
         <td class="subtotal">Rp 0</td>
         <td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove(); calcQuoteTotal()"><i class="bi bi-trash"></i></button></td>`;
     tbody.appendChild(row);

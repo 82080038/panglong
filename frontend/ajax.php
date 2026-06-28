@@ -375,7 +375,7 @@ if ($endpoint === 'products') {
 
         if ($id) {
             $stmt = $d->prepare("SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?" . ($isSuperAdmin ? "" : " AND p.tenant_id = ?"));
-            $stmt->execute($isSuperAdmin ? [$id] : [$id, $tenantId, $branchId]);
+            $stmt->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
             $product = $stmt->fetch();
             if (!$product) fail('Product not found', 404);
 
@@ -521,7 +521,7 @@ if ($endpoint === 'products') {
         
         // Get before data
         $before = $d->prepare("SELECT * FROM products WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
-        $before->execute($isSuperAdmin ? [$id] : [$id, $tenantId, $branchId]);
+        $before->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
         $beforeData = $before->fetch();
         if (!$beforeData) fail('Product not found or access denied', 404);
         
@@ -564,12 +564,12 @@ if ($endpoint === 'products') {
         
         // Get before data
         $before = $d->prepare("SELECT * FROM products WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
-        $before->execute($isSuperAdmin ? [$id] : [$id, $tenantId, $branchId]);
+        $before->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
         $beforeData = $before->fetch();
         if (!$beforeData) fail('Product not found or access denied', 404);
         
         $d->prepare("DELETE FROM product_units WHERE product_id = ?")->execute([$id]);
-        $d->prepare("DELETE FROM products WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$id] : [$id, $tenantId, $branchId]);
+        $d->prepare("DELETE FROM products WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
         
         logAudit('delete', 'products', $id, $beforeData, null);
         
@@ -3137,8 +3137,9 @@ if ($endpoint === 'fixed-assets') {
         $monthlyDep = $life > 0 ? ($cost - $salvage) / $life : 0;
         $stmt = $d->prepare("INSERT INTO fixed_assets (asset_code, name, category, serial_no, plate_no, acquisition_date, acquisition_cost, salvage_value, useful_life_months, depreciation_method, monthly_depreciation, accumulated_depreciation, book_value, status, notes, created_at, updated_at, tenant_id, branch_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
         $stmt->execute([$assetCode, $input['name'] ?? '', $input['category'] ?? 'equipment', $input['serial_no'] ?? null, $input['plate_no'] ?? null, $input['acquisition_date'] ?? date('Y-m-d'), $cost, $salvage, $life, 'straight_line', $monthlyDep, 0, $cost, 'active', $input['notes'] ?? null, $now, $now, $tenantId, $branchId]);
-        logAudit('create', 'fixed_assets', $d->lastInsertId(), null, ['id' => $d->lastInsertId()]);
-        created(['id' => $d->lastInsertId(), 'asset_code' => $assetCode]);
+        $assetId = $d->lastInsertId();
+        logAudit('create', 'fixed_assets', $assetId, null, ['id' => $assetId]);
+        created(['id' => $assetId, 'asset_code' => $assetCode]);
     }
     if ($method === 'PUT') {
         $id = $_GET['id'] ?? $input['id'] ?? null;

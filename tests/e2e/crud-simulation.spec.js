@@ -171,22 +171,23 @@ test.describe('Real CRUD Simulation - 2 Year Business Operations', () => {
 
     // Click add product button
     await page.click('button:has-text("Tambah Produk"), button:has-text("Add Product")');
-    await page.waitForTimeout(500);
+    await page.waitForSelector('#addModal', { state: 'visible' });
 
-    // Fill product form
+    // Fill product form (scope to add modal to avoid edit modal duplicates)
     const timestamp = Date.now();
     const productCode = `PRD${timestamp.toString().slice(-6)}`;
     const productName = `Test Product ${timestamp}`;
+    const addModal = page.locator('#addModal');
 
-    await page.fill('input[name="code"]', productCode);
-    await page.fill('input[name="name"]', productName);
-    await page.fill('input[name="sell_price"]', '100000');
-    await page.fill('input[name="buy_price"]', '75000');
-    await page.fill('input[name="stock"]', '100');
-    await page.fill('input[name="min_stock"]', '10');
+    await addModal.locator('input[name="code"]').fill(productCode);
+    await addModal.locator('input[name="name"]').fill(productName);
+    await addModal.locator('input[name="sell_price"]').fill('100000');
+    await addModal.locator('input[name="buy_price"]').fill('75000');
+    await addModal.locator('input[name="min_stock"]').fill('10');
+    await addModal.locator('input[name="max_stock"]').fill('500');
 
     // Select category if exists
-    const categorySelect = page.locator('select[name="category_id"]');
+    const categorySelect = addModal.locator('select[name="category_id"]');
     if (await categorySelect.isVisible()) {
       const options = await categorySelect.locator('option').count();
       if (options > 1) {
@@ -194,8 +195,17 @@ test.describe('Real CRUD Simulation - 2 Year Business Operations', () => {
       }
     }
 
+    // Select required unit measurement (second option; first is placeholder)
+    const unitSelect = addModal.locator('select[name="unit_name[]"]').first();
+    if (await unitSelect.isVisible()) {
+      const unitOptions = await unitSelect.locator('option').count();
+      if (unitOptions > 1) {
+        await unitSelect.selectOption({ index: 1 });
+      }
+    }
+
     // Submit form
-    await page.click('button:has-text("Simpan"), button:has-text("Save")');
+    await addModal.locator('button[type="submit"]').click();
     await page.waitForTimeout(2000);
 
     // Check for success
@@ -302,31 +312,33 @@ test.describe('Real CRUD Simulation - 2 Year Business Operations', () => {
     await page.waitForLoadState('networkidle');
 
     // Click new sale button
-    await page.click('button:has-text("Penjualan Baru")');
-    await page.waitForTimeout(500);
+    const newSaleBtn = page.locator('button[data-bs-target="#saleModal"]').first();
+    await newSaleBtn.waitFor({ state: 'visible' });
+    await newSaleBtn.click();
+    await page.waitForSelector('#saleModal', { state: 'visible' });
 
-    // Check if modal is visible
-    const modalVisible = await page.locator('#saleModal').isVisible();
+    const saleModal = page.locator('#saleModal');
+    const modalVisible = await saleModal.isVisible();
     if (modalVisible) {
       // Select customer
-      const customerSelect = page.locator('#customerSelect');
+      const customerSelect = saleModal.locator('#customerSelect');
       const customerOptions = await customerSelect.locator('option').count();
       if (customerOptions > 1) {
         await customerSelect.selectOption({ index: 1 });
       }
 
       // Add product
-      const productSelect = page.locator('.item-row .productSelect').first();
+      const productSelect = saleModal.locator('.item-row .productSelect').first();
       const productOptions = await productSelect.locator('option').count();
       if (productOptions > 1) {
         await productSelect.selectOption({ index: 1 });
       }
 
       // Fill quantity
-      await page.locator('.item-row .quantity, .item-row .qtyInput').first().fill('5');
+      await saleModal.locator('.item-row .quantity, .item-row .qtyInput').first().fill('5');
 
-      // Save sale
-      await page.click('button:has-text("Simpan")');
+      // Save sale (scope to sale modal to avoid quick-add buttons)
+      await saleModal.locator('#submitSaleBtn').click();
       await page.waitForTimeout(2000);
 
       // Check for success
@@ -360,31 +372,33 @@ test.describe('Real CRUD Simulation - 2 Year Business Operations', () => {
     await page.waitForLoadState('networkidle');
 
     // Click new PO button
-    await page.click('button:has-text("PO Baru"), button:has-text("New PO")');
-    await page.waitForTimeout(500);
+    const newPoBtn = page.locator('button[data-bs-target="#poModal"]').first();
+    await newPoBtn.waitFor({ state: 'visible' });
+    await newPoBtn.click();
+    await page.waitForSelector('#poModal', { state: 'visible' });
 
-    // Check if modal is visible
-    const modalVisible = await page.locator('#poModal, #purchaseOrderModal').isVisible();
+    const poModal = page.locator('#poModal');
+    const modalVisible = await poModal.isVisible();
     if (modalVisible) {
       // Select supplier
-      const supplierSelect = page.locator('select[name="supplier_id"]');
+      const supplierSelect = poModal.locator('select[name="supplier_id"]');
       const supplierOptions = await supplierSelect.locator('option').count();
       if (supplierOptions > 1) {
         await supplierSelect.selectOption({ index: 1 });
       }
 
       // Add product
-      const productSelect = page.locator('.item-row .productSelect').first();
+      const productSelect = poModal.locator('.po-item-row .productSelect').first();
       const productOptions = await productSelect.locator('option').count();
       if (productOptions > 1) {
         await productSelect.selectOption({ index: 1 });
       }
 
       // Fill quantity
-      await page.locator('.item-row .quantity, .item-row .qtyInput').first().fill('50');
+      await poModal.locator('.po-item-row .qtyInput').first().fill('50');
 
       // Save PO
-      await page.click('button:has-text("Simpan"), button:has-text("Save")');
+      await poModal.locator('button[onclick="submitPO()"]').click();
       await page.waitForTimeout(2000);
 
       // Check for success
@@ -414,31 +428,33 @@ test.describe('Real CRUD Simulation - 2 Year Business Operations', () => {
     await page.waitForLoadState('networkidle');
 
     // Click new quotation button
-    await page.click('button:has-text("Quotation Baru"), button:has-text("New Quotation")');
-    await page.waitForTimeout(500);
+    const newQuoteBtn = page.locator('button[data-bs-target="#quoteModal"]').first();
+    await newQuoteBtn.waitFor({ state: 'visible' });
+    await newQuoteBtn.click();
+    await page.waitForSelector('#quoteModal', { state: 'visible' });
 
-    // Check if modal is visible
-    const modalVisible = await page.locator('#quotationModal').isVisible();
+    const quoteModal = page.locator('#quoteModal');
+    const modalVisible = await quoteModal.isVisible();
     if (modalVisible) {
       // Select customer
-      const customerSelect = page.locator('select[name="customer_id"]');
+      const customerSelect = quoteModal.locator('select[name="customer_id"]');
       const customerOptions = await customerSelect.locator('option').count();
       if (customerOptions > 1) {
         await customerSelect.selectOption({ index: 1 });
       }
 
       // Add product
-      const productSelect = page.locator('.item-row .productSelect').first();
+      const productSelect = quoteModal.locator('.quote-item-row .productSelect').first();
       const productOptions = await productSelect.locator('option').count();
       if (productOptions > 1) {
         await productSelect.selectOption({ index: 1 });
       }
 
       // Fill quantity
-      await page.locator('.item-row .quantity, .item-row .qtyInput').first().fill('10');
+      await quoteModal.locator('.quote-item-row .qtyInput').first().fill('10');
 
       // Save quotation
-      await page.click('button:has-text("Simpan"), button:has-text("Save")');
+      await quoteModal.locator('button[onclick="submitQuote()"]').click();
       await page.waitForTimeout(2000);
 
       // Check for success
@@ -524,22 +540,12 @@ test.describe('Real CRUD Simulation - 2 Year Business Operations', () => {
     const today = new Date().toISOString().split('T')[0];
     await page.fill('input[name="opname_date"]', today);
 
-    // Add item to opname
-    await page.click('button:has-text("Tambah Item"), button:has-text("Add Item")');
-    await page.waitForTimeout(500);
-
-    // Select product
-    const productSelect = page.locator('.item-row .productSelect').first();
-    const productOptions = await productSelect.locator('option').count();
-    if (productOptions > 1) {
-      await productSelect.selectOption({ index: 1 });
-    }
-
-    // Fill actual quantity
-    await page.locator('.item-row .actualQty, .item-row input[type="number"]').first().fill('100');
+    // Fill physical quantity for the first listed product
+    const firstQtyInput = page.locator('input[name^="physical_qty["]').first();
+    await firstQtyInput.fill('100');
 
     // Submit opname
-    await page.click('button:has-text("Simpan"), button:has-text("Save"), button:has-text("Submit")');
+    await page.click('button[type="submit"]:has-text("Buat Opname")');
     await page.waitForTimeout(2000);
 
     // Check for success

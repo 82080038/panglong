@@ -96,7 +96,7 @@ renderNav('purchase-orders');
             <div class="modal-body">
                 <form id="poForm">
                     <div class="row mb-3">
-                        <div class="col-md-6"><label class="form-label">Supplier *</label><select class="form-select" id="poSupplier" required><option value="">Select Supplier</option><?php foreach ($suppliers as $s): ?><option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['name']) ?></option><?php endforeach; ?></select></div>
+                        <div class="col-md-6"><label class="form-label">Supplier *</label><select class="form-select" id="poSupplier" name="supplier_id" required><option value="">Select Supplier</option><?php foreach ($suppliers as $s): ?><option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['name']) ?></option><?php endforeach; ?></select></div>
                         <div class="col-md-3"><label class="form-label">Tanggal PO</label><input type="date" class="form-control" id="poDate" required></div>
                         <div class="col-md-3"><label class="form-label">Metode Bayar</label><select class="form-select" id="poPayment"><option value="credit">Kredit</option><option value="cash">Tunai</option><option value="transfer">Transfer</option></select></div>
                     </div>
@@ -176,9 +176,9 @@ function addPORow() {
     const row = document.createElement('tr');
     row.className = 'po-item-row';
     const opts = productsJson.map(p => `<option value="${p.id}">${p.code} - ${p.name}</option>`).join('');
-    row.innerHTML = `<td><select class="form-select form-select-sm">${opts}</select></td>
-        <td><input type="number" class="form-control form-control-sm" step="0.001" min="0.001" value="1" oninput="calcPORow(this); calcPOTotal()"></td>
-        <td><input type="number" class="form-control form-control-sm" min="0" value="0" oninput="calcPORow(this); calcPOTotal()"></td>
+    row.innerHTML = `<td><select class="form-select form-select-sm productSelect">${opts}</select></td>
+        <td><input type="number" class="form-control form-control-sm qtyInput" step="0.001" min="0.001" value="1" oninput="calcPORow(this); calcPOTotal()"></td>
+        <td><input type="number" class="form-control form-control-sm priceInput" min="0" value="0" oninput="calcPORow(this); calcPOTotal()"></td>
         <td class="subtotal">Rp 0</td>
         <td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove(); calcPOTotal()"><i class="bi bi-trash"></i></button></td>`;
     tbody.appendChild(row);

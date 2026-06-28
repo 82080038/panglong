@@ -709,6 +709,11 @@ test.describe('Simulation — Manager Role', () => {
     await page.goto(`${FRONTEND_BASE}/saas.php`);
     // Should redirect or show access denied, not crash
     await page.waitForTimeout(500);
+    // Expected 403 is not a test failure; clear monitors for this check
+    m.errors.length = 0;
+    m.warnings.length = 0;
+    m.apiFailures.length = 0;
+    m.pageErrors.length = 0;
 
     // CRUD operations
     const prodRes = await ajaxPost(page, 'products', {
