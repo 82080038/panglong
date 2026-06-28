@@ -5,6 +5,7 @@ requirePermission('manage_sales');
 $d = db();
 $user = currentUser();
 $tenantId = $user['tenant_id'] ?? null;
+$branchId = $user['branch_id'] ?? null;
 $isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $customerSql = "SELECT id, name, group_id FROM customers";

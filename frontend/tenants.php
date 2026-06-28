@@ -3,7 +3,7 @@ require_once __DIR__ . '/config.php';
 
 requirePermission('manage_tenants');
 
-$db = db();
+$d = db();
 
 // Handle actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -11,16 +11,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $tenant_id = $_POST['tenant_id'] ?? 0;
     
     if ($action === 'approve' && $tenant_id) {
-        $stmt = $db->prepare("UPDATE tenants SET status = 'active', updated_at = ? WHERE id = ?");
+        $stmt = $d->prepare("UPDATE tenants SET status = 'active', updated_at = ? WHERE id = ?");
         $stmt->execute([date('Y-m-d H:i:s'), $tenant_id]);
     } elseif ($action === 'reject' && $tenant_id) {
-        $stmt = $db->prepare("UPDATE tenants SET status = 'rejected', updated_at = ? WHERE id = ?");
+        $stmt = $d->prepare("UPDATE tenants SET status = 'rejected', updated_at = ? WHERE id = ?");
         $stmt->execute([date('Y-m-d H:i:s'), $tenant_id]);
     } elseif ($action === 'suspend' && $tenant_id) {
-        $stmt = $db->prepare("UPDATE tenants SET status = 'suspended', updated_at = ? WHERE id = ?");
+        $stmt = $d->prepare("UPDATE tenants SET status = 'suspended', updated_at = ? WHERE id = ?");
         $stmt->execute([date('Y-m-d H:i:s'), $tenant_id]);
     } elseif ($action === 'activate' && $tenant_id) {
-        $stmt = $db->prepare("UPDATE tenants SET status = 'active', updated_at = ? WHERE id = ?");
+        $stmt = $d->prepare("UPDATE tenants SET status = 'active', updated_at = ? WHERE id = ?");
         $stmt->execute([date('Y-m-d H:i:s'), $tenant_id]);
     }
     
@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get all tenants
-$tenants = $db->query("
+$tenants = $d->query("
     SELECT t.*, 
            (SELECT COUNT(*) FROM users WHERE tenant_id = t.id) as user_count,
            (SELECT COUNT(*) FROM products WHERE tenant_id = t.id) as product_count

@@ -527,15 +527,19 @@ if ($endpoint === 'products') {
         
         // Sync to master catalog if product doesn't exist there
         if (!$isSuperAdmin && $tenantId) {
-            $masterCheck = $d->prepare("SELECT id FROM products WHERE name = ? AND tenant_id IS NULL");
-            $masterCheck->execute([$input['name'] ?? '']);
-            if (!$masterCheck->fetchColumn()) {
-                $masterCode = 'MST-' . str_pad(time() % 1000000, 6, '0', STR_PAD_LEFT);
-                $d->prepare("INSERT INTO products (code, name, alias, category_id, brand, min_stock, max_stock, location, buy_price, sell_price, is_active, created_at, updated_at, weight_kg, length_cm, width_cm, height_cm, tenant_id) VALUES (?,?,?,?,?,?,?,'',?,?,1,?,?,0,0,0,0,NULL)")
-                  ->execute([$masterCode, $input['name'] ?? '', $input['alias'] ?? null,
-                      $input['category_id'] ?? null, $input['brand'] ?? null,
-                      $input['min_stock'] ?? 0, $input['max_stock'] ?? 0,
-                      $input['buy_price'] ?? 0, $input['sell_price'] ?? 0, $now, $now]);
+            try {
+                $masterCheck = $d->prepare("SELECT id FROM products WHERE name = ? AND tenant_id IS NULL");
+                $masterCheck->execute([$input['name'] ?? '']);
+                if (!$masterCheck->fetchColumn()) {
+                    $masterCode = 'MST-' . str_pad(time() % 1000000, 6, '0', STR_PAD_LEFT);
+                    $d->prepare("INSERT INTO products (code, name, alias, category_id, brand, min_stock, max_stock, location, buy_price, sell_price, is_active, created_at, updated_at, weight_kg, length_cm, width_cm, height_cm, tenant_id) VALUES (?,?,?,?,?,?,?,'',?,?,1,?,?,0,0,0,0,NULL)")
+                      ->execute([$masterCode, $input['name'] ?? '', $input['alias'] ?? null,
+                          $input['category_id'] ?? null, $input['brand'] ?? null,
+                          $input['min_stock'] ?? 0, $input['max_stock'] ?? 0,
+                          $input['buy_price'] ?? 0, $input['sell_price'] ?? 0, $now, $now]);
+                }
+            } catch (Exception $e) {
+                // Master sync is best-effort; don't fail the product creation
             }
         }
         

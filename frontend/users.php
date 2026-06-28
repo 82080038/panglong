@@ -3,8 +3,7 @@ require_once __DIR__ . '/config.php';
 
 requirePermission('manage_users');
 
-$db = new PDO('sqlite:' . __DIR__ . '/../database/database.sqlite');
-$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$d = db();
 
 $tenant_id = $_SESSION['user']['tenant_id'];
 $branch_id = $_SESSION['user']['branch_id'] ?? null;
@@ -35,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Cek username availability (tenant scope)
             $checkParams = [$username, $tenant_id];
             $checkSql = "SELECT id FROM users WHERE username = ? AND tenant_id = ?";
-            $stmt = $db->prepare($checkSql);
+            $stmt = $d->prepare($checkSql);
             $stmt->execute($checkParams);
             if ($stmt->fetch()) {
                 $error = 'Username sudah digunakan';
@@ -43,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $password_hash = password_hash($password, PASSWORD_DEFAULT);
                 $now = date('Y-m-d H:i:s');
                 
-                $stmt = $db->prepare("
+                $stmt = $d->prepare("
                     INSERT INTO users (tenant_id, branch_id, username, password, full_name, email, phone, role_id, is_active, created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
@@ -65,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $delSql .= " AND branch_id = ?";
                 $delParams[] = $branch_id;
             }
-            $stmt = $db->prepare($delSql);
+            $stmt = $d->prepare($delSql);
             $stmt->execute($delParams);
             $success = 'User berhasil dihapus';
         }
@@ -82,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $toggleSql .= " AND branch_id = ?";
                 $toggleParams[] = $branch_id;
             }
-            $stmt = $db->prepare($toggleSql);
+            $stmt = $d->prepare($toggleSql);
             $stmt->execute($toggleParams);
             $success = 'Status user berhasil diubah';
         }
@@ -118,12 +117,12 @@ if ($branch_id) {
     $userParams[] = $branch_id;
 }
 $userSql .= " ORDER BY u.created_at DESC";
-$users = $db->prepare($userSql);
+$users = $d->prepare($userSql);
 $users->execute($userParams);
 $users = $users->fetchAll(PDO::FETCH_ASSOC);
 
 // Get roles
-$roles = $db->query("SELECT * FROM roles WHERE slug != 'super_admin' ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$roles = $d->query("SELECT * FROM roles WHERE slug != 'super_admin' ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <?php renderHead('Kelola User - Panglong ERP'); ?>
 <?php renderNav('users'); ?>

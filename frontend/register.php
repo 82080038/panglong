@@ -31,8 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Password minimal 8 karakter';
     } else {
         // Cek subdomain availability
-        $db = new PDO('sqlite:' . __DIR__ . '/../database/database.sqlite');
-        $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $db = db();
         
         $stmt = $db->prepare("SELECT id FROM tenants WHERE subdomain = ?");
         $stmt->execute([$subdomain]);
@@ -186,9 +185,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ['ewallet', 'E-Wallet'],
                 ];
                 foreach ($paymentMethods as $pm) {
-                    $code = 'PAY-' . strtoupper(substr($pm[0], 0, 4)) . '-' . substr($tenant_id, -3);
                     $stmt = $db->prepare("INSERT INTO payment_methods (code, name, is_active, tenant_id, created_at, updated_at) VALUES (?, ?, 1, ?, ?, ?)");
-                    $stmt->execute([$code, $pm[1], $tenant_id, $now, $now]);
+                    $stmt->execute([$pm[0], $pm[1], $tenant_id, $now, $now]);
                 }
                 
                 // Seed default adjustment types

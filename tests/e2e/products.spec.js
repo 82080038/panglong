@@ -19,8 +19,8 @@ test.describe('Panglong ERP - Products Page', () => {
     await page.goto(`${FRONTEND_BASE}/products.php`);
     await page.waitForLoadState('networkidle');
     await expect(page.locator('h1')).toHaveText('Produk');
-    await expect(page.locator('table.table-striped')).toBeVisible();
-    await expect(page.locator('th:has-text("Nama")')).toBeVisible();
+    await expect(page.locator('#productsTable')).toBeVisible();
+    await expect(page.locator('#productsTable th:has-text("Nama")')).toBeVisible();
     await expect(page.locator('button:has-text("Tambah Produk")')).toBeVisible();
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);

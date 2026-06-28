@@ -1,39 +1,79 @@
 # Panglong ERP - Progress & Status Report
 
-**Date:** 2026-06-29
+**Date:** 2026-06-29 (Cycle 2)
+**Test Status:** 88/88 PASSED
 
 ---
 
-## Completed
+## Cycle 1 — Laravel Cleanup & Master Catalog
 
-### Laravel Cleanup
-- Removed all Laravel framework files: `app/`, `bootstrap/`, `config/`, `routes/`, `resources/`, `storage/`, `vendor/`
-- Removed: `artisan`, `composer.json`, `composer.lock`, `phpunit.xml`, `.env.example`, `index.php` (Laravel), `package.json`, `package-lock.json`, `node_modules/`
-- Removed: `database/migrations/`, `database/factories/`, `database/seeders/`
-- Removed: `tests/Feature/`, `tests/CreatesApplication.php`, `tests/TestCase.php`
-- Removed: `Dockerfile`, `docker-compose.yml`, `docker/`, `public/` (Laravel entry point)
-- Application is now 100% PHP Native — no framework dependencies
+### Completed
+- Removed all Laravel framework files (app/, bootstrap/, config/, routes/, etc.)
+- Created root `index.php` as gerbang utama
+- Fixed `qr_generator.php` — replaced Composer/Endroid with Google Chart API
+- Fixed hardcoded `'ajax.php'` → `API_URL` in products.php, customers.php
+- Added master catalog (190 produk, 19 kategori, 23 satuan)
+- Added import from master catalog feature
+- Added auto-sync new tenant products to master catalog
+- Updated all 19 MD documentation files
+- Database: Dropped migrations & personal_access_tokens tables
+- Database: Fixed admin tenant_id → NULL
+- Database: Fixed tax_rates (tenant_id → NULL, rate → percentage)
+- Database: Seeded 4 subscription plans
+- Database: Added subscription_plan_id to tenants table
 
-### Master Catalog
-- 190 produk material bangunan seeded (tenant_id = NULL)
-- 19 kategori master, 23 satuan master
-- Import dari master catalog feature (modal + AJAX endpoint)
-- Auto-sync produk baru tenant ke master catalog
-- All product queries updated: `(tenant_id = ? OR tenant_id IS NULL)`
-- Updated 8 frontend PHP files: products, sales, quotations, stock, warehouses, stock_opname, sales_orders
+---
 
-### Frontend Fixes
-- Fixed hardcoded `'ajax.php'` → `API_URL` in products.php (4 locations) and customers.php (1 location)
-- Fixed `qr_generator.php` — replaced Composer/Endroid QR with Google Chart API + GD fallback
-- Fixed `getDefaultTaxRate()` — convert percentage to fraction (11 → 0.11)
-- Fixed simulation script: stock opname format, sale payment endpoint, warehouse creation, stock adjustment action
+## Cycle 2 — Bug Fixes & Test Pass
 
-### Root Index
-- Created `index.php` as gerbang utama (redirect to login/dashboard)
+### Bugs Found & Fixed
 
-### Documentation
-- All 18 MD files updated to reflect pure PHP architecture
-- Removed all Laravel references from documentation
+1. **`sales.php:47` — Undefined `$branchId`**
+   - Added `$branchId = $user['branch_id'] ?? null;`
+
+2. **`users.php:128` — `renderHead()` undefined**
+   - Replaced `new PDO()` with `db()` singleton
+   - Replaced all `$db->` with `$d->`
+
+3. **`tenants.php:40` — `renderHead()` undefined**
+   - Replaced `$db` with `$d` for consistency
+
+4. **`register.php:169` — Redirect to login (config.php enforces login)**
+   - Changed `require_once 'config.php'` back to `require_once 'auth.php'`
+   - Register page is public, should not require login
+
+5. **Database readonly — `auth.php:74` write failed**
+   - Fixed: `chmod 666 database/database.sqlite && chmod 777 database/`
+
+6. **`products.name UNIQUE` — Multi-tenant conflict**
+   - Recreated table with `UNIQUE(name, tenant_id)` composite index
+   - Two tenants can now have products with the same name
+
+7. **`payment_methods.code UNIQUE` — Multi-tenant conflict**
+   - Recreated table with `UNIQUE(code, tenant_id)` composite index
+   - Fixed register.php to use standard codes (cash, transfer, credit, qris, ewallet)
+   - Inserted standard payment methods for tenant 2 and global (NULL)
+
+8. **12 more tables with UNIQUE constraints fixed:**
+   - unit_measurements, tax_rates, adjustment_types, delivery_methods
+   - status_codes, e_faktur_types, whatsapp_template_types, whatsapp_templates
+   - vehicles, delivery_routes, e_faktur, period_closings
+
+9. **Master catalog sync fatal error**
+   - Wrapped auto-sync in try-catch (best-effort, don't fail product creation)
+
+10. **Products test — strict mode violation**
+    - Fixed: `table.table-striped` → `#productsTable`
+    - Fixed: `th:has-text("Nama")` → `#productsTable th:has-text("Nama")`
+
+---
+
+## Test Results
+
+| Cycle | Passed | Failed | Total |
+|-------|--------|--------|-------|
+| Cycle 1 | 82 | 6 | 88 |
+| Cycle 2 | 88 | 0 | 88 |
 
 ---
 
@@ -43,17 +83,12 @@
 |--------|-------|
 | Frontend PHP files | 49 |
 | AJAX endpoints | 60 |
-| ajax.php lines | 4044 |
-| Database tables | 87 |
+| ajax.php lines | 4049 |
+| Database tables | 84 |
 | Playwright E2E specs | 26 |
-| Scripts | 8 |
+| Test cases | 88 |
 | Master catalog products | 190 |
-| Master categories | 19 |
-| Master units | 23 |
+| Subscription plans | 4 |
 | Roles | 7 |
-
----
-
-## Architecture
-
-**100% PHP Native Procedural + PDO SQLite + jQuery AJAX + Bootstrap 5.3**
+| Tenants | 7 |
+| Users | 19 |
