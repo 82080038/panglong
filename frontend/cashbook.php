@@ -1,36 +1,66 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_cashbook');
 
 $d = db();
 $user = currentUser();
 $tenantId = $user['tenant_id'] ?? null;
+$branchId = $user['branch_id'] ?? null;
 $isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $transactionSql = "SELECT * FROM cash_transactions";
+$transactionParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $transactionSql .= " WHERE tenant_id = $tenantId";
+    $transactionSql .= " WHERE tenant_id = ?";
+    $transactionParams[] = $tenantId;
+    if ($branchId) {
+        $transactionSql .= " AND branch_id = ?";
+        $transactionParams[] = $branchId;
+    }
 }
 $transactionSql .= " ORDER BY id DESC LIMIT 50";
-$transactions = $d->query($transactionSql)->fetchAll();
+$transactionStmt = $d->prepare($transactionSql);
+$transactionStmt->execute($transactionParams);
+$transactions = $transactionStmt->fetchAll();
 
 $bankStmtSql = "SELECT * FROM bank_statements";
+$bankStmtParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $bankStmtSql .= " WHERE tenant_id = $tenantId";
+    $bankStmtSql .= " WHERE tenant_id = ?";
+    $bankStmtParams[] = $tenantId;
 }
 $bankStmtSql .= " ORDER BY transaction_date DESC LIMIT 50";
-$bankStatements = $d->query($bankStmtSql)->fetchAll();
+$bankStmtStmt = $d->prepare($bankStmtSql);
+$bankStmtStmt->execute($bankStmtParams);
+$bankStatements = $bankStmtStmt->fetchAll();
 
 $totalInSql = "SELECT COALESCE(SUM(amount),0) as total FROM cash_transactions WHERE type='in'";
+$totalInParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $totalInSql .= " AND tenant_id = $tenantId";
+    $totalInSql .= " AND tenant_id = ?";
+    $totalInParams[] = $tenantId;
+    if ($branchId) {
+        $totalInSql .= " AND branch_id = ?";
+        $totalInParams[] = $branchId;
+    }
 }
-$totalIn = $d->query($totalInSql)->fetchColumn();
+$totalInStmt = $d->prepare($totalInSql);
+$totalInStmt->execute($totalInParams);
+$totalIn = $totalInStmt->fetchColumn();
 
 $totalOutSql = "SELECT COALESCE(SUM(amount),0) as total FROM cash_transactions WHERE type='out'";
+$totalOutParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $totalOutSql .= " AND tenant_id = $tenantId";
+    $totalOutSql .= " AND tenant_id = ?";
+    $totalOutParams[] = $tenantId;
+    if ($branchId) {
+        $totalOutSql .= " AND branch_id = ?";
+        $totalOutParams[] = $branchId;
+    }
 }
-$totalOut = $d->query($totalOutSql)->fetchColumn();
+$totalOutStmt = $d->prepare($totalOutSql);
+$totalOutStmt->execute($totalOutParams);
+$totalOut = $totalOutStmt->fetchColumn();
 $balance = $totalIn - $totalOut;
 
 renderHead('Cash Book');

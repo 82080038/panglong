@@ -1,10 +1,19 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_fleet');
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$vehicles = $d->query("SELECT * FROM vehicles ORDER BY id DESC LIMIT 50")->fetchAll();
-$maintenance = $d->query("SELECT vm.*, v.plate_no FROM vehicle_maintenance vm LEFT JOIN vehicles v ON vm.vehicle_id = v.id ORDER BY vm.id DESC LIMIT 50")->fetchAll();
+$vehicles = $d->prepare("SELECT * FROM vehicles" . ($isSuperAdmin ? "" : " WHERE tenant_id = ?") . " ORDER BY id DESC LIMIT 50");
+$vehicles->execute($isSuperAdmin ? [] : [$tenantId]);
+$vehicles = $vehicles->fetchAll();
+
+$maintenance = $d->prepare("SELECT vm.*, v.plate_no FROM vehicle_maintenance vm LEFT JOIN vehicles v ON vm.vehicle_id = v.id" . ($isSuperAdmin ? "" : " WHERE vm.tenant_id = ?") . " ORDER BY vm.id DESC LIMIT 50");
+$maintenance->execute($isSuperAdmin ? [] : [$tenantId]);
+$maintenance = $maintenance->fetchAll();
 
 renderHead('Fleet Management');
 renderNav('fleet');

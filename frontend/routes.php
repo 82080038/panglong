@@ -1,11 +1,23 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_routes');
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$vehicles = $d->query("SELECT id, plate_no FROM vehicles WHERE status='active' ORDER BY plate_no")->fetchAll();
-$deliveries = $d->query("SELECT id, delivery_no, customer_name, delivery_address, phone FROM deliveries WHERE status != 'delivered' ORDER BY id DESC LIMIT 50")->fetchAll();
-$routes = $d->query("SELECT dr.*, v.plate_no FROM delivery_routes dr LEFT JOIN vehicles v ON dr.vehicle_id = v.id ORDER BY dr.id DESC LIMIT 20")->fetchAll();
+$vehicles = $d->prepare("SELECT id, plate_no FROM vehicles WHERE status='active'" . ($isSuperAdmin ? "" : " AND tenant_id = ?") . " ORDER BY plate_no");
+$vehicles->execute($isSuperAdmin ? [] : [$tenantId]);
+$vehicles = $vehicles->fetchAll();
+
+$deliveries = $d->prepare("SELECT id, delivery_no, customer_name, delivery_address, phone FROM deliveries WHERE status != 'delivered'" . ($isSuperAdmin ? "" : " AND tenant_id = ?") . " ORDER BY id DESC LIMIT 50");
+$deliveries->execute($isSuperAdmin ? [] : [$tenantId]);
+$deliveries = $deliveries->fetchAll();
+
+$routes = $d->prepare("SELECT dr.*, v.plate_no FROM delivery_routes dr LEFT JOIN vehicles v ON dr.vehicle_id = v.id" . ($isSuperAdmin ? "" : " WHERE dr.tenant_id = ?") . " ORDER BY dr.id DESC LIMIT 20");
+$routes->execute($isSuperAdmin ? [] : [$tenantId]);
+$routes = $routes->fetchAll();
 
 renderHead('Delivery Routes');
 renderNav('routes');

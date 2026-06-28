@@ -1,11 +1,17 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_iot');
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $sensors = [];
 try {
-    $sensors = $d->query("SELECT * FROM iot_sensors ORDER BY id DESC")->fetchAll();
+    $stmt = $d->prepare("SELECT * FROM iot_sensors" . ($isSuperAdmin ? "" : " WHERE tenant_id = ?") . " ORDER BY id DESC");
+    $stmt->execute($isSuperAdmin ? [] : [$tenantId]);
+    $sensors = $stmt->fetchAll();
 } catch (Exception $e) {
     $sensors = [];
 }
@@ -16,8 +22,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (($_POST['action'] ?? '') === 'register_sensor') {
         $now = date('Y-m-d H:i:s');
         try {
-            $stmt = $d->prepare("INSERT INTO iot_sensors (sensor_id, name, type, location, is_active, created_at, updated_at) VALUES (?,?,?,?,1,?,?)");
-            $stmt->execute([$_POST['sensor_id'], $_POST['name'], $_POST['type'], $_POST['location'] ?? null, $now, $now]);
+            $stmt = $d->prepare("INSERT INTO iot_sensors (tenant_id, sensor_id, name, type, location, is_active, created_at, updated_at) VALUES (?,?,?,?,?,1,?,?)");
+            $stmt->execute([$tenantId, $_POST['sensor_id'], $_POST['name'], $_POST['type'], $_POST['location'] ?? null, $now, $now]);
             header('Location: iot.php?msg=registered');
         } catch (Exception $e) {
             header('Location: iot.php?msg=error');

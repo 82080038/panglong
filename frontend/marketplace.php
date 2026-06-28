@@ -1,11 +1,17 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_marketplace');
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $integrations = [];
 try {
-    $integrations = $d->query("SELECT * FROM marketplace_integrations ORDER BY id DESC")->fetchAll();
+    $stmt = $d->prepare("SELECT * FROM marketplace_integrations" . ($isSuperAdmin ? "" : " WHERE tenant_id = ?") . " ORDER BY id DESC");
+    $stmt->execute($isSuperAdmin ? [] : [$tenantId]);
+    $integrations = $stmt->fetchAll();
 } catch (Exception $e) {
     $integrations = [];
 }
@@ -14,8 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (($_POST['action'] ?? '') === '') {
         $now = date('Y-m-d H:i:s');
         try {
-            $stmt = $d->prepare("INSERT INTO marketplace_integrations (platform, shop_id, shop_name, access_token, status, created_at, updated_at) VALUES (?,?,?,?,'connected',?,?)");
-            $stmt->execute([$_POST['platform'], $_POST['shop_id'], $_POST['shop_name'], $_POST['access_token'] ?? null, $now, $now]);
+            $stmt = $d->prepare("INSERT INTO marketplace_integrations (tenant_id, platform, shop_id, shop_name, access_token, status, created_at, updated_at) VALUES (?,?,?,?,'connected',?,?)");
+            $stmt->execute([$tenantId, $_POST['platform'], $_POST['shop_id'], $_POST['shop_name'], $_POST['access_token'] ?? null, $now, $now]);
             header('Location: marketplace.php?msg=connected');
         } catch (Exception $e) {
             header('Location: marketplace.php?msg=error');

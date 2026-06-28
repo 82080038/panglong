@@ -1,8 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
 
-// Pastikan user sudah login
+// Pastikan user sudah login dan memiliki akses dashboard
 requireLogin();
+requirePermission('view_dashboard');
 
 $user = currentUser();
 $d = db();
@@ -43,30 +44,54 @@ if ($isSuperAdmin) {
     $stmt->execute([$nowYear, $nowMonth]);
     $periodLocked = (bool)$stmt->fetchColumn();
 
-    $productCount = $d->query('SELECT COUNT(*) FROM products WHERE tenant_id = ' . $tenantId)->fetchColumn();
-    $customerCount = $d->query('SELECT COUNT(*) FROM customers WHERE tenant_id = ' . $tenantId)->fetchColumn();
-    $lowStockCount = $d->query("SELECT COUNT(*) FROM products WHERE tenant_id = $tenantId AND CAST(min_stock AS REAL) > 0 AND is_active = 1")->fetchColumn();
+    $stmt = $d->prepare("SELECT COUNT(*) FROM products WHERE tenant_id = ?");
+    $stmt->execute([$tenantId]);
+    $productCount = $stmt->fetchColumn();
+    $stmt = $d->prepare("SELECT COUNT(*) FROM customers WHERE tenant_id = ?");
+    $stmt->execute([$tenantId]);
+    $customerCount = $stmt->fetchColumn();
+    $stmt = $d->prepare("SELECT COUNT(*) FROM products WHERE tenant_id = ? AND CAST(min_stock AS REAL) > 0 AND is_active = 1");
+    $stmt->execute([$tenantId]);
+    $lowStockCount = $stmt->fetchColumn();
 
     $todaySales = 0;
     $todayRevenue = 0;
-    $stmt = $d->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as rev FROM sales WHERE tenant_id = ? AND sale_date = date('now') AND status != 'voided'");
-    $stmt->execute([$tenantId]);
+    $todayParams = [$tenantId];
+    $todaySql = "SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as rev FROM sales WHERE tenant_id = ? AND sale_date = date('now') AND status != 'voided'";
+    if ($branchId) {
+        $todaySql .= " AND branch_id = ?";
+        $todayParams[] = $branchId;
+    }
+    $stmt = $d->prepare($todaySql);
+    $stmt->execute($todayParams);
     $row = $stmt->fetch();
     $todaySales = $row['cnt'] ?? 0;
     $todayRevenue = $row['rev'] ?? 0;
 
     $monthlyRevenue = 0;
     $monthlySales = 0;
-    $stmt = $d->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as rev FROM sales WHERE tenant_id = ? AND sale_date >= date('now','start of month') AND status != 'voided'");
-    $stmt->execute([$tenantId]);
+    $monthlyParams = [$tenantId];
+    $monthlySql = "SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as rev FROM sales WHERE tenant_id = ? AND sale_date >= date('now','start of month') AND status != 'voided'";
+    if ($branchId) {
+        $monthlySql .= " AND branch_id = ?";
+        $monthlyParams[] = $branchId;
+    }
+    $stmt = $d->prepare($monthlySql);
+    $stmt->execute($monthlyParams);
     $row = $stmt->fetch();
     $monthlySales = $row['cnt'] ?? 0;
     $monthlyRevenue = $row['rev'] ?? 0;
 
     $chartLabels = [];
     $chartData = [];
-    $stmt = $d->prepare("SELECT sale_date, COALESCE(SUM(total),0) as rev FROM sales WHERE tenant_id = ? AND sale_date >= date('now','-6 days') AND status != 'voided' GROUP BY sale_date ORDER BY sale_date");
-    $stmt->execute([$tenantId]);
+    $chartParams = [$tenantId];
+    $chartSql = "SELECT sale_date, COALESCE(SUM(total),0) as rev FROM sales WHERE tenant_id = ? AND sale_date >= date('now','-6 days') AND status != 'voided' GROUP BY sale_date ORDER BY sale_date";
+    if ($branchId) {
+        $chartSql .= " AND branch_id = ?";
+        $chartParams[] = $branchId;
+    }
+    $stmt = $d->prepare($chartSql);
+    $stmt->execute($chartParams);
     foreach ($stmt->fetchAll() as $row) {
         $chartLabels[] = date('d/m', strtotime($row['sale_date']));
         $chartData[] = (float)$row['rev'];
@@ -272,7 +297,7 @@ $theme = $_SESSION['theme'] ?? 'light';
         <?php endif; ?>
     </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="assets/js/chart.umd.min.js"></script>
 <script src="assets/js/bootstrap.bundle.min.js"></script>
 <script>
 var ctx = document.getElementById('salesChart').getContext('2d');

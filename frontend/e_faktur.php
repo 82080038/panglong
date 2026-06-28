@@ -1,12 +1,31 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_e_faktur');
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$faktur = $d->query("SELECT * FROM e_faktur ORDER BY transaction_date DESC LIMIT 50")->fetchAll();
-$totalKeluaran = $d->query("SELECT COALESCE(SUM(dpp),0) as dpp, COALESCE(SUM(ppn),0) as ppn FROM e_faktur WHERE faktur_type='keluaran'")->fetch();
-$totalMasukan = $d->query("SELECT COALESCE(SUM(dpp),0) as dpp, COALESCE(SUM(ppn),0) as ppn FROM e_faktur WHERE faktur_type='masukan'")->fetch();
-$eFakturTypes = $d->query("SELECT * FROM e_faktur_types WHERE is_active = 1 ORDER BY name")->fetchAll();
+$fakturSql = "SELECT * FROM e_faktur" . ($isSuperAdmin ? "" : " WHERE tenant_id = ?") . " ORDER BY transaction_date DESC LIMIT 50";
+$fakturStmt = $d->prepare($fakturSql);
+$fakturStmt->execute($isSuperAdmin ? [] : [$tenantId]);
+$faktur = $fakturStmt->fetchAll();
+
+$keluaranSql = "SELECT COALESCE(SUM(dpp),0) as dpp, COALESCE(SUM(ppn),0) as ppn FROM e_faktur WHERE faktur_type='keluaran'" . ($isSuperAdmin ? "" : " AND tenant_id = ?");
+$keluaranStmt = $d->prepare($keluaranSql);
+$keluaranStmt->execute($isSuperAdmin ? [] : [$tenantId]);
+$totalKeluaran = $keluaranStmt->fetch();
+
+$masukanSql = "SELECT COALESCE(SUM(dpp),0) as dpp, COALESCE(SUM(ppn),0) as ppn FROM e_faktur WHERE faktur_type='masukan'" . ($isSuperAdmin ? "" : " AND tenant_id = ?");
+$masukanStmt = $d->prepare($masukanSql);
+$masukanStmt->execute($isSuperAdmin ? [] : [$tenantId]);
+$totalMasukan = $masukanStmt->fetch();
+
+$typesSql = "SELECT * FROM e_faktur_types WHERE is_active = 1" . ($isSuperAdmin ? "" : " AND tenant_id = ?") . " ORDER BY name";
+$typesStmt = $d->prepare($typesSql);
+$typesStmt->execute($isSuperAdmin ? [] : [$tenantId]);
+$eFakturTypes = $typesStmt->fetchAll();
 
 renderHead('e-Faktur');
 renderNav('e-faktur');

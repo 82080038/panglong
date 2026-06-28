@@ -1,18 +1,30 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_customers');
 
 $id = $_GET['id'] ?? 0;
 if (!$id) { header('Location: customers.php'); exit; }
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$branchId = $user['branch_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$stmt = $d->prepare("SELECT * FROM customers WHERE id = ?");
-$stmt->execute([$id]);
+$stmt = $d->prepare("SELECT * FROM customers WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+$stmt->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
 $customer = $stmt->fetch();
 if (!$customer) { header('Location: customers.php?msg=notfound'); exit; }
 
-$stmt = $d->prepare("SELECT * FROM sales WHERE customer_id = ? ORDER BY id DESC LIMIT 50");
-$stmt->execute([$id]);
+$salesParams = [$id, $tenantId];
+$salesSql = "SELECT * FROM sales WHERE customer_id = ? AND tenant_id = ?";
+if ($branchId) {
+    $salesSql .= " AND branch_id = ?";
+    $salesParams[] = $branchId;
+}
+$salesSql .= " ORDER BY id DESC LIMIT 50";
+$stmt = $d->prepare($salesSql);
+$stmt->execute($salesParams);
 $sales = $stmt->fetchAll();
 
 renderHead('Customer Detail - ' . $customer['name']);

@@ -1,5 +1,6 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_stock_opname');
 
 $d = db();
 $user = currentUser();
@@ -7,11 +8,15 @@ $tenantId = $user['tenant_id'] ?? null;
 $isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $productSql = "SELECT id, code, name FROM products WHERE is_active = 1";
+$productParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $productSql .= " AND tenant_id = $tenantId";
+    $productSql .= " AND tenant_id = ?";
+    $productParams[] = $tenantId;
 }
 $productSql .= " ORDER BY name LIMIT 100";
-$products = $d->query($productSql)->fetchAll();
+$productStmt = $d->prepare($productSql);
+$productStmt->execute($productParams);
+$products = $productStmt->fetchAll();
 
 $stockData = [];
 foreach ($products as $p) {

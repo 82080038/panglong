@@ -1,4 +1,8 @@
 <?php
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/auth.php';
+requirePermission('view_dashboard');
+
 require_once __DIR__ . '/vendor/autoload.php';
 
 use Endroid\QrCode\QrCode;

@@ -1,10 +1,16 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_settings');
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 // app_settings uses key-value store: (id, key, value, type, description, created_at, updated_at, tenant_id)
-$rows = $d->query("SELECT key, value FROM app_settings")->fetchAll();
+$settingsRows = $d->prepare("SELECT key, value FROM app_settings" . ($isSuperAdmin ? "" : " WHERE tenant_id = ?"));
+$settingsRows->execute($isSuperAdmin ? [] : [$tenantId]);
+$rows = $settingsRows->fetchAll();
 $settings = [];
 foreach ($rows as $row) {
     $settings[$row['key']] = $row['value'];
@@ -22,13 +28,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ];
 
     foreach ($newSettings as $key => $value) {
-        $stmt = $d->prepare("SELECT id FROM app_settings WHERE key = ?");
-        $stmt->execute([$key]);
-        $existing = $stmt->fetch();
+        $existingStmt = $d->prepare("SELECT id FROM app_settings WHERE key = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $existingStmt->execute($isSuperAdmin ? [$key] : [$key, $tenantId]);
+        $existing = $existingStmt->fetch();
         if ($existing) {
             $d->prepare("UPDATE app_settings SET value = ?, updated_at = ? WHERE id = ?")->execute([$value, $now, $existing['id']]);
         } else {
-            $d->prepare("INSERT INTO app_settings (key, value, type, description, created_at, updated_at) VALUES (?, ?, 'string', ?, ?, ?)")->execute([$key, $value, $key, $now, $now]);
+            $d->prepare("INSERT INTO app_settings (key, value, type, description, tenant_id, created_at, updated_at) VALUES (?, ?, 'string', ?, ?, ?, ?)")->execute([$key, $value, $key, $tenantId, $now, $now]);
         }
     }
     header("Location: settings.php?msg=saved");

@@ -3,19 +3,59 @@ require_once 'config.php';
 requirePermission('manage_products');
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$batches = $d->query("SELECT pb.*, p.name as product_name, p.code as product_code, s.name as supplier_name FROM product_batches pb JOIN products p ON pb.product_id = p.id LEFT JOIN suppliers s ON pb.supplier_id = s.id ORDER BY pb.id DESC LIMIT 100")->fetchAll();
+$batchesSql = "SELECT pb.*, p.name as product_name, p.code as product_code, s.name as supplier_name FROM product_batches pb JOIN products p ON pb.product_id = p.id LEFT JOIN suppliers s ON pb.supplier_id = s.id";
+$batchesParams = [];
+if (!$isSuperAdmin && $tenantId) {
+    $batchesSql .= " WHERE pb.tenant_id = ?";
+    $batchesParams[] = $tenantId;
+}
+$batchesSql .= " ORDER BY pb.id DESC LIMIT 100";
+$batchesStmt = $d->prepare($batchesSql);
+$batchesStmt->execute($batchesParams);
+$batches = $batchesStmt->fetchAll();
 
-$products = $d->query("SELECT id, code, name FROM products WHERE is_active = 1 ORDER BY name")->fetchAll();
-$suppliers = $d->query("SELECT id, name FROM suppliers ORDER BY name")->fetchAll();
+$productSql = "SELECT id, code, name FROM products WHERE is_active = 1";
+$productParams = [];
+if (!$isSuperAdmin && $tenantId) {
+    $productSql .= " AND tenant_id = ?";
+    $productParams[] = $tenantId;
+}
+$productSql .= " ORDER BY name";
+$productStmt = $d->prepare($productSql);
+$productStmt->execute($productParams);
+$products = $productStmt->fetchAll();
+
+$supplierSql = "SELECT id, name FROM suppliers";
+$supplierParams = [];
+if (!$isSuperAdmin && $tenantId) {
+    $supplierSql .= " WHERE tenant_id = ?";
+    $supplierParams[] = $tenantId;
+}
+$supplierSql .= " ORDER BY name";
+$supplierStmt = $d->prepare($supplierSql);
+$supplierStmt->execute($supplierParams);
+$suppliers = $supplierStmt->fetchAll();
 
 // FIFO valuation summary
-$productsFIFO = $d->query("SELECT id, code, name FROM products WHERE is_active = 1 ORDER BY name")->fetchAll();
+$fifoStmt = $d->prepare($productSql);
+$fifoStmt->execute($productParams);
+$productsFIFO = $fifoStmt->fetchAll();
 $valuation = [];
 $grandTotal = 0;
 foreach ($productsFIFO as $p) {
-    $stmt = $d->prepare("SELECT * FROM product_batches WHERE product_id = ? AND quantity_remaining > 0 ORDER BY received_date ASC, id ASC");
-    $stmt->execute([$p['id']]);
+    $pbParams = [$p['id']];
+    $pbSql = "SELECT * FROM product_batches WHERE product_id = ? AND quantity_remaining > 0";
+    if (!$isSuperAdmin && $tenantId) {
+        $pbSql .= " AND tenant_id = ?";
+        $pbParams[] = $tenantId;
+    }
+    $pbSql .= " ORDER BY received_date ASC, id ASC";
+    $stmt = $d->prepare($pbSql);
+    $stmt->execute($pbParams);
     $pBatches = $stmt->fetchAll();
     $totalValue = 0; $totalQty = 0;
     foreach ($pBatches as $b) {

@@ -1,31 +1,49 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_purchase_orders');
 
 $d = db();
 $user = currentUser();
 $tenantId = $user['tenant_id'] ?? null;
+$branchId = $user['branch_id'] ?? null;
 $isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $supplierSql = "SELECT id, name FROM suppliers";
+$supplierParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $supplierSql .= " WHERE tenant_id = $tenantId";
+    $supplierSql .= " WHERE tenant_id = ?";
+    $supplierParams[] = $tenantId;
 }
 $supplierSql .= " ORDER BY name";
-$suppliers = $d->query($supplierSql)->fetchAll();
+$supplierStmt = $d->prepare($supplierSql);
+$supplierStmt->execute($supplierParams);
+$suppliers = $supplierStmt->fetchAll();
 
 $productSql = "SELECT id, code, name, buy_price FROM products WHERE is_active = 1";
+$productParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $productSql .= " AND tenant_id = $tenantId";
+    $productSql .= " AND tenant_id = ?";
+    $productParams[] = $tenantId;
 }
 $productSql .= " ORDER BY name LIMIT 100";
-$products = $d->query($productSql)->fetchAll();
+$productStmt = $d->prepare($productSql);
+$productStmt->execute($productParams);
+$products = $productStmt->fetchAll();
 
 $poSql = "SELECT po.*, s.name as supplier_name FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id = s.id";
+$poParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $poSql .= " WHERE po.tenant_id = $tenantId";
+    $poSql .= " WHERE po.tenant_id = ?";
+    $poParams[] = $tenantId;
+    if ($branchId) {
+        $poSql .= " AND po.branch_id = ?";
+        $poParams[] = $branchId;
+    }
 }
 $poSql .= " ORDER BY po.id DESC LIMIT 20";
-$pos = $d->query($poSql)->fetchAll();
+$poStmt = $d->prepare($poSql);
+$poStmt->execute($poParams);
+$pos = $poStmt->fetchAll();
 foreach ($pos as &$po) {
     $po['supplier'] = ['name' => $po['supplier_name'] ?? ''];
 }

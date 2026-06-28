@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+requirePermission('manage_customers');
 
 $d = db();
 $user = currentUser();
@@ -14,11 +15,13 @@ if ($search) {
     $q = '%' . $search . '%';
     $searchParams = [$q, $q];
     if (!$isSuperAdmin && $tenantId) {
-        $searchSql .= " AND c.tenant_id = $tenantId";
+        $searchSql .= " AND c.tenant_id = ?";
+        $searchParams[] = $tenantId;
     }
 } else {
     if (!$isSuperAdmin && $tenantId) {
-        $searchSql = "WHERE c.tenant_id = $tenantId";
+        $searchSql = "WHERE c.tenant_id = ?";
+        $searchParams[] = $tenantId;
     }
 }
 
@@ -38,18 +41,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'update') {
         $id = $_POST['id'];
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("UPDATE customers SET name=?, address=?, phone=?, email=?, group_id=?, credit_limit=?, payment_terms=?, is_active=?, updated_at=? WHERE id=?");
-        $stmt->execute([
+        $stmt = $d->prepare("UPDATE customers SET name=?, address=?, phone=?, email=?, group_id=?, credit_limit=?, payment_terms=?, is_active=?, updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $updateParams = [
             $_POST['name'], $_POST['address'] ?? null, $_POST['phone'] ?? null,
             $_POST['email'] ?? null, $_POST['group_id'] ?? null,
             $_POST['credit_limit'] ?? 0, $_POST['payment_terms'] ?? 30,
             isset($_POST['is_active']) ? 1 : 0, $now, $id
-        ]);
+        ];
+        if (!$isSuperAdmin && $tenantId) $updateParams[] = $tenantId;
+        $stmt->execute($updateParams);
         header('Location: customers.php?msg=updated');
         exit;
     } elseif ($action === 'delete') {
         $id = $_POST['id'];
-        $d->prepare("DELETE FROM customers WHERE id = ?")->execute([$id]);
+        $d->prepare("DELETE FROM customers WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
         header('Location: customers.php?msg=deleted');
         exit;
     }
@@ -60,7 +65,16 @@ $stmt = $d->prepare($sql);
 $stmt->execute($searchParams);
 $customers = $stmt->fetchAll();
 
-$groups = $d->query("SELECT id, name FROM customer_groups ORDER BY name")->fetchAll();
+$groupParams = [];
+$groupSql = "SELECT id, name FROM customer_groups";
+if (!$isSuperAdmin && $tenantId) {
+    $groupSql .= " WHERE tenant_id = ?";
+    $groupParams[] = $tenantId;
+}
+$groupSql .= " ORDER BY name";
+$groupStmt = $d->prepare($groupSql);
+$groupStmt->execute($groupParams);
+$groups = $groupStmt->fetchAll();
 
 $msg = $_GET['msg'] ?? '';
 ?>

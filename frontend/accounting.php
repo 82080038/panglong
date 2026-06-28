@@ -1,5 +1,6 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_accounting');
 
 $d = db();
 $user = currentUser();
@@ -15,11 +16,15 @@ $data = [];
 
 if ($tab === 'trial_balance') {
     $accountSql = "SELECT * FROM chart_of_accounts WHERE is_active = 1";
+    $accountParams = [];
     if (!$isSuperAdmin && $tenantId) {
-        $accountSql .= " AND tenant_id = $tenantId";
+        $accountSql .= " AND tenant_id = ?";
+        $accountParams[] = $tenantId;
     }
     $accountSql .= " ORDER BY code";
-    $accounts = $d->query($accountSql)->fetchAll();
+    $accountStmt = $d->prepare($accountSql);
+    $accountStmt->execute($accountParams);
+    $accounts = $accountStmt->fetchAll();
     $totalDebit = 0; $totalCredit = 0;
     foreach ($accounts as &$a) {
         $a['debit'] = 0; $a['credit'] = 0;
@@ -27,11 +32,15 @@ if ($tab === 'trial_balance') {
     $data = ['accounts' => $accounts, 'total_debit' => $totalDebit, 'total_credit' => $totalCredit, 'is_balanced' => true, 'date_from' => $dateFrom, 'date_to' => $dateTo];
 } elseif ($tab === 'chart_of_accounts') {
     $coaSql = "SELECT * FROM chart_of_accounts";
+    $coaParams = [];
     if (!$isSuperAdmin && $tenantId) {
-        $coaSql .= " WHERE tenant_id = $tenantId";
+        $coaSql .= " WHERE tenant_id = ?";
+        $coaParams[] = $tenantId;
     }
     $coaSql .= " ORDER BY code";
-    $data = $d->query($coaSql)->fetchAll();
+    $coaStmt = $d->prepare($coaSql);
+    $coaStmt->execute($coaParams);
+    $data = $coaStmt->fetchAll();
 } elseif ($tab === 'balance_sheet') {
     $data = ['as_of_date' => $asOfDate, 'assets' => ['current' => [], 'fixed' => [], 'total' => 0], 'liabilities' => ['current' => [], 'total' => 0], 'equity' => ['items' => [], 'total' => 0], 'total_liabilities_equity' => 0];
 } elseif ($tab === 'income_statement') {

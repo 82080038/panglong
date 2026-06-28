@@ -1,5 +1,6 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_saas');
 
 $d = db();
 

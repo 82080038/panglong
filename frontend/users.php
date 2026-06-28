@@ -1,20 +1,19 @@
 <?php
 require_once __DIR__ . '/auth.php';
 
-// Cek apakah user adalah Tenant Owner atau Super Admin
-if ($_SESSION['user']['role_slug'] !== 'owner' && $_SESSION['user']['role_slug'] !== 'super_admin') {
-    header('Location: index.php');
-    exit;
-}
+requirePermission('manage_users');
 
 $db = new PDO('sqlite:' . __DIR__ . '/../database/database.sqlite');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 $tenant_id = $_SESSION['user']['tenant_id'];
+$branch_id = $_SESSION['user']['branch_id'] ?? null;
+$is_super_admin = $_SESSION['user']['role_slug'] === 'super_admin';
 
 // Super Admin bisa akses semua tenant, Owner hanya tenant sendiri
-if ($_SESSION['user']['role_slug'] === 'super_admin') {
+if ($is_super_admin) {
     $tenant_id = $_GET['tenant_id'] ?? null;
+    $branch_id = null;
 }
 
 // Handle actions
@@ -33,9 +32,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($username) || empty($password) || empty($full_name) || empty($role_id)) {
             $error = 'Data wajib diisi lengkap';
         } else {
-            // Cek username availability
-            $stmt = $db->prepare("SELECT id FROM users WHERE username = ?");
-            $stmt->execute([$username]);
+            // Cek username availability (tenant scope)
+            $checkParams = [$username, $tenant_id];
+            $checkSql = "SELECT id FROM users WHERE username = ? AND tenant_id = ?";
+            $stmt = $db->prepare($checkSql);
+            $stmt->execute($checkParams);
             if ($stmt->fetch()) {
                 $error = 'Username sudah digunakan';
             } else {
@@ -43,10 +44,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $now = date('Y-m-d H:i:s');
                 
                 $stmt = $db->prepare("
-                    INSERT INTO users (tenant_id, username, password, full_name, email, phone, role_id, is_active, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO users (tenant_id, branch_id, username, password, full_name, email, phone, role_id, is_active, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
-                $stmt->execute([$tenant_id, $username, $password_hash, $full_name, $email, $phone, $role_id, 1, $now, $now]);
+                $stmt->execute([$tenant_id, $branch_id, $username, $password_hash, $full_name, $email, $phone, $role_id, 1, $now, $now]);
                 
                 $success = 'User berhasil ditambahkan';
             }
@@ -58,8 +59,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user_id == $_SESSION['user']['id']) {
             $error = 'Tidak bisa menghapus akun sendiri';
         } else {
-            $stmt = $db->prepare("DELETE FROM users WHERE id = ? AND tenant_id = ?");
-            $stmt->execute([$user_id, $tenant_id]);
+            $delParams = [$user_id, $tenant_id];
+            $delSql = "DELETE FROM users WHERE id = ? AND tenant_id = ?";
+            if ($branch_id) {
+                $delSql .= " AND branch_id = ?";
+                $delParams[] = $branch_id;
+            }
+            $stmt = $db->prepare($delSql);
+            $stmt->execute($delParams);
             $success = 'User berhasil dihapus';
         }
     } elseif ($action === 'toggle_status') {
@@ -69,8 +76,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user_id == $_SESSION['user']['id']) {
             $error = 'Tidak bisa menonaktifkan akun sendiri';
         } else {
-            $stmt = $db->prepare("UPDATE users SET is_active = NOT is_active WHERE id = ? AND tenant_id = ?");
-            $stmt->execute([$user_id, $tenant_id]);
+            $toggleParams = [$user_id, $tenant_id];
+            $toggleSql = "UPDATE users SET is_active = NOT is_active WHERE id = ? AND tenant_id = ?";
+            if ($branch_id) {
+                $toggleSql .= " AND branch_id = ?";
+                $toggleParams[] = $branch_id;
+            }
+            $stmt = $db->prepare($toggleSql);
+            $stmt->execute($toggleParams);
             $success = 'Status user berhasil diubah';
         }
     }
@@ -80,14 +93,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get users
-$users = $db->prepare("
+$userParams = [$tenant_id];
+$userSql = "
     SELECT u.*, r.name as role_name, r.slug as role_slug
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
     WHERE u.tenant_id = ?
-    ORDER BY u.created_at DESC
-");
-$users->execute([$tenant_id]);
+";
+if ($branch_id) {
+    $userSql .= " AND (u.branch_id = ? OR u.branch_id IS NULL)";
+    $userParams[] = $branch_id;
+}
+$userSql .= " ORDER BY u.created_at DESC";
+$users = $db->prepare($userSql);
+$users->execute($userParams);
 $users = $users->fetchAll(PDO::FETCH_ASSOC);
 
 // Get roles

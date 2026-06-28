@@ -9,66 +9,54 @@ $isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $startDate = $_GET['start_date'] ?? date('Y-m-01');
 $endDate = $_GET['end_date'] ?? date('Y-m-t');
+$branchId = $user['branch_id'] ?? null;
+
+function runCashFlowSum($d, $sql, $params, $whereAdded, $tenantId, $branchId, $isSuperAdmin) {
+    if (!$isSuperAdmin && $tenantId) {
+        $sql .= $whereAdded ? " AND tenant_id = ?" : " WHERE tenant_id = ?";
+        $params[] = $tenantId;
+        if ($branchId) {
+            $sql .= " AND branch_id = ?";
+            $params[] = $branchId;
+        }
+    }
+    $stmt = $d->prepare($sql);
+    $stmt->execute($params);
+    return (float)$stmt->fetchColumn();
+}
+
+function runSimpleSum($d, $sql, $params, $whereAdded, $tenantId, $isSuperAdmin) {
+    if (!$isSuperAdmin && $tenantId) {
+        $sql .= $whereAdded ? " AND tenant_id = ?" : " WHERE tenant_id = ?";
+        $params[] = $tenantId;
+    }
+    $stmt = $d->prepare($sql);
+    $stmt->execute($params);
+    return (float)$stmt->fetchColumn();
+}
 
 // Operating: cash transactions
-$operatingInSql = "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND account_type='cash' AND transaction_date BETWEEN '$startDate' AND '$endDate'";
-if (!$isSuperAdmin && $tenantId) {
-    $operatingInSql .= " AND tenant_id = $tenantId";
-}
-$operatingIn = (float)$d->query($operatingInSql)->fetchColumn();
+$operatingIn = runCashFlowSum($d, "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND account_type='cash' AND transaction_date BETWEEN ? AND ?", [$startDate, $endDate], true, $tenantId, $branchId, $isSuperAdmin);
+$operatingOut = runCashFlowSum($d, "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND account_type='cash' AND transaction_date BETWEEN ? AND ?", [$startDate, $endDate], true, $tenantId, $branchId, $isSuperAdmin);
 
-$operatingOutSql = "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND account_type='cash' AND transaction_date BETWEEN '$startDate' AND '$endDate'";
-if (!$isSuperAdmin && $tenantId) {
-    $operatingOutSql .= " AND tenant_id = $tenantId";
-}
-$operatingOut = (float)$d->query($operatingOutSql)->fetchColumn();
-
-$salesCashSql = "SELECT COALESCE(SUM(amount),0) FROM payments WHERE payment_date BETWEEN '$startDate' AND '$endDate'";
-if (!$isSuperAdmin && $tenantId) {
-    $salesCashSql .= " AND tenant_id = $tenantId";
-}
-$salesCash = (float)$d->query($salesCashSql)->fetchColumn();
-
-$purchaseCashSql = "SELECT COALESCE(SUM(amount),0) FROM purchase_payments WHERE payment_date BETWEEN '$startDate' AND '$endDate'";
-if (!$isSuperAdmin && $tenantId) {
-    $purchaseCashSql .= " AND tenant_id = $tenantId";
-}
-$purchaseCash = (float)$d->query($purchaseCashSql)->fetchColumn();
+$salesCash = runSimpleSum($d, "SELECT COALESCE(SUM(amount),0) FROM payments WHERE payment_date BETWEEN ? AND ?", [$startDate, $endDate], true, $tenantId, $isSuperAdmin);
+$purchaseCash = runSimpleSum($d, "SELECT COALESCE(SUM(amount),0) FROM purchase_payments WHERE payment_date BETWEEN ? AND ?", [$startDate, $endDate], true, $tenantId, $isSuperAdmin);
 
 // Investing
-$assetPurchaseSql = "SELECT COALESCE(SUM(acquisition_cost),0) FROM fixed_assets WHERE acquisition_date BETWEEN '$startDate' AND '$endDate'";
-if (!$isSuperAdmin && $tenantId) {
-    $assetPurchaseSql .= " AND tenant_id = $tenantId";
-}
-$assetPurchases = (float)$d->query($assetPurchaseSql)->fetchColumn();
+$assetPurchases = runCashFlowSum($d, "SELECT COALESCE(SUM(acquisition_cost),0) FROM fixed_assets WHERE acquisition_date BETWEEN ? AND ?", [$startDate, $endDate], true, $tenantId, $branchId, $isSuperAdmin);
 
 // Financing
-$financingInSql = "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND category LIKE '%loan%' AND transaction_date BETWEEN '$startDate' AND '$endDate'";
-if (!$isSuperAdmin && $tenantId) {
-    $financingInSql .= " AND tenant_id = $tenantId";
-}
-$financingIn = (float)$d->query($financingInSql)->fetchColumn();
-
-$financingOutSql = "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND category LIKE '%loan%' AND transaction_date BETWEEN '$startDate' AND '$endDate'";
-if (!$isSuperAdmin && $tenantId) {
-    $financingOutSql .= " AND tenant_id = $tenantId";
-}
-$financingOut = (float)$d->query($financingOutSql)->fetchColumn();
+$financingIn = runCashFlowSum($d, "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND category LIKE ? AND transaction_date BETWEEN ? AND ?", ['%loan%', $startDate, $endDate], true, $tenantId, $branchId, $isSuperAdmin);
+$financingOut = runCashFlowSum($d, "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND category LIKE ? AND transaction_date BETWEEN ? AND ?", ['%loan%', $startDate, $endDate], true, $tenantId, $branchId, $isSuperAdmin);
 
 $operatingNet = $operatingIn + $salesCash - $operatingOut - $purchaseCash;
 $investingNet = -$assetPurchases;
 $financingNet = $financingIn - $financingOut;
 $netChange = $operatingNet + $investingNet + $financingNet;
 
-$beginningInSql = "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND transaction_date < '$startDate'";
-if (!$isSuperAdmin && $tenantId) {
-    $beginningInSql .= " AND tenant_id = $tenantId";
-}
-$beginningOutSql = "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND transaction_date < '$startDate'";
-if (!$isSuperAdmin && $tenantId) {
-    $beginningOutSql .= " AND tenant_id = $tenantId";
-}
-$beginningCash = (float)$d->query($beginningInSql)->fetchColumn() - (float)$d->query($beginningOutSql)->fetchColumn();
+$beginningIn = runCashFlowSum($d, "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND transaction_date < ?", [$startDate], true, $tenantId, $branchId, $isSuperAdmin);
+$beginningOut = runCashFlowSum($d, "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND transaction_date < ?", [$startDate], true, $tenantId, $branchId, $isSuperAdmin);
+$beginningCash = $beginningIn - $beginningOut;
 $endingCash = $beginningCash + $netChange;
 
 renderHead('Laporan Arus Kas');

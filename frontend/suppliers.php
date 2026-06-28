@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+requirePermission('manage_suppliers');
 
 $d = db();
 $user = currentUser();
@@ -14,11 +15,13 @@ if ($search) {
     $q = '%' . $search . '%';
     $searchParams = [$q, $q];
     if (!$isSuperAdmin && $tenantId) {
-        $searchSql .= " AND tenant_id = $tenantId";
+        $searchSql .= " AND tenant_id = ?";
+        $searchParams[] = $tenantId;
     }
 } else {
     if (!$isSuperAdmin && $tenantId) {
-        $searchSql = "WHERE tenant_id = $tenantId";
+        $searchSql = "WHERE tenant_id = ?";
+        $searchParams[] = $tenantId;
     }
 }
 
@@ -36,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     } elseif ($action === 'delete') {
         $id = $_POST['id'];
-        $d->prepare("DELETE FROM suppliers WHERE id = ?")->execute([$id]);
+        $d->prepare("DELETE FROM suppliers WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"))->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
         header('Location: suppliers.php?msg=deleted');
         exit;
     }

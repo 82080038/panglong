@@ -1,5 +1,6 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_quotations');
 
 $d = db();
 $user = currentUser();
@@ -7,25 +8,37 @@ $tenantId = $user['tenant_id'] ?? null;
 $isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $customerSql = "SELECT id, name FROM customers";
+$customerParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $customerSql .= " WHERE tenant_id = $tenantId";
+    $customerSql .= " WHERE tenant_id = ?";
+    $customerParams[] = $tenantId;
 }
 $customerSql .= " ORDER BY name LIMIT 200";
-$customers = $d->query($customerSql)->fetchAll();
+$customerStmt = $d->prepare($customerSql);
+$customerStmt->execute($customerParams);
+$customers = $customerStmt->fetchAll();
 
 $productSql = "SELECT id, code, name, sell_price FROM products WHERE is_active = 1";
+$productParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $productSql .= " AND tenant_id = $tenantId";
+    $productSql .= " AND tenant_id = ?";
+    $productParams[] = $tenantId;
 }
 $productSql .= " ORDER BY name LIMIT 200";
-$products = $d->query($productSql)->fetchAll();
+$productStmt = $d->prepare($productSql);
+$productStmt->execute($productParams);
+$products = $productStmt->fetchAll();
 
 $quoteSql = "SELECT q.*, c.name as customer_name FROM quotations q LEFT JOIN customers c ON q.customer_id = c.id";
+$quoteParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $quoteSql .= " WHERE q.tenant_id = $tenantId";
+    $quoteSql .= " WHERE q.tenant_id = ?";
+    $quoteParams[] = $tenantId;
 }
 $quoteSql .= " ORDER BY q.id DESC LIMIT 20";
-$quotes = $d->query($quoteSql)->fetchAll();
+$quoteStmt = $d->prepare($quoteSql);
+$quoteStmt->execute($quoteParams);
+$quotes = $quoteStmt->fetchAll();
 
 renderHead('Quotations');
 renderNav('quotations');

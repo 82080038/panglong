@@ -1,35 +1,69 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_fixed_assets');
 
 $d = db();
 $user = currentUser();
 $tenantId = $user['tenant_id'] ?? null;
+$branchId = $user['branch_id'] ?? null;
 $isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $assetSql = "SELECT * FROM fixed_assets";
+$assetParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $assetSql .= " WHERE tenant_id = $tenantId";
+    $assetSql .= " WHERE tenant_id = ?";
+    $assetParams[] = $tenantId;
+    if ($branchId) {
+        $assetSql .= " AND branch_id = ?";
+        $assetParams[] = $branchId;
+    }
 }
 $assetSql .= " ORDER BY id DESC LIMIT 50";
-$assets = $d->query($assetSql)->fetchAll();
+$assetStmt = $d->prepare($assetSql);
+$assetStmt->execute($assetParams);
+$assets = $assetStmt->fetchAll();
 
 $totalCostSql = "SELECT COALESCE(SUM(acquisition_cost),0) FROM fixed_assets WHERE status='active'";
+$totalCostParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $totalCostSql .= " AND tenant_id = $tenantId";
+    $totalCostSql .= " AND tenant_id = ?";
+    $totalCostParams[] = $tenantId;
+    if ($branchId) {
+        $totalCostSql .= " AND branch_id = ?";
+        $totalCostParams[] = $branchId;
+    }
 }
-$totalCost = $d->query($totalCostSql)->fetchColumn();
+$totalCostStmt = $d->prepare($totalCostSql);
+$totalCostStmt->execute($totalCostParams);
+$totalCost = $totalCostStmt->fetchColumn();
 
 $totalDepSql = "SELECT COALESCE(SUM(accumulated_depreciation),0) FROM fixed_assets WHERE status='active'";
+$totalDepParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $totalDepSql .= " AND tenant_id = $tenantId";
+    $totalDepSql .= " AND tenant_id = ?";
+    $totalDepParams[] = $tenantId;
+    if ($branchId) {
+        $totalDepSql .= " AND branch_id = ?";
+        $totalDepParams[] = $branchId;
+    }
 }
-$totalDep = $d->query($totalDepSql)->fetchColumn();
+$totalDepStmt = $d->prepare($totalDepSql);
+$totalDepStmt->execute($totalDepParams);
+$totalDep = $totalDepStmt->fetchColumn();
 
 $totalBookSql = "SELECT COALESCE(SUM(book_value),0) FROM fixed_assets WHERE status='active'";
+$totalBookParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $totalBookSql .= " AND tenant_id = $tenantId";
+    $totalBookSql .= " AND tenant_id = ?";
+    $totalBookParams[] = $tenantId;
+    if ($branchId) {
+        $totalBookSql .= " AND branch_id = ?";
+        $totalBookParams[] = $branchId;
+    }
 }
-$totalBook = $d->query($totalBookSql)->fetchColumn();
+$totalBookStmt = $d->prepare($totalBookSql);
+$totalBookStmt->execute($totalBookParams);
+$totalBook = $totalBookStmt->fetchColumn();
 
 renderHead('Fixed Assets');
 renderNav('fixed-assets');

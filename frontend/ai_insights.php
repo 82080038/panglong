@@ -1,5 +1,6 @@
 <?php
 require_once 'config.php';
+requirePermission('view_ai_insights');
 
 $d = db();
 

@@ -1,11 +1,16 @@
 <?php
 require_once __DIR__ . '/config.php';
+requirePermission('manage_sales');
 
 $id = $_GET['id'] ?? 0;
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$branchId = $user['branch_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$stmt = $d->prepare("SELECT s.*, c.name as customer_name FROM sales s LEFT JOIN customers c ON s.customer_id = c.id WHERE s.id = ?");
-$stmt->execute([$id]);
+$stmt = $d->prepare("SELECT s.*, c.name as customer_name FROM sales s LEFT JOIN customers c ON s.customer_id = c.id WHERE s.id = ?" . ($isSuperAdmin ? "" : " AND s.tenant_id = ? AND s.branch_id = ?"));
+$stmt->execute($isSuperAdmin ? [$id] : [$id, $tenantId, $branchId]);
 $sale = $stmt->fetch();
 
 if (!$sale) {

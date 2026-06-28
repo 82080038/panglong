@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+requirePermission('manage_products');
 
 $d = db();
 $user = currentUser();
@@ -7,18 +8,40 @@ $tenantId = $user['tenant_id'] ?? null;
 $isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 // Fetch warehouse locations for dropdown
-$warehouseLocations = $d->query("SELECT id, code, name FROM warehouse_locations WHERE is_active = 1 ORDER BY code")->fetchAll();
+$whParams = [];
+$whSql = "SELECT id, code, name FROM warehouse_locations WHERE is_active = 1";
+if (!$isSuperAdmin && $tenantId) {
+    $whSql .= " AND tenant_id = ?";
+    $whParams[] = $tenantId;
+}
+$whSql .= " ORDER BY code";
+$whStmt = $d->prepare($whSql);
+$whStmt->execute($whParams);
+$warehouseLocations = $whStmt->fetchAll();
 
 // Fetch brands for dropdown (from distinct values in products table)
 $brandSql = "SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND brand != ''";
+$brandParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $brandSql .= " AND tenant_id = $tenantId";
+    $brandSql .= " AND tenant_id = ?";
+    $brandParams[] = $tenantId;
 }
 $brandSql .= " ORDER BY brand";
-$brands = $d->query($brandSql)->fetchAll();
+$brandStmt = $d->prepare($brandSql);
+$brandStmt->execute($brandParams);
+$brands = $brandStmt->fetchAll();
 
 // Fetch unit measurements for dropdown
-$unitMeasurements = $d->query("SELECT code, name FROM unit_measurements WHERE is_active = 1 ORDER BY name")->fetchAll();
+$unitParams = [];
+$unitSql = "SELECT code, name FROM unit_measurements WHERE is_active = 1";
+if (!$isSuperAdmin && $tenantId) {
+    $unitSql .= " AND tenant_id = ?";
+    $unitParams[] = $tenantId;
+}
+$unitSql .= " ORDER BY name";
+$unitStmt = $d->prepare($unitSql);
+$unitStmt->execute($unitParams);
+$unitMeasurements = $unitStmt->fetchAll();
 
 $search = $_GET['search'] ?? '';
 $searchSql = '';
@@ -28,11 +51,13 @@ if ($search) {
     $q = '%' . $search . '%';
     $searchParams = [$q, $q, $q];
     if (!$isSuperAdmin && $tenantId) {
-        $searchSql .= " AND p.tenant_id = $tenantId";
+        $searchSql .= " AND p.tenant_id = ?";
+        $searchParams[] = $tenantId;
     }
 } else {
     if (!$isSuperAdmin && $tenantId) {
-        $searchSql = "WHERE p.tenant_id = $tenantId";
+        $searchSql = "WHERE p.tenant_id = ?";
+        $searchParams[] = $tenantId;
     }
 }
 
@@ -47,19 +72,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $code = 'PRD-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
         }
         
-        // Check for duplicate code
-        $existingCode = $d->prepare("SELECT id, name FROM products WHERE code = ?");
-        $existingCode->execute([$code]);
+        // Check for duplicate code (tenant scope)
+        $dupCodeParams = [$code];
+        $dupCodeSql = "SELECT id, name FROM products WHERE code = ?";
+        if (!$isSuperAdmin && $tenantId) {
+            $dupCodeSql .= " AND tenant_id = ?";
+            $dupCodeParams[] = $tenantId;
+        }
+        $existingCode = $d->prepare($dupCodeSql);
+        $existingCode->execute($dupCodeParams);
         if ($existing = $existingCode->fetch()) {
-            header('Lokasi: products.php?error=duplicate_code&existing_name=' . urlencode($existing['name']));
+            header('Location: products.php?error=duplicate_code&existing_name=' . urlencode($existing['name']));
             exit;
         }
         
-        // Check for duplicate name (case-insensitive)
-        $existingName = $d->prepare("SELECT id, code FROM products WHERE LOWER(name) = LOWER(?)");
-        $existingName->execute([$_POST['name']]);
+        // Check for duplicate name (case-insensitive, tenant scope)
+        $dupNameParams = [$_POST['name']];
+        $dupNameSql = "SELECT id, code FROM products WHERE LOWER(name) = LOWER(?)";
+        if (!$isSuperAdmin && $tenantId) {
+            $dupNameSql .= " AND tenant_id = ?";
+            $dupNameParams[] = $tenantId;
+        }
+        $existingName = $d->prepare($dupNameSql);
+        $existingName->execute($dupNameParams);
         if ($existing = $existingName->fetch()) {
-            header('Lokasi: products.php?error=duplicate_name&existing_code=' . urlencode($existing['code']));
+            header('Location: products.php?error=duplicate_name&existing_code=' . urlencode($existing['code']));
             exit;
         }
         
@@ -102,8 +139,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'edit') {
         $id = $_POST['id'];
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("UPDATE products SET name=?, alias=?, category_id=?, brand=?, location=?, min_stock=?, max_stock=?, buy_price=?, sell_price=?, is_active=?, weight_kg=?, length_cm=?, width_cm=?, height_cm=?, updated_at=? WHERE id=?");
-        $stmt->execute([
+        $stmt = $d->prepare("UPDATE products SET name=?, alias=?, category_id=?, brand=?, location=?, min_stock=?, max_stock=?, buy_price=?, sell_price=?, is_active=?, weight_kg=?, length_cm=?, width_cm=?, height_cm=?, updated_at=? WHERE id=?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+        $editParams = [
             $_POST['name'], 
             $_POST['alias'] ?? null, 
             $_POST['category_id'] ?? null, 
@@ -120,19 +157,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_POST['height_cm'] ?? 0,
             $now, 
             $id
-        ]);
+        ];
+        if (!$isSuperAdmin && $tenantId) $editParams[] = $tenantId;
+        $stmt->execute($editParams);
         header('Lokasi: products.php?msg=updated');
         exit;
     } elseif ($action === 'delete') {
         $id = $_POST['id'];
         
-        // Check if product has transactions
-        $hasSales = $d->prepare("SELECT COUNT(*) FROM sale_items WHERE product_id = ?");
-        $hasSales->execute([$id]);
+        // Check if product has transactions (tenant scope)
+        $hasSales = $d->prepare("SELECT COUNT(*) FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.product_id = ?" . ($isSuperAdmin ? "" : " AND s.tenant_id = ?"));
+        $hasSales->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
         $salesCount = $hasSales->fetchColumn();
         
-        $hasPurchases = $d->prepare("SELECT COUNT(*) FROM purchase_order_items WHERE product_id = ?");
-        $hasPurchases->execute([$id]);
+        $hasPurchases = $d->prepare("SELECT COUNT(*) FROM purchase_order_items poi JOIN purchase_orders po ON poi.po_id = po.id WHERE poi.product_id = ?" . ($isSuperAdmin ? "" : " AND po.tenant_id = ?"));
+        $hasPurchases->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
         $purchasesCount = $hasPurchases->fetchColumn();
         
         if ($salesCount > 0 || $purchasesCount > 0) {
@@ -141,7 +180,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         // Soft delete instead of hard delete
-        $d->prepare("UPDATE products SET is_active = 0, updated_at = ? WHERE id = ?")->execute([date('Y-m-d H:i:s'), $id]);
+        $delParams = [date('Y-m-d H:i:s'), $id];
+        $delSql = "UPDATE products SET is_active = 0, updated_at = ? WHERE id = ?";
+        if (!$isSuperAdmin && $tenantId) {
+            $delSql .= " AND tenant_id = ?";
+            $delParams[] = $tenantId;
+        }
+        $d->prepare($delSql)->execute($delParams);
         header('Lokasi: products.php?msg=deactivated');
         exit;
     }
@@ -152,7 +197,16 @@ $stmt = $d->prepare($sql);
 $stmt->execute($searchParams);
 $products = $stmt->fetchAll();
 
-$categories = $d->query("SELECT id, name FROM categories ORDER BY name")->fetchAll();
+$catParams = [];
+$catSql = "SELECT id, name FROM categories";
+if (!$isSuperAdmin && $tenantId) {
+    $catSql .= " WHERE tenant_id = ?";
+    $catParams[] = $tenantId;
+}
+$catSql .= " ORDER BY name";
+$catStmt = $d->prepare($catSql);
+$catStmt->execute($catParams);
+$categories = $catStmt->fetchAll();
 
 $msg = $_GET['msg'] ?? '';
 $error = $_GET['error'] ?? '';

@@ -1,44 +1,62 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_warehouses');
 
 $d = db();
 $user = currentUser();
 $tenantId = $user['tenant_id'] ?? null;
+$branchId = $user['branch_id'] ?? null;
 $isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $warehouseSql = "SELECT * FROM warehouses";
+$warehouseParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $warehouseSql .= " WHERE tenant_id = $tenantId";
+    $warehouseSql .= " WHERE tenant_id = ?";
+    $warehouseParams[] = $tenantId;
+    if ($branchId) {
+        $warehouseSql .= " AND branch_id = ?";
+        $warehouseParams[] = $branchId;
+    }
 }
 $warehouseSql .= " ORDER BY id";
-$warehouses = $d->query($warehouseSql)->fetchAll();
+$warehouseStmt = $d->prepare($warehouseSql);
+$warehouseStmt->execute($warehouseParams);
+$warehouses = $warehouseStmt->fetchAll();
 
 $transferSql = "SELECT * FROM stock_transfers";
+$transferParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $transferSql .= " WHERE tenant_id = $tenantId";
+    $transferSql .= " WHERE tenant_id = ?";
+    $transferParams[] = $tenantId;
 }
 $transferSql .= " ORDER BY id DESC LIMIT 50";
-$transfers = $d->query($transferSql)->fetchAll();
+$transferStmt = $d->prepare($transferSql);
+$transferStmt->execute($transferParams);
+$transfers = $transferStmt->fetchAll();
 
 $productSql = "SELECT id, code, name FROM products WHERE is_active = 1";
+$productParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $productSql .= " AND tenant_id = $tenantId";
+    $productSql .= " AND tenant_id = ?";
+    $productParams[] = $tenantId;
 }
 $productSql .= " ORDER BY name LIMIT 100";
-$products = $d->query($productSql)->fetchAll();
+$productStmt = $d->prepare($productSql);
+$productStmt->execute($productParams);
+$products = $productStmt->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (($_POST['action'] ?? '') === 'create_warehouse') {
         $now = date('Y-m-d H:i:s');
-        $stmt = $d->prepare("INSERT INTO warehouses (code, name, address, phone, is_active, created_at, updated_at) VALUES (?,?,?,?,1,?,?)");
-        $stmt->execute([$_POST['code'], $_POST['name'], $_POST['address'] ?? null, $_POST['phone'] ?? null, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO warehouses (code, name, address, phone, is_active, created_at, updated_at, tenant_id, branch_id) VALUES (?,?,?,?,1,?,?,?,?)");
+        $stmt->execute([$_POST['code'], $_POST['name'], $_POST['address'] ?? null, $_POST['phone'] ?? null, $now, $now, $tenantId, $branchId]);
         header('Location: warehouses.php?msg=created');
         exit;
     } elseif (($_POST['action'] ?? '') === 'create_transfer') {
         $now = date('Y-m-d H:i:s');
         $transferNo = 'TR-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
-        $stmt = $d->prepare("INSERT INTO stock_transfers (transfer_no, transfer_date, from_warehouse_id, to_warehouse_id, status, notes, created_at, updated_at) VALUES (?,?,?,?,?,'pending',?,?)");
-        $stmt->execute([$transferNo, $_POST['transfer_date'], (int)$_POST['from_warehouse_id'], (int)$_POST['to_warehouse_id'], $_POST['notes'] ?? null, $now, $now]);
+        $stmt = $d->prepare("INSERT INTO stock_transfers (transfer_no, transfer_date, from_warehouse_id, to_warehouse_id, status, notes, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,'pending',?,?,?)");
+        $stmt->execute([$transferNo, $_POST['transfer_date'], (int)$_POST['from_warehouse_id'], (int)$_POST['to_warehouse_id'], $_POST['notes'] ?? null, $now, $now, $tenantId]);
         $transferId = $d->lastInsertId();
         if (!empty($_POST['product_id'])) {
             foreach ($_POST['product_id'] as $i => $pid) {

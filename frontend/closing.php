@@ -3,16 +3,22 @@ require_once 'config.php';
 requirePermission('view_reports');
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$closings = $d->query("SELECT pc.*, u.full_name as closed_by_name FROM period_closings pc LEFT JOIN users u ON pc.closed_by = u.id ORDER BY pc.period_year DESC, pc.period_month DESC")->fetchAll();
+$closingsSql = "SELECT pc.*, u.full_name as closed_by_name FROM period_closings pc LEFT JOIN users u ON pc.closed_by = u.id" . ($isSuperAdmin ? "" : " WHERE pc.tenant_id = ?") . " ORDER BY pc.period_year DESC, pc.period_month DESC";
+$closingsStmt = $d->prepare($closingsSql);
+$closingsStmt->execute($isSuperAdmin ? [] : [$tenantId]);
+$closings = $closingsStmt->fetchAll();
 
 $currentYear = (int)date('Y');
 $currentMonth = (int)date('n');
 
 // Check if current period is locked
-$stmt = $d->prepare("SELECT status FROM period_closings WHERE period_year = ? AND period_month = ?");
-$stmt->execute([$currentYear, $currentMonth]);
-$currentStatus = $stmt->fetchColumn() ?: 'open';
+$currentStmt = $d->prepare("SELECT status FROM period_closings WHERE period_year = ? AND period_month = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+$currentStmt->execute($isSuperAdmin ? [$currentYear, $currentMonth] : [$currentYear, $currentMonth, $tenantId]);
+$currentStatus = $currentStmt->fetchColumn() ?: 'open';
 
 renderHead('Tutup Buku Periode');
 renderNav('closing');

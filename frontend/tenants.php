@@ -1,14 +1,7 @@
 <?php
 require_once __DIR__ . '/auth.php';
 
-// Cek apakah user login
-requireLogin();
-
-// Cek apakah user adalah Super Admin
-if (currentUser()['role_slug'] !== 'super_admin') {
-    header('Location: index.php');
-    exit;
-}
+requirePermission('manage_tenants');
 
 $db = db();
 

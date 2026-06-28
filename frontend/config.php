@@ -4,6 +4,25 @@ date_default_timezone_set('Asia/Jakarta');
 ini_set('display_errors', '0');
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
+// Enforce HTTPS and secure session cookies outside of localhost
+$isLocalhost = in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1', '::1']);
+if (!$isLocalhost && (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off')) {
+    $redirectUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? '') . ($_SERVER['REQUEST_URI'] ?? '/');
+    header('Location: ' . $redirectUrl, true, 301);
+    exit;
+}
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'domain' => '',
+        'secure' => !$isLocalhost,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+}
+
 require_once __DIR__ . '/auth.php';
 
 // === FUNGSI BAHASA INDONESIA ===
@@ -261,6 +280,7 @@ function renderHead($title) {
     global $theme;
     $themeAttr = htmlspecialchars($theme);
     $csrfToken = generateCsrfToken();
+    $isLocalhost = in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1', '::1']);
     
     // Security headers
     header('X-Content-Type-Options: nosniff');
@@ -276,7 +296,7 @@ function renderHead($title) {
     <link href="assets/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/bootstrap-icons.css">
     <script src="assets/js/jquery-3.6.0.min.js"></script>
-    <script>const API_URL="ajax.php";const API_TOKEN="";const CSRF_TOKEN="' . htmlspecialchars($csrfToken) . '";const TEST_MODE=true;</script>
+    <script>const API_URL="ajax.php";const API_TOKEN="";const CSRF_TOKEN="' . htmlspecialchars($csrfToken) . '";const TEST_MODE=' . ($isLocalhost ? 'true' : 'false') . ';</script>
     <meta name="csrf-token" content="' . htmlspecialchars($csrfToken) . '">
     <script>
     // Screen detection and dynamic layout adjustment
@@ -404,6 +424,36 @@ function renderFoot() {
             \'X-CSRF-Token\': CSRF_TOKEN
         }
     });
+
+    // Ensure all same-origin fetch() calls include CSRF token for mutating methods
+    (function() {
+        var originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            options = options || {};
+            var method = (options.method || \'GET\').toUpperCase();
+            var targetUrl;
+            try {
+                targetUrl = new URL(url, window.location.href);
+            } catch (e) {
+                return originalFetch(url, options);
+            }
+            if ([\'POST\', \'PUT\', \'DELETE\', \'PATCH\'].indexOf(method) !== -1 && targetUrl.origin === window.location.origin) {
+                if (!options.headers) {
+                    options.headers = {};
+                } else if (options.headers instanceof Headers) {
+                    var newHeaders = {};
+                    options.headers.forEach(function(value, key) {
+                        newHeaders[key] = value;
+                    });
+                    options.headers = newHeaders;
+                }
+                if (!options.headers[\'X-CSRF-Token\'] && !options.headers[\'x-csrf-token\']) {
+                    options.headers[\'X-CSRF-Token\'] = CSRF_TOKEN;
+                }
+            }
+            return originalFetch(url, options);
+        };
+    })();
 
     // Anti-double-click: disable submit buttons on form submit, re-enable after
     (function() {

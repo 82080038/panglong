@@ -1,5 +1,6 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_sales_orders');
 
 $d = db();
 $user = currentUser();
@@ -7,25 +8,37 @@ $tenantId = $user['tenant_id'] ?? null;
 $isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $customerSql = "SELECT id, name FROM customers";
+$customerParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $customerSql .= " WHERE tenant_id = $tenantId";
+    $customerSql .= " WHERE tenant_id = ?";
+    $customerParams[] = $tenantId;
 }
 $customerSql .= " ORDER BY name LIMIT 200";
-$customers = $d->query($customerSql)->fetchAll();
+$customerStmt = $d->prepare($customerSql);
+$customerStmt->execute($customerParams);
+$customers = $customerStmt->fetchAll();
 
 $productSql = "SELECT id, code, name, sell_price FROM products WHERE is_active = 1";
+$productParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $productSql .= " AND tenant_id = $tenantId";
+    $productSql .= " AND tenant_id = ?";
+    $productParams[] = $tenantId;
 }
 $productSql .= " ORDER BY name LIMIT 200";
-$products = $d->query($productSql)->fetchAll();
+$productStmt = $d->prepare($productSql);
+$productStmt->execute($productParams);
+$products = $productStmt->fetchAll();
 
 $soSql = "SELECT so.*, c.name as customer_name FROM sales_orders so LEFT JOIN customers c ON so.customer_id = c.id";
+$soParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $soSql .= " WHERE so.tenant_id = $tenantId";
+    $soSql .= " WHERE so.tenant_id = ?";
+    $soParams[] = $tenantId;
 }
 $soSql .= " ORDER BY so.id DESC LIMIT 20";
-$sos = $d->query($soSql)->fetchAll();
+$soStmt = $d->prepare($soSql);
+$soStmt->execute($soParams);
+$sos = $soStmt->fetchAll();
 
 renderHead('Sales Orders');
 renderNav('sales-orders');

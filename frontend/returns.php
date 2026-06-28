@@ -1,45 +1,83 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_returns');
 
 $d = db();
 $user = currentUser();
 $tenantId = $user['tenant_id'] ?? null;
+$branchId = $user['branch_id'] ?? null;
 $isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $salesReturnSql = "SELECT sr.*, c.name as customer_name, s.invoice_no FROM sales_returns sr LEFT JOIN customers c ON sr.customer_id = c.id LEFT JOIN sales s ON sr.sale_id = s.id";
+$salesReturnParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $salesReturnSql .= " WHERE sr.tenant_id = $tenantId";
+    $salesReturnSql .= " WHERE sr.tenant_id = ?";
+    $salesReturnParams[] = $tenantId;
+    if ($branchId) {
+        $salesReturnSql .= " AND (s.branch_id = ? OR s.branch_id IS NULL)";
+        $salesReturnParams[] = $branchId;
+    }
 }
 $salesReturnSql .= " ORDER BY sr.id DESC LIMIT 20";
-$salesReturns = $d->query($salesReturnSql)->fetchAll();
+$salesReturnStmt = $d->prepare($salesReturnSql);
+$salesReturnStmt->execute($salesReturnParams);
+$salesReturns = $salesReturnStmt->fetchAll();
 
 $purchaseReturnSql = "SELECT pr.*, s.name as supplier_name, po.po_number FROM purchase_returns pr LEFT JOIN suppliers s ON pr.supplier_id = s.id LEFT JOIN purchase_orders po ON pr.po_id = po.id";
+$purchaseReturnParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $purchaseReturnSql .= " WHERE pr.tenant_id = $tenantId";
+    $purchaseReturnSql .= " WHERE pr.tenant_id = ?";
+    $purchaseReturnParams[] = $tenantId;
+    if ($branchId) {
+        $purchaseReturnSql .= " AND (po.branch_id = ? OR po.branch_id IS NULL)";
+        $purchaseReturnParams[] = $branchId;
+    }
 }
 $purchaseReturnSql .= " ORDER BY pr.id DESC LIMIT 20";
-$purchaseReturns = $d->query($purchaseReturnSql)->fetchAll();
+$purchaseReturnStmt = $d->prepare($purchaseReturnSql);
+$purchaseReturnStmt->execute($purchaseReturnParams);
+$purchaseReturns = $purchaseReturnStmt->fetchAll();
 
 $salesSql = "SELECT id, invoice_no FROM sales WHERE status != 'voided'";
+$salesParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $salesSql .= " AND tenant_id = $tenantId";
+    $salesSql .= " AND tenant_id = ?";
+    $salesParams[] = $tenantId;
+    if ($branchId) {
+        $salesSql .= " AND branch_id = ?";
+        $salesParams[] = $branchId;
+    }
 }
 $salesSql .= " ORDER BY id DESC LIMIT 50";
-$sales = $d->query($salesSql)->fetchAll();
+$salesStmt = $d->prepare($salesSql);
+$salesStmt->execute($salesParams);
+$sales = $salesStmt->fetchAll();
 
 $poSql = "SELECT id, po_number FROM purchase_orders";
+$poParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $poSql .= " WHERE tenant_id = $tenantId";
+    $poSql .= " WHERE tenant_id = ?";
+    $poParams[] = $tenantId;
+    if ($branchId) {
+        $poSql .= " AND branch_id = ?";
+        $poParams[] = $branchId;
+    }
 }
 $poSql .= " ORDER BY id DESC LIMIT 50";
-$pos = $d->query($poSql)->fetchAll();
+$poStmt = $d->prepare($poSql);
+$poStmt->execute($poParams);
+$pos = $poStmt->fetchAll();
 
 $productSql = "SELECT id, code, name FROM products WHERE is_active = 1";
+$productParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $productSql .= " AND tenant_id = $tenantId";
+    $productSql .= " AND tenant_id = ?";
+    $productParams[] = $tenantId;
 }
 $productSql .= " ORDER BY name LIMIT 200";
-$products = $d->query($productSql)->fetchAll();
+$productStmt = $d->prepare($productSql);
+$productStmt->execute($productParams);
+$products = $productStmt->fetchAll();
 
 renderHead('Returns');
 renderNav('returns');

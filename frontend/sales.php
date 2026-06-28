@@ -1,5 +1,6 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_sales');
 
 $d = db();
 $user = currentUser();
@@ -7,31 +8,51 @@ $tenantId = $user['tenant_id'] ?? null;
 $isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $customerSql = "SELECT id, name, group_id FROM customers";
+$customerParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $customerSql .= " WHERE tenant_id = $tenantId";
+    $customerSql .= " WHERE tenant_id = ?";
+    $customerParams[] = $tenantId;
 }
 $customerSql .= " ORDER BY name LIMIT 200";
-$customers = $d->query($customerSql)->fetchAll();
+$stmt = $d->prepare($customerSql);
+$stmt->execute($customerParams);
+$customers = $stmt->fetchAll();
 
 $productSql = "SELECT id, code, name, sell_price FROM products WHERE is_active = 1";
+$productParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $productSql .= " AND tenant_id = $tenantId";
+    $productSql .= " AND tenant_id = ?";
+    $productParams[] = $tenantId;
 }
 $productSql .= " ORDER BY name LIMIT 200";
-$products = $d->query($productSql)->fetchAll();
+$stmt = $d->prepare($productSql);
+$stmt->execute($productParams);
+$products = $stmt->fetchAll();
 
 // Fetch payment methods for dropdown
-$paymentMethods = $d->query("SELECT code, name FROM payment_methods WHERE is_active = 1 ORDER BY name")->fetchAll();
+$pmStmt = $d->prepare("SELECT code, name FROM payment_methods WHERE is_active = 1" . ($isSuperAdmin ? "" : " AND tenant_id = ?") . " ORDER BY name");
+$pmStmt->execute($isSuperAdmin ? [] : [$tenantId]);
+$paymentMethods = $pmStmt->fetchAll();
 
 // Fetch sales status codes for dropdown
-$salesStatuses = $d->query("SELECT code, name FROM status_codes WHERE module = 'sales' AND is_active = 1 ORDER BY name")->fetchAll();
+$scStmt = $d->prepare("SELECT code, name FROM status_codes WHERE module = 'sales' AND is_active = 1" . ($isSuperAdmin ? "" : " AND tenant_id = ?") . " ORDER BY name");
+$scStmt->execute($isSuperAdmin ? [] : [$tenantId]);
+$salesStatuses = $scStmt->fetchAll();
 
 $salesSql = "SELECT s.*, c.name as customer_name FROM sales s LEFT JOIN customers c ON s.customer_id = c.id";
+$salesParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $salesSql .= " WHERE s.tenant_id = $tenantId";
+    $salesSql .= " WHERE s.tenant_id = ?";
+    $salesParams[] = $tenantId;
+    if ($branchId) {
+        $salesSql .= " AND s.branch_id = ?";
+        $salesParams[] = $branchId;
+    }
 }
 $salesSql .= " ORDER BY s.id DESC LIMIT 20";
-$sales = $d->query($salesSql)->fetchAll();
+$stmt = $d->prepare($salesSql);
+$stmt->execute($salesParams);
+$sales = $stmt->fetchAll();
 foreach ($sales as &$s) {
     $s['customer'] = ['name' => $s['customer_name'] ?? 'Pelanggan Umum'];
     $s['customer_name_snapshot'] = $s['customer_name'] ?? 'Pelanggan Umum';

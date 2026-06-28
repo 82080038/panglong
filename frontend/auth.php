@@ -95,10 +95,56 @@ function userFullName() {
     return $u['full_name'] ?? 'User';
 }
 
+// Role-based permission mapping (P0 #8: per-page access control)
+$rolePermissions = [
+    'manage_products' => ['owner', 'manager', 'gudang'],
+    'manage_categories' => ['owner', 'manager', 'gudang'],
+    'manage_brands' => ['owner', 'manager', 'gudang'],
+    'manage_warehouses' => ['owner', 'manager', 'gudang'],
+    'manage_warehouse_locations' => ['owner', 'manager', 'gudang'],
+    'manage_stock' => ['owner', 'manager', 'gudang'],
+    'manage_stock_adjustments' => ['owner', 'manager', 'gudang'],
+    'manage_stock_transfers' => ['owner', 'manager', 'gudang'],
+    'manage_stock_opname' => ['owner', 'manager', 'gudang'],
+    'manage_product_batches' => ['owner', 'manager', 'gudang'],
+    'manage_customers' => ['owner', 'manager', 'kasir', 'supervisor'],
+    'manage_suppliers' => ['owner', 'manager', 'gudang'],
+    'manage_sales' => ['owner', 'manager', 'kasir', 'supervisor'],
+    'manage_purchase_orders' => ['owner', 'manager', 'gudang'],
+    'manage_deliveries' => ['owner', 'manager', 'gudang', 'kasir'],
+    'manage_returns' => ['owner', 'manager', 'gudang'],
+    'manage_quotations' => ['owner', 'manager'],
+    'manage_sales_orders' => ['owner', 'manager', 'gudang'],
+    'manage_pricing' => ['owner', 'manager'],
+    'manage_users' => ['owner', 'manager', 'super_admin'],
+    'manage_settings' => ['owner', 'super_admin'],
+    'view_reports' => ['owner', 'manager', 'super_admin', 'accounting', 'supervisor'],
+    'manage_accounting' => ['owner', 'manager', 'accounting'],
+    'manage_cashbook' => ['owner', 'manager', 'accounting', 'kasir'],
+    'manage_cash_flow' => ['owner', 'manager', 'accounting'],
+    'manage_closing' => ['owner', 'manager', 'accounting'],
+    'manage_fixed_assets' => ['owner', 'manager', 'accounting'],
+    'manage_tenants' => ['super_admin'],
+    'manage_fleet' => ['owner', 'manager'],
+    'manage_routes' => ['owner', 'manager', 'gudang'],
+    'manage_marketplace' => ['owner', 'manager'],
+    'manage_whatsapp' => ['owner', 'manager', 'kasir'],
+    'manage_iot' => ['owner', 'manager', 'gudang'],
+    'view_ai_insights' => ['owner', 'manager', 'supervisor'],
+    'view_reorder' => ['owner', 'manager', 'gudang'],
+    'manage_saas' => ['owner', 'super_admin'],
+    'manage_e_faktur' => ['owner', 'manager', 'accounting'],
+    'manage_landed_cost' => ['owner', 'manager', 'gudang'],
+    'view_dashboard' => ['owner', 'manager', 'super_admin', 'gudang', 'kasir', 'accounting', 'supervisor'],
+    'salesman_app' => ['owner', 'manager', 'supervisor', 'kasir'],
+];
+
 function hasPermission($slug) {
     $u = currentUser();
     if (!$u) return false;
     if ($u['role_slug'] === 'owner' || $u['role_slug'] === 'super_admin') return true;
+    $allowedRoles = $GLOBALS['rolePermissions'][$slug] ?? [];
+    if (in_array($u['role_slug'], $allowedRoles)) return true;
     if (in_array($slug, $u['permissions'] ?? [])) return true;
     // P0 #10: Check extra_permissions fallback
     if (in_array($slug, $u['extra_permissions'] ?? [])) return true;

@@ -1,15 +1,72 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_pricing');
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$customers = $d->query("SELECT id, name FROM customers ORDER BY name LIMIT 200")->fetchAll();
-$products = $d->query("SELECT id, code, name, sell_price FROM products WHERE is_active = 1 ORDER BY name LIMIT 200")->fetchAll();
-$suppliers = $d->query("SELECT id, name FROM suppliers ORDER BY name LIMIT 200")->fetchAll();
+function addTenantFilter($sql, $alias, $tenantId, $isSuperAdmin, &$params) {
+    if (!$isSuperAdmin && $tenantId) {
+        $prefix = $alias ? "{$alias}." : "";
+        if (preg_match('/\bWHERE\b/i', $sql)) {
+            $sql .= " AND {$prefix}tenant_id = ?";
+        } else {
+            $sql .= " WHERE {$prefix}tenant_id = ?";
+        }
+        $params[] = $tenantId;
+    }
+    return $sql;
+}
 
-$customerPrices = $d->query("SELECT cpp.*, c.name as customer_name, p.name as product_name, p.code as product_code FROM customer_product_prices cpp LEFT JOIN customers c ON cpp.customer_id = c.id LEFT JOIN products p ON cpp.product_id = p.id WHERE cpp.is_active = 1 ORDER BY cpp.id DESC LIMIT 50")->fetchAll();
-$tierPrices = $d->query("SELECT pt.*, p.name as product_name, p.code as product_code FROM product_tier_prices pt LEFT JOIN products p ON pt.product_id = p.id WHERE pt.is_active = 1 ORDER BY pt.id DESC LIMIT 50")->fetchAll();
-$priceHistory = $d->query("SELECT sph.*, s.name as supplier_name, p.name as product_name, p.code as product_code FROM supplier_price_history sph LEFT JOIN suppliers s ON sph.supplier_id = s.id LEFT JOIN products p ON sph.product_id = p.id ORDER BY sph.id DESC LIMIT 50")->fetchAll();
+$customerParams = [];
+$customerSql = "SELECT id, name FROM customers";
+$customerSql = addTenantFilter($customerSql, '', $tenantId, $isSuperAdmin, $customerParams);
+$customerSql .= " ORDER BY name LIMIT 200";
+$customerStmt = $d->prepare($customerSql);
+$customerStmt->execute($customerParams);
+$customers = $customerStmt->fetchAll();
+
+$productParams = [];
+$productSql = "SELECT id, code, name, sell_price FROM products WHERE is_active = 1";
+$productSql = addTenantFilter($productSql, '', $tenantId, $isSuperAdmin, $productParams);
+$productSql .= " ORDER BY name LIMIT 200";
+$productStmt = $d->prepare($productSql);
+$productStmt->execute($productParams);
+$products = $productStmt->fetchAll();
+
+$supplierParams = [];
+$supplierSql = "SELECT id, name FROM suppliers";
+$supplierSql = addTenantFilter($supplierSql, '', $tenantId, $isSuperAdmin, $supplierParams);
+$supplierSql .= " ORDER BY name LIMIT 200";
+$supplierStmt = $d->prepare($supplierSql);
+$supplierStmt->execute($supplierParams);
+$suppliers = $supplierStmt->fetchAll();
+
+$cpParams = [];
+$cpSql = "SELECT cpp.*, c.name as customer_name, p.name as product_name, p.code as product_code FROM customer_product_prices cpp LEFT JOIN customers c ON cpp.customer_id = c.id LEFT JOIN products p ON cpp.product_id = p.id WHERE cpp.is_active = 1";
+$cpSql = addTenantFilter($cpSql, 'cpp', $tenantId, $isSuperAdmin, $cpParams);
+$cpSql .= " ORDER BY cpp.id DESC LIMIT 50";
+$cpStmt = $d->prepare($cpSql);
+$cpStmt->execute($cpParams);
+$customerPrices = $cpStmt->fetchAll();
+
+$tpParams = [];
+$tpSql = "SELECT pt.*, p.name as product_name, p.code as product_code FROM product_tier_prices pt LEFT JOIN products p ON pt.product_id = p.id WHERE pt.is_active = 1";
+$tpSql = addTenantFilter($tpSql, 'pt', $tenantId, $isSuperAdmin, $tpParams);
+$tpSql .= " ORDER BY pt.id DESC LIMIT 50";
+$tpStmt = $d->prepare($tpSql);
+$tpStmt->execute($tpParams);
+$tierPrices = $tpStmt->fetchAll();
+
+$phParams = [];
+$phSql = "SELECT sph.*, s.name as supplier_name, p.name as product_name, p.code as product_code FROM supplier_price_history sph LEFT JOIN suppliers s ON sph.supplier_id = s.id LEFT JOIN products p ON sph.product_id = p.id";
+$phSql = addTenantFilter($phSql, 'sph', $tenantId, $isSuperAdmin, $phParams);
+$phSql .= " ORDER BY sph.id DESC LIMIT 50";
+$phStmt = $d->prepare($phSql);
+$phStmt->execute($phParams);
+$priceHistory = $phStmt->fetchAll();
 
 renderHead('Pricing Management');
 renderNav('pricing');

@@ -1,12 +1,27 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_whatsapp');
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$templates = $d->query("SELECT * FROM whatsapp_templates WHERE is_active = 1 ORDER BY id")->fetchAll();
-$messages = $d->query("SELECT * FROM whatsapp_messages ORDER BY id DESC LIMIT 50")->fetchAll();
-$customers = $d->query("SELECT id, name, phone FROM customers WHERE phone IS NOT NULL AND phone != '' ORDER BY name LIMIT 200")->fetchAll();
-$waTemplateTypes = $d->query("SELECT * FROM whatsapp_template_types WHERE is_active = 1 ORDER BY name")->fetchAll();
+$templates = $d->prepare("SELECT * FROM whatsapp_templates WHERE is_active = 1" . ($isSuperAdmin ? "" : " AND tenant_id = ?") . " ORDER BY id");
+$templates->execute($isSuperAdmin ? [] : [$tenantId]);
+$templates = $templates->fetchAll();
+
+$messages = $d->prepare("SELECT * FROM whatsapp_messages" . ($isSuperAdmin ? "" : " WHERE tenant_id = ?") . " ORDER BY id DESC LIMIT 50");
+$messages->execute($isSuperAdmin ? [] : [$tenantId]);
+$messages = $messages->fetchAll();
+
+$customers = $d->prepare("SELECT id, name, phone FROM customers WHERE phone IS NOT NULL AND phone != ''" . ($isSuperAdmin ? "" : " AND tenant_id = ?") . " ORDER BY name LIMIT 200");
+$customers->execute($isSuperAdmin ? [] : [$tenantId]);
+$customers = $customers->fetchAll();
+
+$waTemplateTypes = $d->prepare("SELECT * FROM whatsapp_template_types WHERE is_active = 1" . ($isSuperAdmin ? "" : " AND tenant_id = ?") . " ORDER BY name");
+$waTemplateTypes->execute($isSuperAdmin ? [] : [$tenantId]);
+$waTemplateTypes = $waTemplateTypes->fetchAll();
 
 renderHead('WhatsApp');
 renderNav('whatsapp');

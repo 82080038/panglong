@@ -1,15 +1,46 @@
 <?php
 require_once 'config.php';
+requirePermission('salesman_app');
 requireLogin();
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$userId = $user['id'] ?? null;
 
 // Get sales orders for this salesman
-$userId = $_SESSION['user']['id'];
-$salesOrders = $d->query("SELECT so.*, c.name as customer_name, c.phone as customer_phone FROM sales_orders so LEFT JOIN customers c ON so.customer_id = c.id WHERE so.created_by = $userId OR 1=1 ORDER BY so.id DESC LIMIT 50")->fetchAll();
+$salesOrderParams = [$userId];
+$salesOrderSql = "SELECT so.*, c.name as customer_name, c.phone as customer_phone FROM sales_orders so LEFT JOIN customers c ON so.customer_id = c.id WHERE so.created_by = ?";
+if ($tenantId) {
+    $salesOrderSql .= " AND so.tenant_id = ?";
+    $salesOrderParams[] = $tenantId;
+}
+$salesOrderSql .= " ORDER BY so.id DESC LIMIT 50";
+$salesOrderStmt = $d->prepare($salesOrderSql);
+$salesOrderStmt->execute($salesOrderParams);
+$salesOrders = $salesOrderStmt->fetchAll();
 
-$customers = $d->query("SELECT id, name, phone, address FROM customers WHERE is_active = 1 ORDER BY name")->fetchAll();
-$products = $d->query("SELECT id, code, name, sell_price, min_stock FROM products WHERE is_active = 1 ORDER BY name LIMIT 200")->fetchAll();
+$customerParams = [];
+$customerSql = "SELECT id, name, phone, address FROM customers WHERE is_active = 1";
+if ($tenantId) {
+    $customerSql .= " AND tenant_id = ?";
+    $customerParams[] = $tenantId;
+}
+$customerSql .= " ORDER BY name";
+$customerStmt = $d->prepare($customerSql);
+$customerStmt->execute($customerParams);
+$customers = $customerStmt->fetchAll();
+
+$productParams = [];
+$productSql = "SELECT id, code, name, sell_price, min_stock FROM products WHERE is_active = 1";
+if ($tenantId) {
+    $productSql .= " AND tenant_id = ?";
+    $productParams[] = $tenantId;
+}
+$productSql .= " ORDER BY name LIMIT 200";
+$productStmt = $d->prepare($productSql);
+$productStmt->execute($productParams);
+$products = $productStmt->fetchAll();
 
 renderHead('Salesman Mobile - Sales Order');
 renderNav('salesman_app');

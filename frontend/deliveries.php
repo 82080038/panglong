@@ -1,5 +1,6 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_deliveries');
 
 $d = db();
 $user = currentUser();
@@ -7,14 +8,27 @@ $tenantId = $user['tenant_id'] ?? null;
 $isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 // Fetch delivery methods for dropdown
-$deliveryMethods = $d->query("SELECT code, name FROM delivery_methods WHERE is_active = 1 ORDER BY name")->fetchAll();
+$dmParams = [];
+$dmSql = "SELECT code, name FROM delivery_methods WHERE is_active = 1";
+if (!$isSuperAdmin && $tenantId) {
+    $dmSql .= " AND tenant_id = ?";
+    $dmParams[] = $tenantId;
+}
+$dmSql .= " ORDER BY name";
+$dmStmt = $d->prepare($dmSql);
+$dmStmt->execute($dmParams);
+$deliveryMethods = $dmStmt->fetchAll();
 
 $deliverySql = "SELECT * FROM deliveries";
+$deliveryParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $deliverySql .= " WHERE tenant_id = $tenantId";
+    $deliverySql .= " WHERE tenant_id = ?";
+    $deliveryParams[] = $tenantId;
 }
 $deliverySql .= " ORDER BY id DESC LIMIT 50";
-$deliveries = $d->query($deliverySql)->fetchAll();
+$deliveryStmt = $d->prepare($deliverySql);
+$deliveryStmt->execute($deliveryParams);
+$deliveries = $deliveryStmt->fetchAll();
 
 renderHead('Deliveries');
 renderNav('deliveries');
@@ -44,7 +58,16 @@ renderNav('deliveries');
                             <select class="form-select form-select-sm d-inline-block" style="width:auto" onchange="updateStatus(<?= $del['id'] ?>, this.value)">
                                 <option value="">Update Status</option>
                                 <?php 
-                                $deliveryStatuses = $d->query("SELECT code, name FROM status_codes WHERE module = 'deliveries' AND is_active = 1 ORDER BY name")->fetchAll();
+                                $dsParams = [];
+$dsSql = "SELECT code, name FROM status_codes WHERE module = 'deliveries' AND is_active = 1";
+if (!$isSuperAdmin && $tenantId) {
+    $dsSql .= " AND tenant_id = ?";
+    $dsParams[] = $tenantId;
+}
+$dsSql .= " ORDER BY name";
+$dsStmt = $d->prepare($dsSql);
+$dsStmt->execute($dsParams);
+$deliveryStatuses = $dsStmt->fetchAll();
                                 foreach ($deliveryStatuses as $ds): ?>
                                     <option value="<?= htmlspecialchars($ds['code']) ?>"><?= htmlspecialchars($ds['name']) ?></option>
                                 <?php endforeach; ?>

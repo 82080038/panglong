@@ -1,10 +1,37 @@
 <?php
 require_once 'config.php';
+requirePermission('view_reports');
 
 $d = db();
 $user = currentUser();
 $tenantId = $user['tenant_id'] ?? null;
+$branchId = $user['branch_id'] ?? null;
 $isSuperAdmin = $user['role_slug'] === 'super_admin';
+
+function addReportTenantFilter($sql, $alias, $tenantId, $isSuperAdmin, &$params) {
+    if (!$isSuperAdmin && $tenantId) {
+        $prefix = $alias ? "{$alias}." : "";
+        if (preg_match('/\bWHERE\b/i', $sql)) {
+            $sql .= " AND {$prefix}tenant_id = ?";
+        } else {
+            $sql .= " WHERE {$prefix}tenant_id = ?";
+        }
+        $params[] = $tenantId;
+    }
+    return $sql;
+}
+function addReportBranchFilter($sql, $alias, $tenantId, $branchId, $isSuperAdmin, &$params) {
+    if (!$isSuperAdmin && $tenantId && $branchId) {
+        $prefix = $alias ? "{$alias}." : "";
+        if (preg_match('/\bWHERE\b/i', $sql)) {
+            $sql .= " AND {$prefix}branch_id = ?";
+        } else {
+            $sql .= " WHERE {$prefix}branch_id = ?";
+        }
+        $params[] = $branchId;
+    }
+    return $sql;
+}
 
 $tab = $_GET['tab'] ?? 'daily';
 $dateFrom = $_GET['date_from'] ?? date('Y-m-01');
@@ -13,93 +40,104 @@ $dateTo = $_GET['date_to'] ?? date('Y-m-d');
 $reportData = [];
 
 if ($tab === 'daily') {
+    $dailyParams = [];
     $dailySql = "SELECT COUNT(*) as total_sales, COALESCE(SUM(total),0) as total_revenue, COALESCE(SUM(CASE WHEN payment_method='cash' THEN total ELSE 0 END),0) as total_cash, COALESCE(SUM(CASE WHEN payment_method='credit' THEN total ELSE 0 END),0) as total_credit FROM sales WHERE sale_date = date('now') AND status != 'voided'";
-    if (!$isSuperAdmin && $tenantId) {
-        $dailySql .= " AND tenant_id = $tenantId";
-    }
-    $stmt = $d->query($dailySql);
+    $dailySql = addReportTenantFilter($dailySql, '', $tenantId, $isSuperAdmin, $dailyParams);
+    $dailySql = addReportBranchFilter($dailySql, '', $tenantId, $branchId, $isSuperAdmin, $dailyParams);
+    $stmt = $d->prepare($dailySql);
+    $stmt->execute($dailyParams);
     $reportData = $stmt->fetch();
     $reportData['date'] = date('Y-m-d');
 } elseif ($tab === 'monthly') {
+    $monthlyParams = [];
     $monthlySql = "SELECT COUNT(*) as total_sales, COALESCE(SUM(total),0) as total_revenue, COALESCE(SUM(CASE WHEN payment_method='cash' THEN total ELSE 0 END),0) as total_cash, COALESCE(SUM(CASE WHEN payment_method='credit' THEN total ELSE 0 END),0) as total_credit FROM sales WHERE sale_date >= date('now','start of month') AND status != 'voided'";
-    if (!$isSuperAdmin && $tenantId) {
-        $monthlySql .= " AND tenant_id = $tenantId";
-    }
-    $stmt = $d->query($monthlySql);
+    $monthlySql = addReportTenantFilter($monthlySql, '', $tenantId, $isSuperAdmin, $monthlyParams);
+    $monthlySql = addReportBranchFilter($monthlySql, '', $tenantId, $branchId, $isSuperAdmin, $monthlyParams);
+    $stmt = $d->prepare($monthlySql);
+    $stmt->execute($monthlyParams);
     $reportData = $stmt->fetch();
     $reportData['year'] = date('Y');
     $reportData['month'] = date('m');
 } elseif ($tab === 'byproduct') {
+    $byProductParams = [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'];
     $byProductSql = "SELECT p.name as product_name, SUM(si.quantity) as quantity_sold, SUM(si.subtotal) as revenue, SUM((si.subtotal - (si.quantity * p.buy_price))) as profit FROM sale_items si JOIN sales s ON si.sale_id = s.id JOIN products p ON si.product_id = p.id WHERE s.sale_date >= ? AND s.sale_date <= ? AND s.status != 'voided'";
-    if (!$isSuperAdmin && $tenantId) {
-        $byProductSql .= " AND s.tenant_id = $tenantId";
-    }
+    $byProductSql = addReportTenantFilter($byProductSql, 's', $tenantId, $isSuperAdmin, $byProductParams);
+    $byProductSql = addReportBranchFilter($byProductSql, 's', $tenantId, $branchId, $isSuperAdmin, $byProductParams);
     $byProductSql .= " GROUP BY p.id ORDER BY revenue DESC";
     $stmt = $d->prepare($byProductSql);
-    $stmt->execute([$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
+    $stmt->execute($byProductParams);
     $reportData = $stmt->fetchAll();
 } elseif ($tab === 'bycustomer') {
+    $byCustomerParams = [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'];
     $byCustomerSql = "SELECT c.name as customer_name, COUNT(s.id) as total_sales, SUM(s.total) as total_revenue, 0 as total_paid, SUM(s.total) as total_unpaid FROM sales s LEFT JOIN customers c ON s.customer_id = c.id WHERE s.sale_date >= ? AND s.sale_date <= ? AND s.status != 'voided'";
-    if (!$isSuperAdmin && $tenantId) {
-        $byCustomerSql .= " AND s.tenant_id = $tenantId";
-    }
+    $byCustomerSql = addReportTenantFilter($byCustomerSql, 's', $tenantId, $isSuperAdmin, $byCustomerParams);
+    $byCustomerSql = addReportBranchFilter($byCustomerSql, 's', $tenantId, $branchId, $isSuperAdmin, $byCustomerParams);
     $byCustomerSql .= " GROUP BY c.id ORDER BY total_revenue DESC";
     $stmt = $d->prepare($byCustomerSql);
-    $stmt->execute([$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
+    $stmt->execute($byCustomerParams);
     $reportData = $stmt->fetchAll();
 } elseif ($tab === 'profitloss') {
+    $profitLossParams = [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'];
     $profitLossSql = "SELECT COALESCE(SUM(s.total),0) as revenue, COALESCE(SUM(si.quantity * p.buy_price),0) as cogs, COALESCE(SUM(s.total),0) - COALESCE(SUM(si.quantity * p.buy_price),0) as gross_profit, COALESCE(SUM(s.tax),0) as tax, COUNT(s.id) as total_sales FROM sales s LEFT JOIN sale_items si ON si.sale_id = s.id LEFT JOIN products p ON si.product_id = p.id WHERE s.sale_date >= ? AND s.sale_date <= ? AND s.status != 'voided'";
-    if (!$isSuperAdmin && $tenantId) {
-        $profitLossSql .= " AND s.tenant_id = $tenantId";
-    }
+    $profitLossSql = addReportTenantFilter($profitLossSql, 's', $tenantId, $isSuperAdmin, $profitLossParams);
+    $profitLossSql = addReportBranchFilter($profitLossSql, 's', $tenantId, $branchId, $isSuperAdmin, $profitLossParams);
     $stmt = $d->prepare($profitLossSql);
-    $stmt->execute([$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
+    $stmt->execute($profitLossParams);
     $reportData = $stmt->fetch();
     $reportData['net_profit'] = (float)($reportData['gross_profit'] ?? 0);
     $reportData['date_from'] = $dateFrom;
     $reportData['date_to'] = $dateTo;
 } elseif ($tab === 'lowstock') {
+    $lowStockParams = [];
     $lowStockSql = "SELECT p.code as product_code, p.name as product_name, COALESCE((SELECT SUM(quantity) FROM stock_movements WHERE product_id=p.id),0) as current_stock, p.min_stock, (p.min_stock - COALESCE((SELECT SUM(quantity) FROM stock_movements WHERE product_id=p.id),0)) as shortage FROM products p WHERE p.is_active=1 AND CAST(p.min_stock AS REAL) > 0 AND COALESCE((SELECT SUM(quantity) FROM stock_movements WHERE product_id=p.id),0) <= CAST(p.min_stock AS REAL)";
-    if (!$isSuperAdmin && $tenantId) {
-        $lowStockSql .= " AND p.tenant_id = $tenantId";
-    }
-    $reportData = $d->query($lowStockSql)->fetchAll();
+    $lowStockSql = addReportTenantFilter($lowStockSql, 'p', $tenantId, $isSuperAdmin, $lowStockParams);
+    $stmt = $d->prepare($lowStockSql);
+    $stmt->execute($lowStockParams);
+    $reportData = $stmt->fetchAll();
 } elseif ($tab === 'stockmovement') {
     try {
+        $stockMovementParams = [];
         $stockMovementSql = "SELECT sm.created_at as date, sm.product_id, sm.quantity, sm.movement_type, sm.notes FROM stock_movements sm";
         if (!$isSuperAdmin && $tenantId) {
-            $stockMovementSql .= " JOIN products p ON sm.product_id = p.id WHERE p.tenant_id = $tenantId";
+            $stockMovementSql .= " JOIN products p ON sm.product_id = p.id WHERE p.tenant_id = ?";
+            $stockMovementParams[] = $tenantId;
         }
         $stockMovementSql .= " ORDER BY sm.created_at DESC LIMIT 200";
-        $reportData = $d->query($stockMovementSql)->fetchAll();
+        $stmt = $d->prepare($stockMovementSql);
+        $stmt->execute($stockMovementParams);
+        $reportData = $stmt->fetchAll();
     } catch (Exception $e) {
         $reportData = [];
     }
 } elseif ($tab === 'deadstock') {
+    $deadStockParams = [];
     $deadStockSql = "SELECT p.code as product_code, p.name as product_name, COALESCE((SELECT SUM(quantity) FROM stock_movements WHERE product_id=p.id),0) as current_stock, (COALESCE((SELECT SUM(quantity) FROM stock_movements WHERE product_id=p.id),0) * p.buy_price) as stock_value, CAST((julianday('now') - julianday(p.updated_at)) AS INTEGER) as days_inactive FROM products p WHERE p.is_active=1";
-    if (!$isSuperAdmin && $tenantId) {
-        $deadStockSql .= " AND p.tenant_id = $tenantId";
-    }
+    $deadStockSql = addReportTenantFilter($deadStockSql, 'p', $tenantId, $isSuperAdmin, $deadStockParams);
     $deadStockSql .= " ORDER BY days_inactive DESC";
-    $reportData = $d->query($deadStockSql)->fetchAll();
+    $stmt = $d->prepare($deadStockSql);
+    $stmt->execute($deadStockParams);
+    $reportData = $stmt->fetchAll();
 } elseif ($tab === 'stockvaluation') {
+    $stockValuationParams = [];
     $stockValuationSql = "SELECT p.code as product_code, p.name as product_name, COALESCE((SELECT SUM(quantity) FROM stock_movements WHERE product_id=p.id),0) as current_stock, p.buy_price as avg_cost, (COALESCE((SELECT SUM(quantity) FROM stock_movements WHERE product_id=p.id),0) * p.buy_price) as stock_value, p.sell_price, (COALESCE((SELECT SUM(quantity) FROM stock_movements WHERE product_id=p.id),0) * p.sell_price) as potential_revenue FROM products p WHERE p.is_active=1";
-    if (!$isSuperAdmin && $tenantId) {
-        $stockValuationSql .= " AND p.tenant_id = $tenantId";
-    }
-    $items = $d->query($stockValuationSql)->fetchAll();
+    $stockValuationSql = addReportTenantFilter($stockValuationSql, 'p', $tenantId, $isSuperAdmin, $stockValuationParams);
+    $stmt = $d->prepare($stockValuationSql);
+    $stmt->execute($stockValuationParams);
+    $items = $stmt->fetchAll();
     $totalValue = 0;
     foreach ($items as $i) {
         $totalValue += (float)$i['stock_value'];
     }
     $reportData = ['total_stock_value' => $totalValue, 'total_products' => count($items), 'items' => $items];
 } elseif ($tab === 'araging') {
+    $arAgingParams = [];
     $arAgingSql = "SELECT c.name as customer_name, s.total - COALESCE((SELECT SUM(sp.amount) FROM sale_payments sp WHERE sp.sale_id=s.id),0) as outstanding, CAST(julianday('now') - julianday(s.sale_date) AS INTEGER) as days_overdue FROM sales s JOIN customers c ON s.customer_id = c.id WHERE s.payment_status != 'paid' AND s.status != 'voided'";
-    if (!$isSuperAdmin && $tenantId) {
-        $arAgingSql .= " AND s.tenant_id = $tenantId";
-    }
+    $arAgingSql = addReportTenantFilter($arAgingSql, 's', $tenantId, $isSuperAdmin, $arAgingParams);
+    $arAgingSql = addReportBranchFilter($arAgingSql, 's', $tenantId, $branchId, $isSuperAdmin, $arAgingParams);
     $arAgingSql .= " ORDER BY days_overdue DESC";
-    $details = $d->query($arAgingSql)->fetchAll();
+    $stmt = $d->prepare($arAgingSql);
+    $stmt->execute($arAgingParams);
+    $details = $stmt->fetchAll();
     $reportData = ['0_30_days' => 0, '31_60_days' => 0, '61_90_days' => 0, 'over_90_days' => 0, 'total_outstanding' => 0, 'details' => $details];
     foreach ($details as $dt) {
         $out = (float)$dt['outstanding'];

@@ -1,9 +1,22 @@
 <?php
 require_once 'config.php';
+requirePermission('view_reorder');
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$products = $d->query("SELECT id, code, name, min_stock, max_stock, buy_price FROM products WHERE is_active = 1 ORDER BY name LIMIT 200")->fetchAll();
+$productParams = [];
+$productSql = "SELECT id, code, name, min_stock, max_stock, buy_price FROM products WHERE is_active = 1";
+if (!$isSuperAdmin && $tenantId) {
+    $productSql .= " AND tenant_id = ?";
+    $productParams[] = $tenantId;
+}
+$productSql .= " ORDER BY name LIMIT 200";
+$productStmt = $d->prepare($productSql);
+$productStmt->execute($productParams);
+$products = $productStmt->fetchAll();
 
 $suggestions = [];
 foreach ($products as $p) {
@@ -11,8 +24,14 @@ foreach ($products as $p) {
     $stmt->execute([$p['id']]);
     $currentStock = (float)$stmt->fetchColumn();
 
-    $stmt = $d->prepare("SELECT COALESCE(SUM(si.quantity),0) as total_sold FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.product_id = ? AND s.sale_date >= date('now','-30 days') AND s.status != 'voided'");
-    $stmt->execute([$p['id']]);
+    $soldParams = [$p['id']];
+    $soldSql = "SELECT COALESCE(SUM(si.quantity),0) as total_sold FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.product_id = ? AND s.sale_date >= date('now','-30 days') AND s.status != 'voided'";
+    if (!$isSuperAdmin && $tenantId) {
+        $soldSql .= " AND s.tenant_id = ?";
+        $soldParams[] = $tenantId;
+    }
+    $stmt = $d->prepare($soldSql);
+    $stmt->execute($soldParams);
     $totalSold30 = (float)$stmt->fetchColumn();
     $avgDaily = $totalSold30 / 30;
 

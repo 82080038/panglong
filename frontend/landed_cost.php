@@ -3,10 +3,40 @@ require_once 'config.php';
 requirePermission('manage_suppliers');
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$branchId = $user['branch_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$pos = $d->query("SELECT po.id, po.po_number, po.po_date, po.supplier_id, po.subtotal, po.freight_cost, po.insurance_cost, po.handling_cost, po.landed_total, po.status, s.name as supplier_name FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id = s.id ORDER BY po.id DESC LIMIT 100")->fetchAll();
+$poSql = "SELECT po.id, po.po_number, po.po_date, po.supplier_id, po.subtotal, po.freight_cost, po.insurance_cost, po.handling_cost, po.landed_total, po.status, s.name as supplier_name FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id = s.id";
+$poParams = [];
+if (!$isSuperAdmin && $tenantId) {
+    $poSql .= " WHERE po.tenant_id = ?";
+    $poParams[] = $tenantId;
+    if ($branchId) {
+        $poSql .= " AND po.branch_id = ?";
+        $poParams[] = $branchId;
+    }
+}
+$poSql .= " ORDER BY po.id DESC LIMIT 100";
+$poStmt = $d->prepare($poSql);
+$poStmt->execute($poParams);
+$pos = $poStmt->fetchAll();
 
-$distributions = $d->query("SELECT lcd.*, p.name as product_name, p.code as product_code, po.po_number FROM landed_cost_distributions lcd JOIN products p ON lcd.product_id = p.id JOIN purchase_orders po ON lcd.purchase_order_id = po.id ORDER BY lcd.id DESC LIMIT 50")->fetchAll();
+$distSql = "SELECT lcd.*, p.name as product_name, p.code as product_code, po.po_number FROM landed_cost_distributions lcd JOIN products p ON lcd.product_id = p.id JOIN purchase_orders po ON lcd.purchase_order_id = po.id";
+$distParams = [];
+if (!$isSuperAdmin && $tenantId) {
+    $distSql .= " WHERE po.tenant_id = ?";
+    $distParams[] = $tenantId;
+    if ($branchId) {
+        $distSql .= " AND po.branch_id = ?";
+        $distParams[] = $branchId;
+    }
+}
+$distSql .= " ORDER BY lcd.id DESC LIMIT 50";
+$distStmt = $d->prepare($distSql);
+$distStmt->execute($distParams);
+$distributions = $distStmt->fetchAll();
 
 renderHead('Landed Cost Distribution');
 renderNav('landed_cost');

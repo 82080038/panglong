@@ -1,31 +1,49 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_stock_transfers');
 
 $d = db();
 $user = currentUser();
 $tenantId = $user['tenant_id'] ?? null;
+$branchId = $user['branch_id'] ?? null;
 $isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $warehouseSql = "SELECT id, name FROM warehouses";
+$warehouseParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $warehouseSql .= " WHERE tenant_id = $tenantId";
+    $warehouseSql .= " WHERE tenant_id = ?";
+    $warehouseParams[] = $tenantId;
+    if ($branchId) {
+        $warehouseSql .= " AND branch_id = ?";
+        $warehouseParams[] = $branchId;
+    }
 }
 $warehouseSql .= " ORDER BY name";
-$warehouses = $d->query($warehouseSql)->fetchAll();
+$warehouseStmt = $d->prepare($warehouseSql);
+$warehouseStmt->execute($warehouseParams);
+$warehouses = $warehouseStmt->fetchAll();
 
 $productSql = "SELECT id, code, name FROM products WHERE is_active = 1";
+$productParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $productSql .= " AND tenant_id = $tenantId";
+    $productSql .= " AND tenant_id = ?";
+    $productParams[] = $tenantId;
 }
 $productSql .= " ORDER BY name LIMIT 200";
-$products = $d->query($productSql)->fetchAll();
+$productStmt = $d->prepare($productSql);
+$productStmt->execute($productParams);
+$products = $productStmt->fetchAll();
 
 $transferSql = "SELECT st.*, wf.name as from_warehouse, wt.name as to_warehouse FROM stock_transfers st LEFT JOIN warehouses wf ON st.from_warehouse_id = wf.id LEFT JOIN warehouses wt ON st.to_warehouse_id = wt.id";
+$transferParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $transferSql .= " WHERE st.tenant_id = $tenantId";
+    $transferSql .= " WHERE st.tenant_id = ?";
+    $transferParams[] = $tenantId;
 }
 $transferSql .= " ORDER BY st.id DESC LIMIT 20";
-$transfers = $d->query($transferSql)->fetchAll();
+$transferStmt = $d->prepare($transferSql);
+$transferStmt->execute($transferParams);
+$transfers = $transferStmt->fetchAll();
 
 renderHead('Stock Transfers');
 renderNav('stock-transfers');

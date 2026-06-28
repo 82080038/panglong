@@ -1,15 +1,19 @@
 <?php
 require_once 'config.php';
+requirePermission('manage_products');
 
 $id = $_GET['id'] ?? 0;
-if (!$id) { header('Lokasi: products.php'); exit; }
+if (!$id) { header('Location: products.php'); exit; }
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
-$stmt = $d->prepare("SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?");
-$stmt->execute([$id]);
+$stmt = $d->prepare("SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?" . ($isSuperAdmin ? "" : " AND p.tenant_id = ?"));
+$stmt->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
 $product = $stmt->fetch();
-if (!$product) { header('Lokasi: products.php?msg=notfound'); exit; }
+if (!$product) { header('Location: products.php?msg=notfound'); exit; }
 
 $units = $d->prepare("SELECT * FROM product_units WHERE product_id = ?");
 $units->execute([$id]);
@@ -19,7 +23,9 @@ $baseUnit = $d->prepare("SELECT * FROM product_units WHERE product_id = ? AND is
 $baseUnit->execute([$id]);
 $bu = $baseUnit->fetch();
 
-$stockQty = $d->query("SELECT COALESCE(SUM(quantity),0) FROM stock_movements WHERE product_id = $id")->fetchColumn();
+$stockStmt = $d->prepare("SELECT COALESCE(SUM(quantity),0) FROM stock_movements WHERE product_id = ?");
+$stockStmt->execute([$id]);
+$stockQty = $stockStmt->fetchColumn();
 $stockData = [
     'current_stock' => $stockQty,
     'base_unit' => $bu['unit_name'] ?? 'pcs',

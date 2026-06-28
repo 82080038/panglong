@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+requirePermission('manage_stock');
 
 $d = db();
 $user = currentUser();
@@ -26,13 +27,26 @@ $stockSql = "SELECT p.id, p.name as product_name, p.code as product_code, p.min_
     pu.unit_name as base_unit
     FROM products p LEFT JOIN product_units pu ON pu.product_id = p.id AND pu.is_base_unit = 1
     WHERE p.is_active = 1";
+$stockParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $stockSql .= " AND p.tenant_id = $tenantId";
+    $stockSql .= " AND p.tenant_id = ?";
+    $stockParams[] = $tenantId;
 }
 $stockSql .= " ORDER BY p.id DESC LIMIT 200";
-$stockItems = $d->query($stockSql)->fetchAll();
+$stockStmt = $d->prepare($stockSql);
+$stockStmt->execute($stockParams);
+$stockItems = $stockStmt->fetchAll();
 
-$adjustmentTypes = $d->query("SELECT * FROM adjustment_types WHERE is_active = 1 ORDER BY name")->fetchAll();
+$adjParams = [];
+$adjSql = "SELECT * FROM adjustment_types WHERE is_active = 1";
+if (!$isSuperAdmin && $tenantId) {
+    $adjSql .= " AND tenant_id = ?";
+    $adjParams[] = $tenantId;
+}
+$adjSql .= " ORDER BY name";
+$adjStmt = $d->prepare($adjSql);
+$adjStmt->execute($adjParams);
+$adjustmentTypes = $adjStmt->fetchAll();
 
 foreach ($stockItems as &$item) {
     $item['status'] = 'normal';
@@ -41,11 +55,15 @@ foreach ($stockItems as &$item) {
 }
 
 $productSql = "SELECT id, name, code FROM products WHERE is_active = 1";
+$productParams = [];
 if (!$isSuperAdmin && $tenantId) {
-    $productSql .= " AND tenant_id = $tenantId";
+    $productSql .= " AND tenant_id = ?";
+    $productParams[] = $tenantId;
 }
 $productSql .= " ORDER BY name LIMIT 200";
-$products = $d->query($productSql)->fetchAll();
+$productStmt = $d->prepare($productSql);
+$productStmt->execute($productParams);
+$products = $productStmt->fetchAll();
 
 $msg = $_GET['msg'] ?? '';
 $errMsg = $_GET['err'] ?? '';
