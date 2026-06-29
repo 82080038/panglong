@@ -17,6 +17,7 @@ try {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCsrfToken();
     if (($_POST['action'] ?? '') === '') {
         $now = date('Y-m-d H:i:s');
         try {

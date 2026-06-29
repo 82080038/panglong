@@ -7,6 +7,7 @@ $d = db();
 $tab = $_GET['tab'] ?? 'plans';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCsrfToken();
     if (($_POST['action'] ?? '') === 'create_tenant') {
         $now = date('Y-m-d H:i:s');
         $code = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $_POST['subdomain']), 0, 6));

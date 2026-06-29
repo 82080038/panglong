@@ -17,6 +17,7 @@ if ($is_super_admin) {
 
 // Handle actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCsrfToken();
     $action = $_POST['action'] ?? '';
     
     if ($action === 'add_user') {

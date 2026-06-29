@@ -7,6 +7,7 @@ $d = db();
 
 // Handle actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCsrfToken();
     $action = $_POST['action'] ?? '';
     $tenant_id = $_POST['tenant_id'] ?? 0;
     

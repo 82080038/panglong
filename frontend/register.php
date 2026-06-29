@@ -5,6 +5,7 @@ $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCsrfToken();
     $company_name = $_POST['company_name'] ?? '';
     $address = $_POST['address'] ?? '';
     $phone = $_POST['phone'] ?? '';

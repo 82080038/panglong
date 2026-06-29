@@ -682,9 +682,9 @@ function submitVoid() {
     if (!reason) { alert('Reason required'); return; }
     fetch(`${API_URL}?endpoint=sales&id=${id}`, {
         method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason })
+        body: JSON.stringify({ void_reason: reason })
     }).then(r => r.json()).then(res => {
-        if (res.success) { alert('Sale voided'); location.reload(); }
+        if (res.success) { alert(res.message || 'Sale voided'); location.reload(); }
         else { alert('Kesalahan: ' + res.message); }
     });
 }

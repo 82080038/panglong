@@ -3,10 +3,22 @@ require_once 'config.php';
 requirePermission('view_ai_insights');
 
 $d = db();
+$user = currentUser();
+$tenantId = $user['tenant_id'] ?? null;
+$isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 $tab = $_GET['tab'] ?? 'forecast';
 
-$products = $d->query("SELECT id, code, name, sell_price, buy_price FROM products WHERE is_active = 1 ORDER BY name LIMIT 100")->fetchAll();
+$productSql = "SELECT id, code, name, sell_price, buy_price FROM products WHERE is_active = 1";
+$productParams = [];
+if (!$isSuperAdmin && $tenantId) {
+    $productSql .= " AND (tenant_id = ? OR tenant_id IS NULL)";
+    $productParams[] = $tenantId;
+}
+$productSql .= " ORDER BY name LIMIT 100";
+$productStmt = $d->prepare($productSql);
+$productStmt->execute($productParams);
+$products = $productStmt->fetchAll();
 
 $forecasts = [];
 $optimizations = [];

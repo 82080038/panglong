@@ -39,7 +39,7 @@ function runSimpleSum($d, $sql, $params, $whereAdded, $tenantId, $isSuperAdmin) 
 $operatingIn = runCashFlowSum($d, "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='in' AND account_type='cash' AND transaction_date BETWEEN ? AND ?", [$startDate, $endDate], true, $tenantId, $branchId, $isSuperAdmin);
 $operatingOut = runCashFlowSum($d, "SELECT COALESCE(SUM(amount),0) FROM cash_transactions WHERE type='out' AND account_type='cash' AND transaction_date BETWEEN ? AND ?", [$startDate, $endDate], true, $tenantId, $branchId, $isSuperAdmin);
 
-$salesCash = runSimpleSum($d, "SELECT COALESCE(SUM(amount),0) FROM payments WHERE payment_date BETWEEN ? AND ?", [$startDate, $endDate], true, $tenantId, $isSuperAdmin);
+$salesCash = runSimpleSum($d, "SELECT COALESCE(SUM(amount),0) FROM sale_payments WHERE payment_date BETWEEN ? AND ?", [$startDate, $endDate], true, $tenantId, $isSuperAdmin);
 $purchaseCash = runSimpleSum($d, "SELECT COALESCE(SUM(amount),0) FROM purchase_payments WHERE payment_date BETWEEN ? AND ?", [$startDate, $endDate], true, $tenantId, $isSuperAdmin);
 
 // Investing

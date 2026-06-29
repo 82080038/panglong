@@ -19,6 +19,7 @@ try {
 $alerts = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCsrfToken();
     if (($_POST['action'] ?? '') === 'register_sensor') {
         $now = date('Y-m-d H:i:s');
         try {

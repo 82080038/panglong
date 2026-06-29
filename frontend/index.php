@@ -40,8 +40,8 @@ if ($isSuperAdmin) {
     $periodLocked = false;
     $nowYear = (int)date('Y');
     $nowMonth = (int)date('n');
-    $stmt = $d->prepare("SELECT status FROM period_closings WHERE period_year = ? AND period_month = ? AND status = 'closed'");
-    $stmt->execute([$nowYear, $nowMonth]);
+    $stmt = $d->prepare("SELECT status FROM period_closings WHERE period_year = ? AND period_month = ? AND status = 'closed' AND tenant_id = ?");
+    $stmt->execute([$nowYear, $nowMonth, $tenantId]);
     $periodLocked = (bool)$stmt->fetchColumn();
 
     $stmt = $d->prepare("SELECT COUNT(*) FROM products WHERE tenant_id = ?");

@@ -8,6 +8,7 @@ $tenantId = $user['tenant_id'] ?? null;
 $isSuperAdmin = $user['role_slug'] === 'super_admin';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCsrfToken();
     $action = $_POST['action'] ?? '';
     
     if ($action === 'adjustment') {
@@ -18,10 +19,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $unitStmt->execute([$pid]);
         $unitId = $unitStmt->fetchColumn() ?: 1;
 
-        $stmt = $d->prepare("INSERT INTO stock_movements (tenant_id, product_id, quantity, unit_id, movement_type, reference_type, notes, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)");
+        $stmt = $d->prepare("INSERT INTO stock_movements (tenant_id, product_id, quantity, unit_id, movement_type, reference_type, reference_id, notes, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)");
         $stmt->execute([
             $tenantId, $pid, (float)$_POST['quantity'],
-            $unitId, $_POST['adjustment_type'], 'manual_adjustment',
+            $unitId, $_POST['adjustment_type'], 'manual_adjustment', null,
             $_POST['reason'], $user['id'], $now
         ]);
         header('Location: stock.php?msg=adjustment_created');

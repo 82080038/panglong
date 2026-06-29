@@ -26,6 +26,7 @@ foreach ($products as $p) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'create_opname') {
+    requireCsrfToken();
     $now = date('Y-m-d H:i:s');
     $opnameNo = 'OP-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
     if (!empty($_POST['physical_qty'])) {

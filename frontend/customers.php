@@ -26,6 +26,7 @@ if ($search) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCsrfToken();
     $action = $_POST['action'] ?? '';
     
     if ($action === 'create') {

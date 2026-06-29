@@ -46,6 +46,7 @@ $productStmt->execute($productParams);
 $products = $productStmt->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCsrfToken();
     if (($_POST['action'] ?? '') === 'create_warehouse') {
         $now = date('Y-m-d H:i:s');
         $stmt = $d->prepare("INSERT INTO warehouses (code, name, address, phone, is_active, created_at, updated_at, tenant_id, branch_id) VALUES (?,?,?,?,1,?,?,?,?)");
@@ -55,8 +56,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (($_POST['action'] ?? '') === 'create_transfer') {
         $now = date('Y-m-d H:i:s');
         $transferNo = 'TR-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
-        $stmt = $d->prepare("INSERT INTO stock_transfers (transfer_no, transfer_date, from_warehouse_id, to_warehouse_id, status, notes, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,'pending',?,?,?)");
-        $stmt->execute([$transferNo, $_POST['transfer_date'], (int)$_POST['from_warehouse_id'], (int)$_POST['to_warehouse_id'], $_POST['notes'] ?? null, $now, $now, $tenantId]);
+        $stmt = $d->prepare("INSERT INTO stock_transfers (transfer_no, transfer_date, from_warehouse_id, to_warehouse_id, status, notes, created_by, created_at, updated_at, tenant_id) VALUES (?,?,?,?,?,'pending',?,?,?,?)");
+        $stmt->execute([$transferNo, $_POST['transfer_date'], (int)$_POST['from_warehouse_id'], (int)$_POST['to_warehouse_id'], $_POST['notes'] ?? null, $user['id'], $now, $now, $tenantId]);
         $transferId = $d->lastInsertId();
         if (!empty($_POST['product_id'])) {
             foreach ($_POST['product_id'] as $i => $pid) {

@@ -456,6 +456,19 @@ function renderFoot() {
         }
     });
 
+    // Auto-inject CSRF token into all POST forms
+    document.addEventListener(\'DOMContentLoaded\', function() {
+        document.querySelectorAll(\'form[method="POST"], form[method="post"]\').forEach(function(form) {
+            if (!form.querySelector(\'input[name="csrf_token"]\')) {
+                var input = document.createElement(\'input\');
+                input.type = \'hidden\';
+                input.name = \'csrf_token\';
+                input.value = CSRF_TOKEN;
+                form.appendChild(input);
+            }
+        });
+    });
+
     // Ensure all same-origin fetch() calls include CSRF token for mutating methods
     (function() {
         var originalFetch = window.fetch;
