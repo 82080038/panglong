@@ -4078,6 +4078,150 @@ if ($endpoint === 'saas-revenue') {
     }
 }
 
+// === PURCHASE ORDERS ===
+if ($endpoint === 'purchase-orders') {
+    $poId = $_GET['id'] ?? null;
+    $action = $_GET['action'] ?? '';
+
+    if ($method === 'GET') {
+        if ($poId) {
+            $stmt = $d->prepare("SELECT po.*, s.name as supplier_name FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id = s.id WHERE po.id = ?" . ($isSuperAdmin ? "" : " AND po.tenant_id = ?"));
+            $stmt->execute($isSuperAdmin ? [$poId] : [$poId, $tenantId]);
+            $po = $stmt->fetch();
+            if (!$po) fail('PO not found', 404);
+            $itemsStmt = $d->prepare("SELECT pi.*, p.code as product_code, p.name as product_name FROM purchase_items pi LEFT JOIN products p ON pi.product_id = p.id WHERE pi.po_id = ?");
+            $itemsStmt->execute([$poId]);
+            $po['items'] = $itemsStmt->fetchAll();
+            ok($po);
+        }
+        $sql = "SELECT po.*, s.name as supplier_name FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id = s.id";
+        $params = [];
+        if (!$isSuperAdmin && $tenantId) {
+            $sql .= " WHERE po.tenant_id = ?";
+            $params[] = $tenantId;
+            if ($branchId) {
+                $sql .= " AND po.branch_id = ?";
+                $params[] = $branchId;
+            }
+        }
+        $sql .= " ORDER BY po.id DESC LIMIT 100";
+        $stmt = $d->prepare($sql);
+        $stmt->execute($params);
+        ok($stmt->fetchAll());
+    }
+
+    if ($method === 'POST') {
+        if ($poId && $action === 'receive') {
+            // Receive items
+            $po = $d->prepare("SELECT * FROM purchase_orders WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+            $po->execute($isSuperAdmin ? [$poId] : [$poId, $tenantId]);
+            $po = $po->fetch();
+            if (!$po) fail('PO not found', 404);
+            if ($po['status'] === 'received') fail('PO already received');
+
+            try {
+                $d->beginTransaction();
+                $now = date('Y-m-d H:i:s');
+                $receivedItems = $input['items'] ?? [];
+                $allFullyReceived = true;
+                foreach ($receivedItems as $ri) {
+                    $itemId = $ri['purchase_item_id'] ?? null;
+                    $receivedQty = (float)($ri['received_quantity'] ?? 0);
+                    if (!$itemId || $receivedQty <= 0) continue;
+                    $itemStmt = $d->prepare("SELECT * FROM purchase_items WHERE id = ? AND po_id = ?");
+                    $itemStmt->execute([$itemId, $poId]);
+                    $item = $itemStmt->fetch();
+                    if (!$item) continue;
+                    $newReceived = (float)$item['received_quantity'] + $receivedQty;
+                    if ($newReceived > (float)$item['quantity']) {
+                        $d->rollBack();
+                        fail('Received quantity exceeds ordered quantity for item #' . $itemId);
+                    }
+                    $d->prepare("UPDATE purchase_items SET received_quantity = ? WHERE id = ?")->execute([$newReceived, $itemId]);
+                    // Add stock
+                    $d->prepare("INSERT INTO stock_movements (product_id, quantity, unit_id, movement_type, reference_id, reference_type, notes, created_by, created_at, tenant_id) VALUES (?,?,?,'purchase_receive',?,?,'Receive PO #' || ?,?,?,?)")
+                        ->execute([$item['product_id'], $receivedQty, $item['unit_id'] ?? 1, $poId, 'purchase_order', $poId, $poId, $_SESSION['user']['id'] ?? null, $now, $tenantId]);
+                    if ($newReceived < (float)$item['quantity']) $allFullyReceived = false;
+                }
+                $status = $allFullyReceived ? 'received' : 'partially_received';
+                $d->prepare("UPDATE purchase_orders SET status = ?, updated_at = ? WHERE id = ?")->execute([$status, $now, $poId]);
+                $d->commit();
+            } catch (PDOException $e) {
+                if ($d->inTransaction()) $d->rollBack();
+                fail('Database error: ' . $e->getMessage(), 500);
+            }
+            logAudit('receive', 'purchase_orders', $poId, null, ['id' => $poId]);
+            ok(['id' => $poId, 'status' => $status]);
+        }
+
+        if ($poId && $action === 'payment') {
+            // Record payment
+            $po = $d->prepare("SELECT * FROM purchase_orders WHERE id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+            $po->execute($isSuperAdmin ? [$poId] : [$poId, $tenantId]);
+            $po = $po->fetch();
+            if (!$po) fail('PO not found', 404);
+            $amount = (float)($input['amount'] ?? 0);
+            if ($amount <= 0) fail('Payment amount must be positive');
+            try {
+                $d->beginTransaction();
+                $now = date('Y-m-d H:i:s');
+                $d->prepare("INSERT INTO purchase_payments (po_id, amount, payment_method, payment_date, notes, created_by, created_at, tenant_id) VALUES (?,?,?,?,?,?,?,?)")
+                    ->execute([$poId, $amount, $input['payment_method'] ?? 'cash', $input['payment_date'] ?? date('Y-m-d'), $input['notes'] ?? null, $_SESSION['user']['id'] ?? null, $now, $tenantId]);
+                $totalPaid = (float)$d->prepare("SELECT COALESCE(SUM(amount),0) FROM purchase_payments WHERE po_id = ?")->execute([$poId])->fetchColumn();
+                $newStatus = $totalPaid >= (float)$po['total'] ? 'paid' : ($totalPaid > 0 ? 'partial' : 'unpaid');
+                $d->prepare("UPDATE purchase_orders SET payment_status = ?, updated_at = ? WHERE id = ?")->execute([$newStatus, $now, $poId]);
+                $d->commit();
+            } catch (PDOException $e) {
+                if ($d->inTransaction()) $d->rollBack();
+                fail('Database error: ' . $e->getMessage(), 500);
+            }
+            logAudit('payment', 'purchase_orders', $poId, null, ['id' => $poId, 'amount' => $amount]);
+            ok(['id' => $poId, 'payment_status' => $newStatus]);
+        }
+
+        // Create PO
+        if (empty($input['supplier_id'])) fail('Supplier ID required');
+        if (empty($input['items']) || !is_array($input['items']) || count($input['items']) === 0) fail('Items are required');
+
+        foreach ($input['items'] as $item) {
+            if (empty($item['product_id'])) fail('Product ID required for each item');
+            if (!validateNumeric($item['quantity'] ?? 0, 0.001, 999999)) fail('Item quantity must be a positive number');
+            if (!validateNumeric($item['unit_price'] ?? 0, 0, 999999999)) fail('Item unit price must be a valid number');
+        }
+
+        try {
+            $d->beginTransaction();
+            $now = date('Y-m-d H:i:s');
+            $poNo = 'PO-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+            $subtotal = 0;
+            foreach ($input['items'] as $item) {
+                $subtotal += (float)($item['quantity'] ?? 0) * (float)($item['unit_price'] ?? 0);
+            }
+            $discount = (float)($input['discount'] ?? 0);
+            $tax = (float)($input['tax'] ?? 0);
+            $total = $subtotal - $discount + $tax;
+
+            $d->prepare("INSERT INTO purchase_orders (tenant_id, po_number, supplier_id, po_date, subtotal, discount, tax, total, payment_status, status, notes, created_by, branch_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                ->execute([$tenantId, $poNo, $input['supplier_id'], $input['po_date'] ?? date('Y-m-d'), $subtotal, $discount, $tax, $total, 'unpaid', 'pending', $input['notes'] ?? null, $_SESSION['user']['id'] ?? null, $branchId, $now, $now]);
+            $poId = $d->lastInsertId();
+
+            foreach ($input['items'] as $item) {
+                $qty = (float)($item['quantity'] ?? 0);
+                $price = (float)($item['unit_price'] ?? 0);
+                $sub = $qty * $price;
+                $d->prepare("INSERT INTO purchase_items (po_id, product_id, quantity, unit_id, unit_price, subtotal, created_at, tenant_id) VALUES (?,?,?,?,?,?,?,?)")
+                    ->execute([$poId, $item['product_id'], $qty, $item['unit_id'] ?? 1, $price, $sub, $now, $tenantId]);
+            }
+            $d->commit();
+        } catch (PDOException $e) {
+            if ($d->inTransaction()) $d->rollBack();
+            fail('Database error: ' . $e->getMessage(), 500);
+        }
+        logAudit('create', 'purchase_orders', $poId, null, ['id' => $poId]);
+        created(['id' => $poId, 'po_number' => $poNo]);
+    }
+}
+
 // === HEARTBEAT (session keep-alive) ===
 if ($endpoint === 'heartbeat') {
     ok(['alive' => true, 'time' => date('Y-m-d H:i:s')]);

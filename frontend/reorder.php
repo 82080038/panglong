@@ -18,6 +18,17 @@ $productStmt = $d->prepare($productSql);
 $productStmt->execute($productParams);
 $products = $productStmt->fetchAll();
 
+$supplierSql = "SELECT id, name FROM suppliers";
+$supplierParams = [];
+if (!$isSuperAdmin && $tenantId) {
+    $supplierSql .= " WHERE tenant_id = ?";
+    $supplierParams[] = $tenantId;
+}
+$supplierSql .= " ORDER BY name";
+$supplierStmt = $d->prepare($supplierSql);
+$supplierStmt->execute($supplierParams);
+$suppliers = $supplierStmt->fetchAll();
+
 $suggestions = [];
 foreach ($products as $p) {
     $stmt = $d->prepare("SELECT COALESCE(SUM(quantity),0) as qty FROM stock_movements WHERE product_id = ?");
@@ -51,6 +62,7 @@ foreach ($products as $p) {
         elseif ($currentStock <= $minStock) { $priority = 'medium'; $reason = 'Below minimum stock'; }
 
         $suggestions[] = [
+            'product_id' => $p['id'],
             'priority' => $priority,
             'product_code' => $p['code'],
             'product_name' => $p['name'],
@@ -58,6 +70,7 @@ foreach ($products as $p) {
             'avg_daily_usage' => round($avgDaily, 2),
             'days_of_supply' => $daysOfSupply,
             'suggested_order_qty' => (int)$suggestedQty,
+            'unit_price' => (float)($p['buy_price'] ?? 0),
             'reason' => $reason
         ];
     }
@@ -79,6 +92,27 @@ renderNav('reorder');
         <span class="badge bg-warning text-dark fs-6"><?= $total ?> items need reorder</span>
     </div>
 
+    <div class="card mb-3">
+        <div class="card-body d-flex flex-wrap gap-3 align-items-end">
+            <div>
+                <label class="form-label">Supplier</label>
+                <select id="poSupplier" class="form-select">
+                    <option value="">Pilih Supplier</option>
+                    <?php foreach ($suppliers as $s): ?>
+                        <option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Tanggal PO</label>
+                <input type="date" id="poDate" class="form-control" value="<?= date('Y-m-d') ?>">
+            </div>
+            <button class="btn btn-primary" onclick="createPOFromReorder()">
+                <i class="bi bi-cart-plus"></i> Buat PO dari Terpilih
+            </button>
+        </div>
+    </div>
+
     <div class="alert alert-info">
         <i class="bi bi-lightbulb"></i> AI menganalisis pergerakan stok 30 hari terakhir untuk memprediksi kebutuhan reorder.
         Prioritas: <span class="badge bg-danger">Critical</span> <span class="badge bg-warning text-dark">High</span> <span class="badge bg-info">Medium</span> <span class="badge bg-secondary">Low</span>
@@ -86,26 +120,81 @@ renderNav('reorder');
 
     <div class="card"><div class="card-body">
         <div class="table-responsive"><table class="table table-striped" id="reorderTable">
-            <thead><tr><th>Priority</th><th>Kode</th><th>Product</th><th>Stok Saat Ini</th><th>Avg Daily Usage</th><th>Hari Persediaan</th><th>Suggested Order Qty</th><th>Reason</th></tr></thead>
+            <thead><tr><th><input type="checkbox" id="selectAllReorder" onclick="toggleSelectAllReorder()"></th><th>Priority</th><th>Kode</th><th>Product</th><th>Stok Saat Ini</th><th>Avg Daily Usage</th><th>Hari Persediaan</th><th>Suggested Order Qty</th><th>Reason</th></tr></thead>
             <tbody>
             <?php if (count($suggestions) > 0): ?>
                 <?php foreach ($suggestions as $s): ?>
-                <tr>
+                <tr class="reorder-row" data-product-id="<?= $s['product_id'] ?>" data-product-name="<?= htmlspecialchars($s['product_name']) ?>" data-suggested-qty="<?= $s['suggested_order_qty'] ?>" data-unit-price="<?= $s['unit_price'] ?>">
+                    <td><input type="checkbox" class="reorder-checkbox form-check-input"></td>
                     <td><span class="badge bg-<?= $s['priority']==='critical'?'danger':($s['priority']==='high'?'warning text-dark':($s['priority']==='medium'?'info':'secondary')) ?>"><?= ucfirst($s['priority']) ?></span></td>
                     <td><?= htmlspecialchars($s['product_code']) ?></td>
                     <td><?= htmlspecialchars($s['product_name']) ?></td>
                     <td class="<?= $s['current_stock'] <= 0 ? 'text-danger fw-bold' : '' ?>"><?= $s['current_stock'] ?></td>
                     <td><?= number_format($s['avg_daily_usage'], 2) ?></td>
                     <td class="<?= $s['days_of_supply'] < 7 ? 'text-danger' : ($s['days_of_supply'] < 14 ? 'text-warning' : '') ?>"><?= $s['days_of_supply'] == 999 ? 'N/A' : $s['days_of_supply'] ?></td>
-                    <td class="fw-bold"><?= $s['suggested_order_qty'] ?></td>
+                    <td class="fw-bold"><input type="number" class="form-control form-control-sm reorder-qty" style="width:80px" value="<?= $s['suggested_order_qty'] ?>" min="1" step="1"></td>
                     <td><small class="text-muted"><?= htmlspecialchars($s['reason']) ?></small></td>
                 </tr>
                 <?php endforeach; ?>
             <?php else: ?>
-                <tr><td colspan="8" class="text-center text-muted">All products are well-stocked. No reorder needed.</td></tr>
+                <tr><td colspan="9" class="text-center text-muted">All products are well-stocked. No reorder needed.</td></tr>
             <?php endif; ?>
             </tbody>
         </table></div>
     </div></div>
 </div>
+<script>
+function toggleSelectAllReorder() {
+    const checked = document.getElementById('selectAllReorder').checked;
+    document.querySelectorAll('.reorder-checkbox').forEach(function(cb) {
+        cb.checked = checked;
+    });
+}
+
+function createPOFromReorder() {
+    const supplierId = document.getElementById('poSupplier').value;
+    if (!supplierId) { alert('Pilih supplier terlebih dahulu'); return; }
+
+    const items = [];
+    document.querySelectorAll('.reorder-row').forEach(function(row) {
+        const cb = row.querySelector('.reorder-checkbox');
+        if (cb && cb.checked) {
+            const qtyInput = row.querySelector('.reorder-qty');
+            const qty = parseFloat(qtyInput.value) || 0;
+            if (qty > 0) {
+                items.push({
+                    product_id: parseInt(row.dataset.productId),
+                    quantity: qty,
+                    unit_id: 1,
+                    unit_price: parseFloat(row.dataset.unitPrice) || 0
+                });
+            }
+        }
+    });
+
+    if (items.length === 0) { alert('Pilih minimal 1 item untuk reorder'); return; }
+
+    const data = {
+        supplier_id: parseInt(supplierId),
+        po_date: document.getElementById('poDate').value,
+        payment_method: 'credit',
+        notes: 'Auto-generated from Reorder AI',
+        items: items
+    };
+
+    fetch(API_URL + '?endpoint=purchase-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    }).then(function(r) { return r.json(); }).then(function(res) {
+        if (res.success) {
+            window.location.href = 'purchase-orders.php?po_created=' + encodeURIComponent(res.data.po_number);
+        } else {
+            alert('Gagal membuat PO: ' + res.message);
+        }
+    }).catch(function(err) {
+        alert('Error: ' + err.message);
+    });
+}
+</script>
 <?php renderFoot(); ?>

@@ -1,7 +1,21 @@
 # Panglong ERP - Progress & Status Report
 
-**Date:** 2026-06-30 (Cycle 5)
-**Test Status:** 88/88 PASSED
+**Date:** 2026-06-30 (Cycle 6)
+**Test Status:** 90/90 PASSED
+
+---
+
+## Cycle 6 — Reorder to Purchase Order Integration
+
+### Completed
+- Implemented missing `purchase-orders` AJAX endpoint in `frontend/ajax.php`
+  - GET list/detail, POST create, POST receive (with stock movement), POST payment
+- Integrated reorder UI with PO creation in `frontend/reorder.php`
+  - Supplier dropdown, date picker, item checkboxes, editable quantities
+  - "Buat PO dari Terpilih" button creates PO from selected suggestions
+- Fixed `print_nota.php` to return proper HTML when sale not found
+- Added 2 Playwright tests for reorder-to-PO flow
+- Full test suite: **90/90 passing**
 
 ---
 
