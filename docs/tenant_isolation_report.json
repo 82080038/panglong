@@ -1,0 +1,149 @@
+{
+    "checks": [
+        {
+            "name": "products orphan tenant records",
+            "passed": true,
+            "details": "0 orphan records"
+        },
+        {
+            "name": "customers orphan tenant records",
+            "passed": true,
+            "details": "0 orphan records"
+        },
+        {
+            "name": "suppliers orphan tenant records",
+            "passed": true,
+            "details": "0 orphan records"
+        },
+        {
+            "name": "warehouses orphan tenant records",
+            "passed": true,
+            "details": "0 orphan records"
+        },
+        {
+            "name": "sales orphan tenant records",
+            "passed": true,
+            "details": "0 orphan records"
+        },
+        {
+            "name": "purchase_orders orphan tenant records",
+            "passed": true,
+            "details": "0 orphan records"
+        },
+        {
+            "name": "users orphan tenant records",
+            "passed": true,
+            "details": "0 orphan records"
+        },
+        {
+            "name": "stock_movements orphan tenant records",
+            "passed": true,
+            "details": "0 orphan records"
+        },
+        {
+            "name": "branches orphan tenant records",
+            "passed": true,
+            "details": "0 orphan records"
+        },
+        {
+            "name": "period_closings orphan tenant records",
+            "passed": true,
+            "details": "0 orphan records"
+        },
+        {
+            "name": "categories orphan tenant records",
+            "passed": true,
+            "details": "0 orphan records"
+        },
+        {
+            "name": "unit_measurements orphan tenant records",
+            "passed": true,
+            "details": "0 orphan records"
+        },
+        {
+            "name": "super_admin users have NULL tenant_id",
+            "passed": true,
+            "details": "0 super_admin with tenant_id"
+        },
+        {
+            "name": "non-super_admin users have tenant_id",
+            "passed": true,
+            "details": "0 users without tenant_id"
+        },
+        {
+            "name": "sale_items tenant matches sales",
+            "passed": true,
+            "details": "0 mismatched"
+        },
+        {
+            "name": "purchase_items tenant matches purchase_orders",
+            "passed": true,
+            "details": "0 mismatched"
+        },
+        {
+            "name": "products has no tenant_id=1 orphan",
+            "passed": true,
+            "details": "0 records with tenant_id=1"
+        },
+        {
+            "name": "customers has no tenant_id=1 orphan",
+            "passed": true,
+            "details": "0 records with tenant_id=1"
+        },
+        {
+            "name": "suppliers has no tenant_id=1 orphan",
+            "passed": true,
+            "details": "0 records with tenant_id=1"
+        },
+        {
+            "name": "warehouses has no tenant_id=1 orphan",
+            "passed": true,
+            "details": "0 records with tenant_id=1"
+        },
+        {
+            "name": "sales has no tenant_id=1 orphan",
+            "passed": true,
+            "details": "0 records with tenant_id=1"
+        },
+        {
+            "name": "purchase_orders has no tenant_id=1 orphan",
+            "passed": true,
+            "details": "0 records with tenant_id=1"
+        },
+        {
+            "name": "users has no tenant_id=1 orphan",
+            "passed": true,
+            "details": "0 records with tenant_id=1"
+        },
+        {
+            "name": "stock_movements has no tenant_id=1 orphan",
+            "passed": true,
+            "details": "0 records with tenant_id=1"
+        },
+        {
+            "name": "branches has no tenant_id=1 orphan",
+            "passed": true,
+            "details": "0 records with tenant_id=1"
+        },
+        {
+            "name": "period_closings has no tenant_id=1 orphan",
+            "passed": true,
+            "details": "0 records with tenant_id=1"
+        },
+        {
+            "name": "categories has no tenant_id=1 orphan",
+            "passed": true,
+            "details": "0 records with tenant_id=1"
+        },
+        {
+            "name": "unit_measurements has no tenant_id=1 orphan",
+            "passed": true,
+            "details": "0 records with tenant_id=1"
+        }
+    ],
+    "issues": [],
+    "summary": {
+        "total_checks": 28,
+        "failed_checks": 0
+    }
+}

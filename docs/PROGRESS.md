@@ -1,7 +1,20 @@
 # Panglong ERP - Progress & Status Report
 
-**Date:** 2026-06-30 (Cycle 8)
+**Date:** 2026-06-30 (Cycle 9)
 **Test Status:** 93/93 PASSED
+
+---
+
+## Cycle 9 — Multi-tenant Tenant Isolation Audit
+
+### Completed
+- Created `scripts/tenant_isolation_audit.php` for batch tenant isolation checks
+- Found and fixed 10 data integrity issues:
+  - 1 orphan customer, 1 orphan supplier (tenant_id=1, tenant not exist)
+  - 42 categories and 19 unit_measurements with tenant_id=1 → set to NULL (global)
+  - 7 gudang test users with NULL tenant_id → deleted
+- Verified: 28/28 tenant isolation checks passing
+- Full test suite: **93/93 passing**
 
 ---
 
