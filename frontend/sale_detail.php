@@ -20,12 +20,12 @@ if (!$sale) {
 
 $sale['customer'] = ['name' => $sale['customer_name'] ?? 'Walk-in'];
 
-$items = $d->prepare("SELECT si.*, p.name as product_name FROM sale_items si LEFT JOIN products p ON si.product_id = p.id WHERE si.sale_id = ?");
-$items->execute([$id]);
+$items = $d->prepare("SELECT si.*, p.name as product_name FROM sale_items si LEFT JOIN products p ON si.product_id = p.id WHERE si.sale_id = ?" . ($isSuperAdmin ? "" : " AND si.tenant_id = ?"));
+$items->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
 $sale['items'] = $items->fetchAll();
 
-$pays = $d->prepare("SELECT * FROM sale_payments WHERE sale_id = ?");
-$pays->execute([$id]);
+$pays = $d->prepare("SELECT * FROM sale_payments WHERE sale_id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+$pays->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
 $sale['payments'] = $pays->fetchAll();
 ?>
 <div class="table-responsive"><table class="table table-sm">

@@ -15,16 +15,16 @@ $stmt->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
 $product = $stmt->fetch();
 if (!$product) { header('Location: products.php?msg=notfound'); exit; }
 
-$units = $d->prepare("SELECT * FROM product_units WHERE product_id = ?");
-$units->execute([$id]);
+$units = $d->prepare("SELECT * FROM product_units WHERE product_id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+$units->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
 $product['units'] = $units->fetchAll();
 
-$baseUnit = $d->prepare("SELECT * FROM product_units WHERE product_id = ? AND is_base_unit = 1 LIMIT 1");
-$baseUnit->execute([$id]);
+$baseUnit = $d->prepare("SELECT * FROM product_units WHERE product_id = ? AND is_base_unit = 1" . ($isSuperAdmin ? "" : " AND tenant_id = ?") . " LIMIT 1");
+$baseUnit->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
 $bu = $baseUnit->fetch();
 
-$stockStmt = $d->prepare("SELECT COALESCE(SUM(quantity),0) FROM stock_movements WHERE product_id = ?");
-$stockStmt->execute([$id]);
+$stockStmt = $d->prepare("SELECT COALESCE(SUM(quantity),0) FROM stock_movements WHERE product_id = ?" . ($isSuperAdmin ? "" : " AND tenant_id = ?"));
+$stockStmt->execute($isSuperAdmin ? [$id] : [$id, $tenantId]);
 $stockQty = $stockStmt->fetchColumn();
 $stockData = [
     'current_stock' => $stockQty,
