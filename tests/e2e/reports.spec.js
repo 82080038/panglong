@@ -38,4 +38,19 @@ test.describe('Panglong ERP - Reports Page', () => {
       expect(page.locator('.card-body')).toBeVisible();
     });
   });
+
+  test('analytics tab loads with charts', async ({ page }) => {
+    const consoleErrors = [], pageErrors = [];
+    page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+    page.on('pageerror', err => pageErrors.push(err.message));
+
+    await page.goto(`${FRONTEND_BASE}/reports.php?tab=analytics`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('h5:has-text("Analytics Dashboard")')).toBeVisible();
+    await expect(page.locator('canvas#trendChart')).toBeVisible();
+    await expect(page.locator('canvas#paymentChart')).toBeVisible();
+    await expect(page.locator('canvas#topProductChart')).toBeVisible();
+    expect(consoleErrors).toEqual([]);
+    expect(pageErrors).toEqual([]);
+  });
 });

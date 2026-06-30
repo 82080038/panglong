@@ -1,7 +1,21 @@
 # Panglong ERP - Progress & Status Report
 
-**Date:** 2026-06-30 (Cycle 10)
-**Test Status:** 95/95 PASSED
+**Date:** 2026-06-30 (Cycle 11)
+**Test Status:** 96/96 PASSED
+
+---
+
+## Cycle 11 — Advanced Reports & Analytics
+
+### Completed
+- Added `analytics` tab to `frontend/reports.php`:
+  - Revenue trend line chart (last 30 days)
+  - Top 5 products by revenue bar chart
+  - Payment method revenue doughnut chart
+  - Top products table
+- Added Chart.js library load for analytics charts
+- Added E2E test for analytics tab
+- Full test suite: **96/96 passing**
 
 ---
 

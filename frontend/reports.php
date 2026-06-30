@@ -149,6 +149,32 @@ if ($tab === 'daily') {
     }
 } elseif ($tab === 'apaging') {
     $reportData = ['0_30_days' => 0, '31_60_days' => 0, '61_90_days' => 0, 'over_90_days' => 0, 'total_outstanding' => 0, 'details' => []];
+} elseif ($tab === 'analytics') {
+    $analyticsParams = [];
+    $analyticsSql = "SELECT strftime('%Y-%m-%d', sale_date) as sale_day, COUNT(*) as total_sales, COALESCE(SUM(total),0) as revenue FROM sales WHERE status != 'voided' AND sale_date >= date('now','-30 days')";
+    $analyticsSql = addReportTenantFilter($analyticsSql, '', $tenantId, $isSuperAdmin, $analyticsParams);
+    $analyticsSql .= " GROUP BY sale_day ORDER BY sale_day";
+    $stmt = $d->prepare($analyticsSql);
+    $stmt->execute($analyticsParams);
+    $trend = $stmt->fetchAll();
+
+    $topProductsParams = [];
+    $topProductsSql = "SELECT p.name as product_name, SUM(si.quantity) as qty_sold, SUM(si.subtotal) as revenue FROM sale_items si JOIN sales s ON si.sale_id = s.id JOIN products p ON si.product_id = p.id WHERE s.status != 'voided' AND s.sale_date >= date('now','-30 days')";
+    $topProductsSql = addReportTenantFilter($topProductsSql, 's', $tenantId, $isSuperAdmin, $topProductsParams);
+    $topProductsSql .= " GROUP BY p.id ORDER BY revenue DESC LIMIT 5";
+    $stmt = $d->prepare($topProductsSql);
+    $stmt->execute($topProductsParams);
+    $topProducts = $stmt->fetchAll();
+
+    $paymentParams = [];
+    $paymentSql = "SELECT COALESCE(payment_method,'other') as method, COUNT(*) as cnt, COALESCE(SUM(total),0) as revenue FROM sales WHERE status != 'voided' AND sale_date >= date('now','-30 days')";
+    $paymentSql = addReportTenantFilter($paymentSql, '', $tenantId, $isSuperAdmin, $paymentParams);
+    $paymentSql .= " GROUP BY method";
+    $stmt = $d->prepare($paymentSql);
+    $stmt->execute($paymentParams);
+    $paymentMethods = $stmt->fetchAll();
+
+    $reportData = ['trend' => $trend, 'topProducts' => $topProducts, 'paymentMethods' => $paymentMethods];
 }
 
 renderHead('Reports');
@@ -174,6 +200,7 @@ renderNav('reports');
         <li class="nav-item"><a class="nav-link <?= $tab==='stockvaluation'?'active':'' ?>" href="?tab=stockvaluation">Stock Valuation</a></li>
         <li class="nav-item"><a class="nav-link <?= $tab==='araging'?'active':'' ?>" href="?tab=araging">Piutang Jatuh Tempo</a></li>
         <li class="nav-item"><a class="nav-link <?= $tab==='apaging'?'active':'' ?>" href="?tab=apaging">AP Aging</a></li>
+        <li class="nav-item"><a class="nav-link <?= $tab==='analytics'?'active':'' ?>" href="?tab=analytics">Analytics</a></li>
     </ul>
 
     <?php if (in_array($tab, ['byproduct','bycustomer','stockmovement','profitloss'])): ?>
@@ -297,6 +324,65 @@ renderNav('reports');
             <?php endforeach; ?>
             </tbody></table></div>
             <?php endif; ?>
+
+        <?php elseif ($tab === 'analytics'): ?>
+            <h5>Analytics Dashboard (Last 30 Days)</h5>
+            <div class="row mb-3">
+                <div class="col-md-8"><div class="card"><div class="card-body"><canvas id="trendChart" height="120"></canvas></div></div></div>
+                <div class="col-md-4"><div class="card"><div class="card-body"><canvas id="paymentChart" height="120"></canvas></div></div></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6"><div class="card"><div class="card-body"><canvas id="topProductChart" height="150"></canvas></div></div></div>
+                <div class="col-md-6"><div class="card"><div class="card-body">
+                    <h6>Top Products</h6>
+                    <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Produk</th><th>Qty</th><th>Revenue</th></tr></thead><tbody>
+                    <?php foreach ($reportData['topProducts'] as $p): ?>
+                    <tr><td><?= htmlspecialchars($p['product_name']) ?></td><td><?= $p['qty_sold'] ?></td><td><?= rupiah($p['revenue']) ?></td></tr>
+                    <?php endforeach; ?>
+                    <?php if (empty($reportData['topProducts'])): ?><tr><td colspan="3" class="text-center text-muted">No data</td></tr><?php endif; ?>
+                    </tbody></table></div>
+                </div></div></div>
+            </div>
+            <script src="assets/js/chart.umd.min.js"></script>
+            <script>
+            (function(){
+                new Chart(document.getElementById('trendChart').getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: <?= json_encode(array_map(function($r){ return date('d/m', strtotime($r['sale_day'])); }, $reportData['trend'])) ?>,
+                        datasets: [{
+                            label: 'Revenue',
+                            data: <?= json_encode(array_column($reportData['trend'], 'revenue')) ?>,
+                            borderColor: 'rgba(75, 192, 192, 1)', fill: true, backgroundColor: 'rgba(75, 192, 192, 0.2)', tension: 0.3
+                        }]
+                    },
+                    options: { responsive: true, plugins: { title: { display: true, text: 'Revenue Trend' } }, scales: { y: { beginAtZero: true } } }
+                });
+                new Chart(document.getElementById('paymentChart').getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: <?= json_encode(array_column($reportData['paymentMethods'], 'method')) ?>,
+                        datasets: [{
+                            data: <?= json_encode(array_column($reportData['paymentMethods'], 'revenue')) ?>,
+                            backgroundColor: ['rgba(255, 99, 132, 0.7)', 'rgba(54, 162, 235, 0.7)', 'rgba(255, 206, 86, 0.7)', 'rgba(75, 192, 192, 0.7)']
+                        }]
+                    },
+                    options: { responsive: true, plugins: { title: { display: true, text: 'Revenue by Payment Method' }, legend: { position: 'bottom' } } }
+                });
+                new Chart(document.getElementById('topProductChart').getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: <?= json_encode(array_map(function($p){ return substr($p['product_name'], 0, 20); }, $reportData['topProducts'])) ?>,
+                        datasets: [{
+                            label: 'Revenue',
+                            data: <?= json_encode(array_column($reportData['topProducts'], 'revenue')) ?>,
+                            backgroundColor: 'rgba(153, 102, 255, 0.7)'
+                        }]
+                    },
+                    options: { responsive: true, plugins: { title: { display: true, text: 'Top 5 Products by Revenue' } }, scales: { y: { beginAtZero: true } } }
+                });
+            })();
+            </script>
 
         <?php endif; ?>
     </div></div>
