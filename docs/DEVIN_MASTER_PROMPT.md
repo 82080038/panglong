@@ -1,8 +1,8 @@
 # DEVIN MASTER PROMPT — Panglong ERP
 
-## Version: 2.0 (2026-06-30)
+## Version: 3.0 (2026-06-30)
 
-> Updated setelah Cycle 6. Aplikasi sudah stabil dengan 90/90 Playwright tests passing.
+> Updated setelah Cycle 12. Semua gap feature utama selesai. 97/97 Playwright tests passing.
 > File ini berisi prompt master untuk AI-assisted development cycle.
 > Copy-paste isi "PROMPT MASTER" ke AI tool pilihan Anda.
 > Gunakan "PROMPT LANJUTAN" untuk iterasi berikutnya.
@@ -50,12 +50,18 @@ You are working on the Panglong ERP project at /opt/lampp/htdocs/panglong.
 - NO Laravel, NO Composer, NO framework
 - Database: database/database.sqlite (84 tables, multi-tenant)
 - AJAX: single endpoint frontend/ajax.php (?endpoint=xxx)
-- Testing: Playwright E2E (26 specs, 90 tests)
-- Completed Cycles: 6
+- Testing: Playwright E2E (27 specs, 97 tests)
+- Completed Cycles: 12
   - Cycle 1-3: Stability, bug fixes, stock opname workflow
   - Cycle 4: FE-BE integration testing
   - Cycle 5: Page & data consistency audit
   - Cycle 6: Reorder to Purchase Order integration
+  - Cycle 7: SaaS dashboard & invoice workflow
+  - Cycle 8: Super admin dashboard
+  - Cycle 9: Multi-tenant tenant isolation audit
+  - Cycle 10: Warehouse locations & IoT sensor integration
+  - Cycle 11: Advanced reports & analytics
+  - Cycle 12: Mobile/PWA salesman app
 - PHP: /opt/lampp/bin/php (8.2.12 with pdo_sqlite)
 - Frontend URL: http://localhost/panglong/frontend/
 - SUDO password: 8208
@@ -111,7 +117,7 @@ Execute the AI Development Cycle (see .devin/workflows/ai-development-cycle.md):
 - If all pass → proceed to Phase 4
 
 ### Phase 4: IMPROVE
-- Review gap features from docs/DEVELOPMENT_ROADMAP.md:
+- All primary gap features from docs/DEVELOPMENT_ROADMAP.md are now COMPLETED:
   - SaaS management (subscriptions, invoices, payment workflow)
   - Super admin dashboard (tenants, revenue, system stats)
   - Multi-tenant tenant isolation audit
@@ -119,11 +125,12 @@ Execute the AI Development Cycle (see .devin/workflows/ai-development-cycle.md):
   - Advanced reports & analytics
   - Mobile/PWA salesman app
 - Review security checklist from .devin/workflows/deploy.md
+- Future improvements: performance optimization, additional reports, UX refinements
 - Implement improvements ONE AT A TIME
 - Test after each improvement
 
 ### Phase 5: VERIFY
-- All 90 Playwright tests must pass
+- All 97 Playwright tests must pass
 - Zero PHP errors in error_log
 - All pages return HTTP 200
 - No JavaScript console errors
@@ -233,12 +240,8 @@ Workflow per cycle:
 7. Pilih gap feature berikutnya dari roadmap → kembali ke langkah 1
 
 Gap features yang tersisa (prioritas):
-1. SaaS subscription & invoice payment workflow
-2. Super admin dashboard (tenants, revenue, stats)
-3. Multi-tenant tenant isolation audit & fix
-4. Warehouse locations & IoT sensor integration
-5. Advanced reports & analytics
-6. Mobile/PWA salesman app
+- Semua gap feature utama telah SELESAI
+- Fokus selanjutnya: maintenance, optimasi performa, laporan tambahan, UX refinements
 
 RULES:
 - Gunakan db() singleton, API_URL, prepared statements
