@@ -3,266 +3,266 @@
         "role": "admin",
         "page": "index",
         "http": 200,
-        "size": 15442,
+        "size": 19804,
         "issues": []
     },
     {
         "role": "admin",
         "page": "products",
         "http": 200,
-        "size": 292644,
+        "size": 302219,
         "issues": []
     },
     {
         "role": "admin",
         "page": "customers",
         "http": 200,
-        "size": 215020,
+        "size": 221168,
         "issues": []
     },
     {
         "role": "admin",
         "page": "suppliers",
         "http": 200,
-        "size": 71609,
+        "size": 95991,
         "issues": []
     },
     {
         "role": "admin",
         "page": "warehouses",
         "http": 200,
-        "size": 61389,
+        "size": 251108,
         "issues": []
     },
     {
         "role": "admin",
         "page": "sales",
         "http": 200,
-        "size": 178018,
+        "size": 187934,
         "issues": []
     },
     {
         "role": "admin",
         "page": "sales_orders",
         "http": 200,
-        "size": 69131,
+        "size": 73849,
         "issues": []
     },
     {
         "role": "admin",
         "page": "quotations",
         "http": 200,
-        "size": 72607,
+        "size": 77389,
         "issues": []
     },
     {
         "role": "admin",
         "page": "deliveries",
         "http": 200,
-        "size": 84959,
+        "size": 85006,
         "issues": []
     },
     {
         "role": "admin",
         "page": "purchase-orders",
         "http": 200,
-        "size": 62782,
+        "size": 65093,
         "issues": []
     },
     {
         "role": "admin",
         "page": "stock",
         "http": 200,
-        "size": 171322,
+        "size": 173751,
         "issues": []
     },
     {
         "role": "admin",
         "page": "stock_opname",
         "http": 200,
-        "size": 85811,
+        "size": 113064,
         "issues": []
     },
     {
         "role": "admin",
         "page": "stock_transfers",
         "http": 200,
-        "size": 54555,
+        "size": 56571,
         "issues": []
     },
     {
         "role": "admin",
         "page": "batches",
         "http": 200,
-        "size": 148367,
+        "size": 176352,
         "issues": []
     },
     {
         "role": "admin",
         "page": "reorder",
         "http": 200,
-        "size": 116565,
+        "size": 198509,
         "issues": []
     },
     {
         "role": "admin",
         "page": "iot",
         "http": 200,
-        "size": 20403,
+        "size": 57500,
         "issues": []
     },
     {
         "role": "admin",
         "page": "fleet",
         "http": 200,
-        "size": 74628,
+        "size": 75250,
         "issues": []
     },
     {
         "role": "admin",
         "page": "routes",
         "http": 200,
-        "size": 57889,
+        "size": 59359,
         "issues": []
     },
     {
         "role": "admin",
         "page": "accounting",
         "http": 200,
-        "size": 20917,
+        "size": 20964,
         "issues": []
     },
     {
         "role": "admin",
         "page": "cashbook",
         "http": 200,
-        "size": 78213,
+        "size": 78241,
         "issues": []
     },
     {
         "role": "admin",
         "page": "cash_flow",
         "http": 200,
-        "size": 24600,
+        "size": 24647,
         "issues": []
     },
     {
         "role": "admin",
         "page": "fixed_assets",
         "http": 200,
-        "size": 63059,
+        "size": 63206,
         "issues": []
     },
     {
         "role": "admin",
         "page": "e_faktur",
         "http": 200,
-        "size": 54212,
+        "size": 54262,
         "issues": []
     },
     {
         "role": "admin",
         "page": "closing",
         "http": 200,
-        "size": 24408,
+        "size": 24455,
         "issues": []
     },
     {
         "role": "admin",
         "page": "reports",
         "http": 200,
-        "size": 21432,
+        "size": 21571,
         "issues": []
     },
     {
         "role": "admin",
         "page": "ai_insights",
         "http": 200,
-        "size": 66351,
+        "size": 66846,
         "issues": []
     },
     {
         "role": "admin",
         "page": "marketplace",
         "http": 200,
-        "size": 21047,
+        "size": 21094,
         "issues": []
     },
     {
         "role": "admin",
         "page": "landed_cost",
         "http": 200,
-        "size": 94272,
+        "size": 103946,
         "issues": []
     },
     {
         "role": "admin",
         "page": "pricing",
         "http": 200,
-        "size": 134331,
+        "size": 142951,
         "issues": []
     },
     {
         "role": "admin",
         "page": "settings",
         "http": 200,
-        "size": 20400,
+        "size": 20447,
         "issues": []
     },
     {
         "role": "admin",
         "page": "saas",
         "http": 200,
-        "size": 25723,
+        "size": 27070,
         "issues": []
     },
     {
         "role": "admin",
         "page": "users",
         "http": 200,
-        "size": 16009,
+        "size": 16056,
         "issues": []
     },
     {
         "role": "admin",
         "page": "tenants",
         "http": 200,
-        "size": 46758,
+        "size": 46805,
         "issues": []
     },
     {
         "role": "admin",
         "page": "returns",
         "http": 200,
-        "size": 78725,
+        "size": 79615,
         "issues": []
     },
     {
         "role": "admin",
         "page": "whatsapp",
         "http": 200,
-        "size": 46395,
+        "size": 46526,
         "issues": []
     },
     {
         "role": "admin",
         "page": "salesman_app",
         "http": 200,
-        "size": 88302,
+        "size": 98910,
         "issues": []
     },
     {
         "role": "admin",
         "page": "product_detail",
         "http": 200,
-        "size": 292644,
+        "size": 302219,
         "issues": []
     },
     {
         "role": "admin",
         "page": "customer_detail",
         "http": 200,
-        "size": 215020,
+        "size": 221168,
         "issues": []
     },
     {
@@ -290,210 +290,210 @@
         "role": "manager1",
         "page": "index",
         "http": 200,
-        "size": 21391,
+        "size": 21440,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "products",
         "http": 200,
-        "size": 267413,
+        "size": 290214,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "customers",
         "http": 200,
-        "size": 213704,
+        "size": 221785,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "suppliers",
         "http": 200,
-        "size": 76142,
+        "size": 100556,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "warehouses",
         "http": 200,
-        "size": 64604,
+        "size": 232939,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "sales",
         "http": 200,
-        "size": 125707,
+        "size": 135627,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "sales_orders",
         "http": 200,
-        "size": 74417,
+        "size": 79148,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "quotations",
         "http": 200,
-        "size": 77893,
+        "size": 82684,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "deliveries",
         "http": 200,
-        "size": 67062,
+        "size": 67109,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "purchase-orders",
         "http": 200,
-        "size": 68422,
+        "size": 70031,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "stock",
         "http": 200,
-        "size": 173832,
+        "size": 176261,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "stock_opname",
         "http": 200,
-        "size": 91186,
+        "size": 118439,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "stock_transfers",
         "http": 200,
-        "size": 56930,
+        "size": 61868,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "batches",
         "http": 200,
-        "size": 123350,
+        "size": 148522,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "reorder",
         "http": 200,
-        "size": 80854,
+        "size": 156260,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "iot",
         "http": 200,
-        "size": 25778,
+        "size": 25556,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "fleet",
         "http": 200,
-        "size": 79151,
+        "size": 80625,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "routes",
         "http": 200,
-        "size": 63172,
+        "size": 64642,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "accounting",
         "http": 200,
-        "size": 26292,
+        "size": 26339,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "cashbook",
         "http": 200,
-        "size": 83588,
+        "size": 83616,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "cash_flow",
         "http": 200,
-        "size": 29975,
+        "size": 30022,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "fixed_assets",
         "http": 200,
-        "size": 68434,
+        "size": 68581,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "e_faktur",
         "http": 200,
-        "size": 58741,
+        "size": 58832,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "closing",
         "http": 200,
-        "size": 29783,
+        "size": 29830,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "reports",
         "http": 200,
-        "size": 26807,
+        "size": 26946,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "ai_insights",
         "http": 200,
-        "size": 71714,
+        "size": 72209,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "marketplace",
         "http": 200,
-        "size": 26422,
+        "size": 26469,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "landed_cost",
         "http": 200,
-        "size": 99647,
+        "size": 109351,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "pricing",
         "http": 200,
-        "size": 130167,
+        "size": 150121,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "settings",
         "http": 200,
-        "size": 25751,
+        "size": 25798,
         "issues": []
     },
     {
@@ -507,7 +507,7 @@
         "role": "manager1",
         "page": "users",
         "http": 200,
-        "size": 32494,
+        "size": 32541,
         "issues": []
     },
     {
@@ -521,35 +521,35 @@
         "role": "manager1",
         "page": "returns",
         "http": 200,
-        "size": 81820,
+        "size": 85618,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "whatsapp",
         "http": 200,
-        "size": 50272,
+        "size": 50403,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "salesman_app",
         "http": 200,
-        "size": 85030,
+        "size": 103576,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "product_detail",
         "http": 200,
-        "size": 267413,
+        "size": 290214,
         "issues": []
     },
     {
         "role": "manager1",
         "page": "customer_detail",
         "http": 200,
-        "size": 213704,
+        "size": 221785,
         "issues": []
     },
     {
@@ -577,7 +577,7 @@
         "role": "kasir1",
         "page": "index",
         "http": 200,
-        "size": 16831,
+        "size": 16880,
         "issues": []
     },
     {
@@ -591,7 +591,7 @@
         "role": "kasir1",
         "page": "customers",
         "http": 200,
-        "size": 209142,
+        "size": 217223,
         "issues": []
     },
     {
@@ -612,28 +612,28 @@
         "role": "kasir1",
         "page": "sales",
         "http": 200,
-        "size": 121151,
+        "size": 131071,
         "issues": []
     },
     {
         "role": "kasir1",
         "page": "sales_orders",
         "http": 200,
-        "size": 69861,
+        "size": 74592,
         "issues": []
     },
     {
         "role": "kasir1",
         "page": "quotations",
         "http": 200,
-        "size": 73337,
+        "size": 78128,
         "issues": []
     },
     {
         "role": "kasir1",
         "page": "deliveries",
         "http": 200,
-        "size": 62506,
+        "size": 62553,
         "issues": []
     },
     {
@@ -710,7 +710,7 @@
         "role": "kasir1",
         "page": "cashbook",
         "http": 200,
-        "size": 79020,
+        "size": 79048,
         "issues": []
     },
     {
@@ -808,21 +808,21 @@
         "role": "kasir1",
         "page": "returns",
         "http": 200,
-        "size": 77258,
+        "size": 81056,
         "issues": []
     },
     {
         "role": "kasir1",
         "page": "whatsapp",
         "http": 200,
-        "size": 45710,
+        "size": 45841,
         "issues": []
     },
     {
         "role": "kasir1",
         "page": "salesman_app",
         "http": 200,
-        "size": 80474,
+        "size": 99020,
         "issues": []
     },
     {
@@ -836,7 +836,7 @@
         "role": "kasir1",
         "page": "customer_detail",
         "http": 200,
-        "size": 209142,
+        "size": 217223,
         "issues": []
     },
     {
@@ -864,14 +864,14 @@
         "role": "gudang1",
         "page": "index",
         "http": 200,
-        "size": 17893,
+        "size": 17942,
         "issues": []
     },
     {
         "role": "gudang1",
         "page": "products",
         "http": 200,
-        "size": 263917,
+        "size": 286718,
         "issues": []
     },
     {
@@ -885,14 +885,14 @@
         "role": "gudang1",
         "page": "suppliers",
         "http": 200,
-        "size": 72646,
+        "size": 97060,
         "issues": []
     },
     {
         "role": "gudang1",
         "page": "warehouses",
         "http": 200,
-        "size": 61108,
+        "size": 229443,
         "issues": []
     },
     {
@@ -906,7 +906,7 @@
         "role": "gudang1",
         "page": "sales_orders",
         "http": 200,
-        "size": 70909,
+        "size": 75640,
         "issues": []
     },
     {
@@ -920,70 +920,70 @@
         "role": "gudang1",
         "page": "deliveries",
         "http": 200,
-        "size": 63554,
+        "size": 63601,
         "issues": []
     },
     {
         "role": "gudang1",
         "page": "purchase-orders",
         "http": 200,
-        "size": 64926,
+        "size": 66535,
         "issues": []
     },
     {
         "role": "gudang1",
         "page": "stock",
         "http": 200,
-        "size": 170336,
+        "size": 172765,
         "issues": []
     },
     {
         "role": "gudang1",
         "page": "stock_opname",
         "http": 200,
-        "size": 85905,
+        "size": 104820,
         "issues": []
     },
     {
         "role": "gudang1",
         "page": "stock_transfers",
         "http": 200,
-        "size": 53434,
+        "size": 58372,
         "issues": []
     },
     {
         "role": "gudang1",
         "page": "batches",
         "http": 200,
-        "size": 119854,
+        "size": 145026,
         "issues": []
     },
     {
         "role": "gudang1",
         "page": "reorder",
         "http": 200,
-        "size": 77358,
+        "size": 152764,
         "issues": []
     },
     {
         "role": "gudang1",
         "page": "iot",
         "http": 200,
-        "size": 22282,
+        "size": 22060,
         "issues": []
     },
     {
         "role": "gudang1",
         "page": "fleet",
         "http": 200,
-        "size": 75655,
+        "size": 77129,
         "issues": []
     },
     {
         "role": "gudang1",
         "page": "routes",
         "http": 200,
-        "size": 59676,
+        "size": 61146,
         "issues": []
     },
     {
@@ -1053,7 +1053,7 @@
         "role": "gudang1",
         "page": "landed_cost",
         "http": 200,
-        "size": 96139,
+        "size": 105843,
         "issues": []
     },
     {
@@ -1095,7 +1095,7 @@
         "role": "gudang1",
         "page": "returns",
         "http": 200,
-        "size": 78318,
+        "size": 82116,
         "issues": []
     },
     {
@@ -1116,7 +1116,7 @@
         "role": "gudang1",
         "page": "product_detail",
         "http": 200,
-        "size": 263917,
+        "size": 286718,
         "issues": []
     },
     {
@@ -1151,7 +1151,7 @@
         "role": "accounting1",
         "page": "index",
         "http": 200,
-        "size": 16721,
+        "size": 16770,
         "issues": []
     },
     {
@@ -1165,7 +1165,7 @@
         "role": "accounting1",
         "page": "customers",
         "http": 200,
-        "size": 209022,
+        "size": 217103,
         "issues": []
     },
     {
@@ -1277,49 +1277,49 @@
         "role": "accounting1",
         "page": "accounting",
         "http": 200,
-        "size": 21616,
+        "size": 21663,
         "issues": []
     },
     {
         "role": "accounting1",
         "page": "cashbook",
         "http": 200,
-        "size": 78912,
+        "size": 78940,
         "issues": []
     },
     {
         "role": "accounting1",
         "page": "cash_flow",
         "http": 200,
-        "size": 25299,
+        "size": 25346,
         "issues": []
     },
     {
         "role": "accounting1",
         "page": "fixed_assets",
         "http": 200,
-        "size": 63758,
+        "size": 63905,
         "issues": []
     },
     {
         "role": "accounting1",
         "page": "e_faktur",
         "http": 200,
-        "size": 54065,
+        "size": 54156,
         "issues": []
     },
     {
         "role": "accounting1",
         "page": "closing",
         "http": 200,
-        "size": 25107,
+        "size": 25154,
         "issues": []
     },
     {
         "role": "accounting1",
         "page": "reports",
         "http": 200,
-        "size": 22125,
+        "size": 22264,
         "issues": []
     },
     {
@@ -1410,7 +1410,7 @@
         "role": "accounting1",
         "page": "customer_detail",
         "http": 200,
-        "size": 209022,
+        "size": 217103,
         "issues": []
     },
     {
@@ -1438,7 +1438,7 @@
         "role": "supervisor1",
         "page": "index",
         "http": 200,
-        "size": 15536,
+        "size": 15585,
         "issues": []
     },
     {
@@ -1452,7 +1452,7 @@
         "role": "supervisor1",
         "page": "customers",
         "http": 200,
-        "size": 207831,
+        "size": 215912,
         "issues": []
     },
     {
@@ -1473,7 +1473,7 @@
         "role": "supervisor1",
         "page": "sales",
         "http": 200,
-        "size": 119834,
+        "size": 129754,
         "issues": []
     },
     {
@@ -1578,7 +1578,7 @@
         "role": "supervisor1",
         "page": "cash_flow",
         "http": 200,
-        "size": 24102,
+        "size": 24149,
         "issues": []
     },
     {
@@ -1599,21 +1599,21 @@
         "role": "supervisor1",
         "page": "closing",
         "http": 200,
-        "size": 23910,
+        "size": 23957,
         "issues": []
     },
     {
         "role": "supervisor1",
         "page": "reports",
         "http": 200,
-        "size": 20940,
+        "size": 21079,
         "issues": []
     },
     {
         "role": "supervisor1",
         "page": "ai_insights",
         "http": 200,
-        "size": 65853,
+        "size": 66348,
         "issues": []
     },
     {
@@ -1683,7 +1683,7 @@
         "role": "supervisor1",
         "page": "salesman_app",
         "http": 200,
-        "size": 79169,
+        "size": 97715,
         "issues": []
     },
     {
@@ -1697,7 +1697,7 @@
         "role": "supervisor1",
         "page": "customer_detail",
         "http": 200,
-        "size": 207831,
+        "size": 215912,
         "issues": []
     },
     {

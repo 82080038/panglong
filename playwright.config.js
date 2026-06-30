@@ -22,6 +22,9 @@ module.exports = defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         headless: false,
+        launchOptions: {
+          args: ['--window-position=1140,0', '--window-size=1440,900'],
+        },
       },
     },
   ],
