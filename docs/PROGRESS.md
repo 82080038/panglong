@@ -1,7 +1,24 @@
 # Panglong ERP - Progress & Status Report
 
-**Date:** 2026-06-30 (Cycle 9)
-**Test Status:** 93/93 PASSED
+**Date:** 2026-06-30 (Cycle 10)
+**Test Status:** 95/95 PASSED
+
+---
+
+## Cycle 10 — Warehouse Locations & IoT Sensor Integration
+
+### Completed
+- Enhanced `frontend/warehouses.php` with warehouse locations management:
+  - Per-warehouse location list modal
+  - Create location form (code, name, zone, aisle, level, max weight, capacity)
+  - Fixed stock transfer INSERT parameter order bug
+- Enhanced `frontend/iot.php` with real sensor readings:
+  - Fetch last reading and recent chart from `iot_sensor_readings`
+  - Added `record_reading` POST handler
+  - Per-sensor card with line chart and alert logic
+  - Loaded Chart.js library before chart scripts
+- Added E2E tests for warehouse locations and IoT sensor workflow
+- Full test suite: **95/95 passing**
 
 ---
 
