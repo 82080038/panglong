@@ -19,7 +19,12 @@ if ($isSuperAdmin) {
     $suspendedTenants = $d->query("SELECT COUNT(*) FROM tenants WHERE status = 'suspended'")->fetchColumn();
     
     $userCount = $d->query('SELECT COUNT(*) FROM users')->fetchColumn();
-    
+    $totalRevenue = $d->query("SELECT COALESCE(SUM(amount),0) FROM subscription_invoices WHERE status = 'paid'")->fetchColumn();
+    $monthlyRevenue = $d->query("SELECT COALESCE(SUM(amount),0) FROM subscription_invoices WHERE status = 'paid' AND strftime('%Y-%m', invoice_date) = strftime('%Y-%m', 'now')")->fetchColumn();
+    $pendingRevenue = $d->query("SELECT COALESCE(SUM(amount),0) FROM subscription_invoices WHERE status = 'unpaid'")->fetchColumn();
+    $recentTenants = $d->query("SELECT * FROM tenants ORDER BY id DESC LIMIT 5")->fetchAll();
+    $recentInvoices = $d->query("SELECT si.*, t.name as tenant_name FROM subscription_invoices si LEFT JOIN tenants t ON si.tenant_id = t.id ORDER BY si.id DESC LIMIT 5")->fetchAll();
+
     // Tenant growth chart (last 7 days)
     $chartLabels = [];
     $chartData = [];
@@ -160,6 +165,33 @@ if ($isSuperAdmin) {
         </div>
 
         <div class="row mt-2">
+            <div class="col-md-4">
+                <div class="card text-white bg-info mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Revenue</h5>
+                        <p class="card-text fs-4"><?= rupiah($totalRevenue) ?></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-success mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Monthly Revenue</h5>
+                        <p class="card-text fs-4"><?= rupiah($monthlyRevenue) ?></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-warning mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Pending Revenue</h5>
+                        <p class="card-text fs-4"><?= rupiah($pendingRevenue) ?></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-2">
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header"><h5>Pertumbuhan Tenant (7 Hari Terakhir)</h5></div>
@@ -184,6 +216,51 @@ if ($isSuperAdmin) {
         </div>
 
         <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header"><h5>Tenant Terbaru</h5></div>
+                    <div class="card-body">
+                        <div class="table-responsive"><table class="table table-sm">
+                            <thead><tr><th>Kode</th><th>Nama</th><th>Status</th><th>Dibuat</th></tr></thead>
+                            <tbody>
+                            <?php foreach ($recentTenants as $t): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($t['code']) ?></td>
+                                <td><?= htmlspecialchars($t['name']) ?></td>
+                                <td><span class="badge bg-<?= $t['status']==='active'?'success':($t['status']==='trial'?'info':'warning') ?>"><?= $t['status'] ?></span></td>
+                                <td><?= tglIndo($t['created_at']) ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <?php if (empty($recentTenants)): ?><tr><td colspan="4" class="text-center text-muted">Belum ada tenant</td></tr><?php endif; ?>
+                            </tbody>
+                        </table></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header"><h5>Faktur Terbaru</h5></div>
+                    <div class="card-body">
+                        <div class="table-responsive"><table class="table table-sm">
+                            <thead><tr><th>No</th><th>Tenant</th><th>Jumlah</th><th>Status</th></tr></thead>
+                            <tbody>
+                            <?php foreach ($recentInvoices as $inv): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($inv['invoice_no']) ?></td>
+                                <td><?= htmlspecialchars($inv['tenant_name'] ?? '-') ?></td>
+                                <td><?= rupiah($inv['amount']) ?></td>
+                                <td><span class="badge bg-<?= $inv['status']==='paid'?'success':'warning' ?>"><?= $inv['status'] ?></span></td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <?php if (empty($recentInvoices)): ?><tr><td colspan="4" class="text-center text-muted">Belum ada faktur</td></tr><?php endif; ?>
+                            </tbody>
+                        </table></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
             <div class="col-md-12">
                 <div class="card">
                     <div class="card-header"><h5>Akses Cepat - Platform Owner</h5></div>
@@ -192,6 +269,7 @@ if ($isSuperAdmin) {
                             <a href="tenants.php" class="list-group-item list-group-item-action"><i class="bi bi-buildings"></i> Kelola Tenant</a>
                             <a href="users.php" class="list-group-item list-group-item-action"><i class="bi bi-people"></i> Kelola User</a>
                             <a href="register.php" class="list-group-item list-group-item-action"><i class="bi bi-person-plus"></i> Daftar Tenant Baru</a>
+                            <a href="saas.php" class="list-group-item list-group-item-action"><i class="bi bi-credit-card"></i> SaaS Management</a>
                         </div>
                     </div>
                 </div>

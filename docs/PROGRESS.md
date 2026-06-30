@@ -1,7 +1,20 @@
 # Panglong ERP - Progress & Status Report
 
-**Date:** 2026-06-30 (Cycle 7)
-**Test Status:** 92/92 PASSED
+**Date:** 2026-06-30 (Cycle 8)
+**Test Status:** 93/93 PASSED
+
+---
+
+## Cycle 8 — Super Admin Dashboard Enhancement
+
+### Completed
+- Enhanced super admin dashboard in `frontend/index.php`:
+  - Added revenue cards (total, monthly, pending)
+  - Added recent tenants table
+  - Added recent subscription invoices table
+  - Added SaaS Management link in quick access
+- Added dashboard test for super admin platform metrics
+- Full test suite: **93/93 passing**
 
 ---
 
