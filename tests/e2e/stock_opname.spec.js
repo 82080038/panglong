@@ -18,9 +18,9 @@ test.describe('Panglong ERP - Stock Opname Page', () => {
     await page.goto(`${FRONTEND_BASE}/stock_opname.php`);
     await page.waitForLoadState('networkidle');
     await expect(page.locator('h1')).toContainText('Opname');
-    await expect(page.locator('table.table-striped')).toBeVisible();
-    await expect(page.locator('th:has-text("Kode Produk")')).toBeVisible();
-    await expect(page.locator('th:has-text("Jml Sistem")')).toBeVisible();
+    await expect(page.locator('#opnameTable')).toBeVisible();
+    await expect(page.locator('#opnameTable th:has-text("Kode Produk")')).toBeVisible();
+    await expect(page.locator('#opnameTable th:has-text("Jml Sistem")')).toBeVisible();
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
   });

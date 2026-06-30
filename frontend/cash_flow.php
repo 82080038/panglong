@@ -11,11 +11,11 @@ $startDate = $_GET['start_date'] ?? date('Y-m-01');
 $endDate = $_GET['end_date'] ?? date('Y-m-t');
 $branchId = $user['branch_id'] ?? null;
 
-function runCashFlowSum($d, $sql, $params, $whereAdded, $tenantId, $branchId, $isSuperAdmin) {
+function runCashFlowSum($d, $sql, $params, $whereAdded, $tenantId, $branchId, $isSuperAdmin, $filterByBranch = true) {
     if (!$isSuperAdmin && $tenantId) {
         $sql .= $whereAdded ? " AND tenant_id = ?" : " WHERE tenant_id = ?";
         $params[] = $tenantId;
-        if ($branchId) {
+        if ($branchId && $filterByBranch) {
             $sql .= " AND branch_id = ?";
             $params[] = $branchId;
         }
