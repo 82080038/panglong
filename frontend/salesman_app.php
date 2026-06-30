@@ -176,6 +176,16 @@ renderNav('salesman_app');
     </div>
 </div>
 
+<script>
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then(function(reg) {
+        console.log('Service Worker registered:', reg.scope);
+    }).catch(function(err) {
+        console.log('Service Worker registration failed:', err);
+    });
+}
+</script>
+
 <?php renderFoot(); ?>
 <script>
 function switchTab(tab) {

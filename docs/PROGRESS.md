@@ -1,7 +1,19 @@
 # Panglong ERP - Progress & Status Report
 
-**Date:** 2026-06-30 (Cycle 11)
-**Test Status:** 96/96 PASSED
+**Date:** 2026-06-30 (Cycle 12)
+**Test Status:** 97/97 PASSED
+
+---
+
+## Cycle 12 — Mobile/PWA Salesman App
+
+### Completed
+- Enabled PWA support for the salesman mobile app:
+  - Linked `manifest.json` in `renderHead()` across all pages
+  - Added `salesman_app.php` to `sw.js` static cache list
+  - Added service worker registration in `salesman_app.php`
+- Created `tests/e2e/salesman_app.spec.js` to verify PWA page load and service worker registration
+- Full test suite: **97/97 passing**
 
 ---
 

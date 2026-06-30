@@ -2,6 +2,7 @@ const CACHE_NAME = 'panglong-erp-v2';
 const STATIC_ASSETS = [
   '/panglong/frontend/',
   '/panglong/frontend/login.php',
+  '/panglong/frontend/salesman_app.php',
   '/panglong/frontend/assets/css/bootstrap.min.css',
   '/panglong/frontend/assets/css/bootstrap-icons.css',
   '/panglong/frontend/assets/js/jquery-3.6.0.min.js',
