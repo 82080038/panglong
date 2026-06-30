@@ -14,7 +14,7 @@ $stmt->execute($isSuperAdmin ? [$id] : [$id, $tenantId, $branchId]);
 $sale = $stmt->fetch();
 
 if (!$sale) {
-    echo "Sale not found";
+    echo '<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Nota Tidak Ditemukan</title></head><body><p style="text-align:center;padding:20px;">Sale not found</p></body></html>';
     exit;
 }
 

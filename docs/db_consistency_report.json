@@ -1,0 +1,107 @@
+[
+    {
+        "name": "sale_items without sale",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "sale_payments without sale",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "purchase_items without PO",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "purchase_payments without PO",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "stock_movements without product",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "stock_movements without user",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "delivery_items without delivery",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "opname_items without opname",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "products with tenant_id not in tenants",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "users with tenant_id not in tenants",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "sales with tenant_id not in tenants",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "products with negative stock",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "products without name",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "products without code",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "customers without name",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "suppliers without name",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "users without role",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "sales with invalid status",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "purchase_orders with invalid status",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "deliveries with invalid status",
+        "count": 0,
+        "ok": true
+    },
+    {
+        "name": "duplicate product codes across tenants",
+        "count": 0,
+        "ok": true
+    }
+]

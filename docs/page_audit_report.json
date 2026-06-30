@@ -1,0 +1,1724 @@
+[
+    {
+        "role": "admin",
+        "page": "index",
+        "http": 200,
+        "size": 15442,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "products",
+        "http": 200,
+        "size": 292644,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "customers",
+        "http": 200,
+        "size": 215020,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "suppliers",
+        "http": 200,
+        "size": 71609,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "warehouses",
+        "http": 200,
+        "size": 61389,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "sales",
+        "http": 200,
+        "size": 178018,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "sales_orders",
+        "http": 200,
+        "size": 69131,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "quotations",
+        "http": 200,
+        "size": 72607,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "deliveries",
+        "http": 200,
+        "size": 84959,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "purchase-orders",
+        "http": 200,
+        "size": 62782,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "stock",
+        "http": 200,
+        "size": 171322,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "stock_opname",
+        "http": 200,
+        "size": 85811,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "stock_transfers",
+        "http": 200,
+        "size": 54555,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "batches",
+        "http": 200,
+        "size": 148367,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "reorder",
+        "http": 200,
+        "size": 116565,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "iot",
+        "http": 200,
+        "size": 20403,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "fleet",
+        "http": 200,
+        "size": 74628,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "routes",
+        "http": 200,
+        "size": 57889,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "accounting",
+        "http": 200,
+        "size": 20917,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "cashbook",
+        "http": 200,
+        "size": 78213,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "cash_flow",
+        "http": 200,
+        "size": 24600,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "fixed_assets",
+        "http": 200,
+        "size": 63059,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "e_faktur",
+        "http": 200,
+        "size": 54212,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "closing",
+        "http": 200,
+        "size": 24408,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "reports",
+        "http": 200,
+        "size": 21432,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "ai_insights",
+        "http": 200,
+        "size": 66351,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "marketplace",
+        "http": 200,
+        "size": 21047,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "landed_cost",
+        "http": 200,
+        "size": 94272,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "pricing",
+        "http": 200,
+        "size": 134331,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "settings",
+        "http": 200,
+        "size": 20400,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "saas",
+        "http": 200,
+        "size": 25723,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "users",
+        "http": 200,
+        "size": 16009,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "tenants",
+        "http": 200,
+        "size": 46758,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "returns",
+        "http": 200,
+        "size": 78725,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "whatsapp",
+        "http": 200,
+        "size": 46395,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "salesman_app",
+        "http": 200,
+        "size": 88302,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "product_detail",
+        "http": 200,
+        "size": 292644,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "customer_detail",
+        "http": 200,
+        "size": 215020,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "sale_detail",
+        "http": 200,
+        "size": 21,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "print_nota",
+        "http": 200,
+        "size": 182,
+        "issues": []
+    },
+    {
+        "role": "admin",
+        "page": "qr_generator",
+        "http": 400,
+        "size": 21,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "index",
+        "http": 200,
+        "size": 21391,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "products",
+        "http": 200,
+        "size": 267413,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "customers",
+        "http": 200,
+        "size": 213704,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "suppliers",
+        "http": 200,
+        "size": 76142,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "warehouses",
+        "http": 200,
+        "size": 64604,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "sales",
+        "http": 200,
+        "size": 125707,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "sales_orders",
+        "http": 200,
+        "size": 74417,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "quotations",
+        "http": 200,
+        "size": 77893,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "deliveries",
+        "http": 200,
+        "size": 67062,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "purchase-orders",
+        "http": 200,
+        "size": 68422,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "stock",
+        "http": 200,
+        "size": 173832,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "stock_opname",
+        "http": 200,
+        "size": 91186,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "stock_transfers",
+        "http": 200,
+        "size": 56930,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "batches",
+        "http": 200,
+        "size": 123350,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "reorder",
+        "http": 200,
+        "size": 80854,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "iot",
+        "http": 200,
+        "size": 25778,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "fleet",
+        "http": 200,
+        "size": 79151,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "routes",
+        "http": 200,
+        "size": 63172,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "accounting",
+        "http": 200,
+        "size": 26292,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "cashbook",
+        "http": 200,
+        "size": 83588,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "cash_flow",
+        "http": 200,
+        "size": 29975,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "fixed_assets",
+        "http": 200,
+        "size": 68434,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "e_faktur",
+        "http": 200,
+        "size": 58741,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "closing",
+        "http": 200,
+        "size": 29783,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "reports",
+        "http": 200,
+        "size": 26807,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "ai_insights",
+        "http": 200,
+        "size": 71714,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "marketplace",
+        "http": 200,
+        "size": 26422,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "landed_cost",
+        "http": 200,
+        "size": 99647,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "pricing",
+        "http": 200,
+        "size": 130167,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "settings",
+        "http": 200,
+        "size": 25751,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "saas",
+        "http": 403,
+        "size": 47,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "users",
+        "http": 200,
+        "size": 32494,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "tenants",
+        "http": 403,
+        "size": 50,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "returns",
+        "http": 200,
+        "size": 81820,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "whatsapp",
+        "http": 200,
+        "size": 50272,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "salesman_app",
+        "http": 200,
+        "size": 85030,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "product_detail",
+        "http": 200,
+        "size": 267413,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "customer_detail",
+        "http": 200,
+        "size": 213704,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "sale_detail",
+        "http": 200,
+        "size": 21,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "print_nota",
+        "http": 200,
+        "size": 182,
+        "issues": []
+    },
+    {
+        "role": "manager1",
+        "page": "qr_generator",
+        "http": 400,
+        "size": 21,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "index",
+        "http": 200,
+        "size": 16831,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "products",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "customers",
+        "http": 200,
+        "size": 209142,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "suppliers",
+        "http": 403,
+        "size": 52,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "warehouses",
+        "http": 403,
+        "size": 53,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "sales",
+        "http": 200,
+        "size": 121151,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "sales_orders",
+        "http": 200,
+        "size": 69861,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "quotations",
+        "http": 200,
+        "size": 73337,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "deliveries",
+        "http": 200,
+        "size": 62506,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "purchase-orders",
+        "http": 403,
+        "size": 58,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "stock",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "stock_opname",
+        "http": 403,
+        "size": 55,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "stock_transfers",
+        "http": 403,
+        "size": 58,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "batches",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "reorder",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "iot",
+        "http": 403,
+        "size": 46,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "fleet",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "routes",
+        "http": 403,
+        "size": 49,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "accounting",
+        "http": 403,
+        "size": 53,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "cashbook",
+        "http": 200,
+        "size": 79020,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "cash_flow",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "fixed_assets",
+        "http": 403,
+        "size": 55,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "e_faktur",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "closing",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "reports",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "ai_insights",
+        "http": 403,
+        "size": 52,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "marketplace",
+        "http": 403,
+        "size": 54,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "landed_cost",
+        "http": 403,
+        "size": 52,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "pricing",
+        "http": 403,
+        "size": 50,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "settings",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "saas",
+        "http": 403,
+        "size": 47,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "users",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "tenants",
+        "http": 403,
+        "size": 50,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "returns",
+        "http": 200,
+        "size": 77258,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "whatsapp",
+        "http": 200,
+        "size": 45710,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "salesman_app",
+        "http": 200,
+        "size": 80474,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "product_detail",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "customer_detail",
+        "http": 200,
+        "size": 209142,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "sale_detail",
+        "http": 200,
+        "size": 21,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "print_nota",
+        "http": 200,
+        "size": 182,
+        "issues": []
+    },
+    {
+        "role": "kasir1",
+        "page": "qr_generator",
+        "http": 400,
+        "size": 21,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "index",
+        "http": 200,
+        "size": 17893,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "products",
+        "http": 200,
+        "size": 263917,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "customers",
+        "http": 403,
+        "size": 52,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "suppliers",
+        "http": 200,
+        "size": 72646,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "warehouses",
+        "http": 200,
+        "size": 61108,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "sales",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "sales_orders",
+        "http": 200,
+        "size": 70909,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "quotations",
+        "http": 403,
+        "size": 53,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "deliveries",
+        "http": 200,
+        "size": 63554,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "purchase-orders",
+        "http": 200,
+        "size": 64926,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "stock",
+        "http": 200,
+        "size": 170336,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "stock_opname",
+        "http": 200,
+        "size": 85905,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "stock_transfers",
+        "http": 200,
+        "size": 53434,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "batches",
+        "http": 200,
+        "size": 119854,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "reorder",
+        "http": 200,
+        "size": 77358,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "iot",
+        "http": 200,
+        "size": 22282,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "fleet",
+        "http": 200,
+        "size": 75655,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "routes",
+        "http": 200,
+        "size": 59676,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "accounting",
+        "http": 403,
+        "size": 53,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "cashbook",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "cash_flow",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "fixed_assets",
+        "http": 403,
+        "size": 55,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "e_faktur",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "closing",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "reports",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "ai_insights",
+        "http": 403,
+        "size": 52,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "marketplace",
+        "http": 403,
+        "size": 54,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "landed_cost",
+        "http": 200,
+        "size": 96139,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "pricing",
+        "http": 403,
+        "size": 50,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "settings",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "saas",
+        "http": 403,
+        "size": 47,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "users",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "tenants",
+        "http": 403,
+        "size": 50,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "returns",
+        "http": 200,
+        "size": 78318,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "whatsapp",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "salesman_app",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "product_detail",
+        "http": 200,
+        "size": 263917,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "customer_detail",
+        "http": 403,
+        "size": 52,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "sale_detail",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "print_nota",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "gudang1",
+        "page": "qr_generator",
+        "http": 400,
+        "size": 21,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "index",
+        "http": 200,
+        "size": 16721,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "products",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "customers",
+        "http": 200,
+        "size": 209022,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "suppliers",
+        "http": 403,
+        "size": 52,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "warehouses",
+        "http": 403,
+        "size": 53,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "sales",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "sales_orders",
+        "http": 403,
+        "size": 55,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "quotations",
+        "http": 403,
+        "size": 53,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "deliveries",
+        "http": 403,
+        "size": 53,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "purchase-orders",
+        "http": 403,
+        "size": 58,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "stock",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "stock_opname",
+        "http": 403,
+        "size": 55,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "stock_transfers",
+        "http": 403,
+        "size": 58,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "batches",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "reorder",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "iot",
+        "http": 403,
+        "size": 46,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "fleet",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "routes",
+        "http": 403,
+        "size": 49,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "accounting",
+        "http": 200,
+        "size": 21616,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "cashbook",
+        "http": 200,
+        "size": 78912,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "cash_flow",
+        "http": 200,
+        "size": 25299,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "fixed_assets",
+        "http": 200,
+        "size": 63758,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "e_faktur",
+        "http": 200,
+        "size": 54065,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "closing",
+        "http": 200,
+        "size": 25107,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "reports",
+        "http": 200,
+        "size": 22125,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "ai_insights",
+        "http": 403,
+        "size": 52,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "marketplace",
+        "http": 403,
+        "size": 54,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "landed_cost",
+        "http": 403,
+        "size": 52,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "pricing",
+        "http": 403,
+        "size": 50,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "settings",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "saas",
+        "http": 403,
+        "size": 47,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "users",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "tenants",
+        "http": 403,
+        "size": 50,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "returns",
+        "http": 403,
+        "size": 50,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "whatsapp",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "salesman_app",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "product_detail",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "customer_detail",
+        "http": 200,
+        "size": 209022,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "sale_detail",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "print_nota",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "accounting1",
+        "page": "qr_generator",
+        "http": 400,
+        "size": 21,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "index",
+        "http": 200,
+        "size": 15536,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "products",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "customers",
+        "http": 200,
+        "size": 207831,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "suppliers",
+        "http": 403,
+        "size": 52,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "warehouses",
+        "http": 403,
+        "size": 53,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "sales",
+        "http": 200,
+        "size": 119834,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "sales_orders",
+        "http": 403,
+        "size": 55,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "quotations",
+        "http": 403,
+        "size": 53,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "deliveries",
+        "http": 403,
+        "size": 53,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "purchase-orders",
+        "http": 403,
+        "size": 58,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "stock",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "stock_opname",
+        "http": 403,
+        "size": 55,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "stock_transfers",
+        "http": 403,
+        "size": 58,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "batches",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "reorder",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "iot",
+        "http": 403,
+        "size": 46,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "fleet",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "routes",
+        "http": 403,
+        "size": 49,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "accounting",
+        "http": 403,
+        "size": 53,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "cashbook",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "cash_flow",
+        "http": 200,
+        "size": 24102,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "fixed_assets",
+        "http": 403,
+        "size": 55,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "e_faktur",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "closing",
+        "http": 200,
+        "size": 23910,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "reports",
+        "http": 200,
+        "size": 20940,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "ai_insights",
+        "http": 200,
+        "size": 65853,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "marketplace",
+        "http": 403,
+        "size": 54,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "landed_cost",
+        "http": 403,
+        "size": 52,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "pricing",
+        "http": 403,
+        "size": 50,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "settings",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "saas",
+        "http": 403,
+        "size": 47,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "users",
+        "http": 403,
+        "size": 48,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "tenants",
+        "http": 403,
+        "size": 50,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "returns",
+        "http": 403,
+        "size": 50,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "whatsapp",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "salesman_app",
+        "http": 200,
+        "size": 79169,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "product_detail",
+        "http": 403,
+        "size": 51,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "customer_detail",
+        "http": 200,
+        "size": 207831,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "sale_detail",
+        "http": 200,
+        "size": 21,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "print_nota",
+        "http": 200,
+        "size": 182,
+        "issues": []
+    },
+    {
+        "role": "supervisor1",
+        "page": "qr_generator",
+        "http": 400,
+        "size": 21,
+        "issues": []
+    }
+]
