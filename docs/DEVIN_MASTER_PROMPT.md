@@ -1,7 +1,8 @@
 # DEVIN MASTER PROMPT — Panglong ERP
 
-## Version: 1.0 (2026-06-30)
+## Version: 2.0 (2026-06-30)
 
+> Updated setelah Cycle 6. Aplikasi sudah stabil dengan 90/90 Playwright tests passing.
 > File ini berisi prompt master untuk AI-assisted development cycle.
 > Copy-paste isi "PROMPT MASTER" ke AI tool pilihan Anda.
 > Gunakan "PROMPT LANJUTAN" untuk iterasi berikutnya.
@@ -49,7 +50,12 @@ You are working on the Panglong ERP project at /opt/lampp/htdocs/panglong.
 - NO Laravel, NO Composer, NO framework
 - Database: database/database.sqlite (84 tables, multi-tenant)
 - AJAX: single endpoint frontend/ajax.php (?endpoint=xxx)
-- Testing: Playwright E2E (26 specs, 88 tests)
+- Testing: Playwright E2E (26 specs, 90 tests)
+- Completed Cycles: 6
+  - Cycle 1-3: Stability, bug fixes, stock opname workflow
+  - Cycle 4: FE-BE integration testing
+  - Cycle 5: Page & data consistency audit
+  - Cycle 6: Reorder to Purchase Order integration
 - PHP: /opt/lampp/bin/php (8.2.12 with pdo_sqlite)
 - Frontend URL: http://localhost/panglong/frontend/
 - SUDO password: 8208
@@ -106,17 +112,18 @@ Execute the AI Development Cycle (see .devin/workflows/ai-development-cycle.md):
 
 ### Phase 4: IMPROVE
 - Review gap features from docs/DEVELOPMENT_ROADMAP.md:
-  - Multi-tenant architecture (tenant isolation)
-  - SaaS management (subscriptions, invoices, revenue)
-  - Super admin dashboard
-  - Reorder logic
-  - Stock opname
+  - SaaS management (subscriptions, invoices, payment workflow)
+  - Super admin dashboard (tenants, revenue, system stats)
+  - Multi-tenant tenant isolation audit
+  - Warehouse locations & IoT sensor integration
+  - Advanced reports & analytics
+  - Mobile/PWA salesman app
 - Review security checklist from .devin/workflows/deploy.md
 - Implement improvements ONE AT A TIME
 - Test after each improvement
 
 ### Phase 5: VERIFY
-- All 88 Playwright tests must pass
+- All 90 Playwright tests must pass
 - Zero PHP errors in error_log
 - All pages return HTTP 200
 - No JavaScript console errors
@@ -152,29 +159,36 @@ Execute the AI Development Cycle (see .devin/workflows/ai-development-cycle.md):
 
 ---
 
-## PROMPT LANJUTAN (Untuk iterasi berikutnya)
+## PROMPT LANJUTAN (Untuk iterasi berikutnya — BATCH & AUTONOMOUS)
 
 ```
 Continue the AI Development Cycle for Panglong ERP at /opt/lampp/htdocs/panglong.
 
-1. Read docs/PROGRESS.md to see what was done in the last iteration
-2. Read docs/development-iteration-{N}.md for findings (if exists)
+Objective: Work AUTONOMOUSLY and in BATCH to complete remaining gap features.
+
+1. Read docs/PROGRESS.md to see completed cycles
+2. Read docs/development-iteration-{N}.md for latest findings
 3. Run all tests to verify current state:
    npx playwright test --reporter=list --workers=1
 4. Check error log:
    echo "8208" | sudo -S tail -50 /opt/lampp/logs/error_log
-5. Check all pages return 200:
+5. Check all pages return 200 (batch):
    curl -s -c /tmp/c.txt -L -X POST http://localhost/panglong/frontend/login.php -d "username=admin&password=password123" -o /dev/null
    for page in index products customers suppliers warehouses sales sales_orders quotations deliveries purchase-orders stock stock_opname stock_transfers batches reorder iot fleet routes accounting cashbook cash_flow fixed_assets e_faktur closing reports ai_insights marketplace landed_cost pricing settings saas users tenants returns whatsapp salesman_app; do
      code=$(curl -s -o /dev/null -w "%{http_code}" -b /tmp/c.txt "http://localhost/panglong/frontend/$page.php")
      [ "$code" != "200" ] && echo "FAIL: $page = $code"
    done
-6. Identify remaining issues from the exit criteria
-7. Pick the highest priority unfinished item
-8. Fix it → test it → commit it
-9. Update docs/PROGRESS.md
-10. If exit criteria not all met → repeat from step 5
-11. If all exit criteria met → report completion summary
+6. Check data consistency (batch):
+   /opt/lampp/bin/php scripts/db_consistency_check.php
+7. Check all pages for errors (batch):
+   /opt/lampp/bin/php scripts/page_audit.php
+8. Identify remaining issues from the exit criteria
+9. Pick the highest priority unfinished item and implement it
+10. Run tests again → fix → repeat until all pass
+11. Update docs/PROGRESS.md and create docs/development-iteration-{N}.md
+12. Commit: git add -A && git commit -m "Cycle N: [description]"
+13. If exit criteria not all met → repeat from step 3
+14. If all exit criteria met → report completion summary
 
 MANDATORY RULES:
 - Use db() singleton, never new PDO()
@@ -185,6 +199,55 @@ MANDATORY RULES:
 - chmod 666 database/database.sqlite after git operations
 - Never delete or weaken tests
 - Never break backward compatibility
+- Always run full Playwright suite before commit
+- Always check error log after tests
+```
+
+---
+
+## PROMPT BATCH AUTONOMOUS — SELESAIKAN SEMUA CYCLE
+
+```
+Lanjutkan pengerjaan Panglong ERP di /opt/lampp/htdocs/panglong secara BATCH dan AUTONOMOUS.
+
+Tujuan: Selesaikan semua gap feature yang tersisa tanpa menunggu instruksi per item.
+
+Mode kerja:
+- Jalankan semua check dalam batch (page audit, db consistency, tests, error log)
+- Identifikasi semua issue sekaligus
+- Kerjakan issue secara batch: fix → test → commit
+- Jika satu cycle selesai, LANJUT otomatis ke cycle berikutnya
+- Update progress setiap cycle
+
+Workflow per cycle:
+1. Baca docs/PROGRESS.md dan iteration terakhir
+2. Jalankan batch audit:
+   /opt/lampp/bin/php scripts/page_audit.php
+   /opt/lampp/bin/php scripts/db_consistency_check.php
+   npx playwright test --reporter=list --workers=1
+   echo "8208" | sudo -S tail -50 /opt/lampp/logs/error_log
+3. Catat semua issue dalam docs/development-iteration-{N}.md
+4. Perbaiki semua issue yang ditemukan
+5. Jalankan batch audit lagi
+6. Jika semua passing → update docs/PROGRESS.md → commit
+7. Pilih gap feature berikutnya dari roadmap → kembali ke langkah 1
+
+Gap features yang tersisa (prioritas):
+1. SaaS subscription & invoice payment workflow
+2. Super admin dashboard (tenants, revenue, stats)
+3. Multi-tenant tenant isolation audit & fix
+4. Warehouse locations & IoT sensor integration
+5. Advanced reports & analytics
+6. Mobile/PWA salesman app
+
+RULES:
+- Gunakan db() singleton, API_URL, prepared statements
+- No fn() arrow functions, no DATE() in SQL JOINs
+- Jangan hapus atau lemahkan test
+- Jangan break backward compatibility
+- Setiap perubahan harus diikuti test
+- Selalu commit di akhir cycle
+- Jika stuck >3 kali: dokumentasikan, lalu pindah ke fitur berikutnya
 ```
 
 ---
