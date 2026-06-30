@@ -53,7 +53,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $plans = $d->query("SELECT * FROM subscription_plans ORDER BY price_monthly")->fetchAll();
-$tenants = $d->query("SELECT * FROM tenants ORDER BY id DESC")->fetchAll();
+$tenants = $d->query("SELECT * FROM tenants ORDER BY id DESC LIMIT 100")->fetchAll();
+$invoices = $d->query("SELECT si.*, t.name as tenant_name, t.code as tenant_code, sp.name as plan_name FROM subscription_invoices si LEFT JOIN tenants t ON si.tenant_id = t.id LEFT JOIN subscriptions s ON si.subscription_id = s.id LEFT JOIN subscription_plans sp ON s.plan_id = sp.id ORDER BY si.id DESC LIMIT 100")->fetchAll();
+
+$stats = $d->query("SELECT
+    (SELECT COUNT(*) FROM tenants) as total_tenants,
+    (SELECT COUNT(*) FROM tenants WHERE status = 'active') as active_tenants,
+    (SELECT COUNT(*) FROM tenants WHERE status = 'trial') as trial_tenants,
+    (SELECT COUNT(*) FROM tenants WHERE status = 'suspended') as suspended_tenants,
+    (SELECT COALESCE(SUM(amount),0) FROM subscription_invoices WHERE status = 'paid') as total_revenue,
+    (SELECT COALESCE(SUM(amount),0) FROM subscription_invoices WHERE status = 'unpaid') as pending_revenue,
+    (SELECT COALESCE(SUM(amount),0) FROM subscription_invoices WHERE status = 'paid' AND strftime('%Y-%m', invoice_date) = strftime('%Y-%m', 'now')) as monthly_revenue
+")->fetch();
 
 $msg = $_GET['msg'] ?? '';
 renderHead('SaaS Management');
@@ -75,12 +86,52 @@ renderNav('saas');
     </div>
     <?php endif; ?>
 
+    <div class="row mb-4">
+        <div class="col-md-2 col-6"><div class="card text-center"><div class="card-body"><h5 class="card-title"><?= number_format($stats['total_tenants']) ?></h5><p class="text-muted small mb-0">Total Tenant</p></div></div></div>
+        <div class="col-md-2 col-6"><div class="card text-center"><div class="card-body"><h5 class="card-title text-success"><?= number_format($stats['active_tenants']) ?></h5><p class="text-muted small mb-0">Aktif</p></div></div></div>
+        <div class="col-md-2 col-6"><div class="card text-center"><div class="card-body"><h5 class="card-title text-info"><?= number_format($stats['trial_tenants']) ?></h5><p class="text-muted small mb-0">Trial</p></div></div></div>
+        <div class="col-md-2 col-6"><div class="card text-center"><div class="card-body"><h5 class="card-title text-warning"><?= number_format($stats['suspended_tenants']) ?></h5><p class="text-muted small mb-0">Ditangguhkan</p></div></div></div>
+        <div class="col-md-2 col-6"><div class="card text-center"><div class="card-body"><h5 class="card-title text-primary"><?= rupiah($stats['monthly_revenue']) ?></h5><p class="text-muted small mb-0">Pendapatan Bulan Ini</p></div></div></div>
+        <div class="col-md-2 col-6"><div class="card text-center"><div class="card-body"><h5 class="card-title text-danger"><?= rupiah($stats['pending_revenue']) ?></h5><p class="text-muted small mb-0">Piutang</p></div></div></div>
+    </div>
+
     <ul class="nav nav-tabs mb-3">
         <li class="nav-item"><a class="nav-link <?= $tab==='plans'?'active':'' ?>" href="?tab=plans">Paket Langganan</a></li>
         <li class="nav-item"><a class="nav-link <?= $tab==='tenants'?'active':'' ?>" href="?tab=tenants">Tenant</a></li>
+        <li class="nav-item"><a class="nav-link <?= $tab==='invoices'?'active':'' ?>" href="?tab=invoices">Faktur</a></li>
     </ul>
 
-    <?php if ($tab === 'plans'): ?>
+    <?php if ($tab === 'invoices'): ?>
+        <div class="table-responsive"><table class="table table-striped" id="invoiceTable">
+            <thead><tr><th>No Faktur</th><th>Tenant</th><th>Plan</th><th>Tanggal</th><th>Jatuh Tempo</th><th>Jumlah</th><th>Status</th><th>Aksi</th></tr></thead>
+            <tbody>
+            <?php foreach ($invoices as $inv): ?>
+            <tr>
+                <td><?= htmlspecialchars($inv['invoice_no']) ?></td>
+                <td><?= htmlspecialchars($inv['tenant_name'] ?? $inv['tenant_code'] ?? '') ?></td>
+                <td><?= htmlspecialchars($inv['plan_name'] ?? '-') ?></td>
+                <td><?= tglIndo($inv['invoice_date']) ?></td>
+                <td><?= tglIndo($inv['due_date']) ?></td>
+                <td><?= rupiah($inv['amount']) ?></td>
+                <td><span class="badge bg-<?= $inv['status']==='paid'?'success':'warning' ?>"><?= $inv['status']==='paid'?'Lunas':'Belum Bayar' ?></span></td>
+                <td>
+                    <?php if ($inv['status'] !== 'paid'): ?>
+                    <form method="POST" action="saas.php" class="d-inline">
+                        <input type="hidden" name="action" value="pay_invoice">
+                        <input type="hidden" name="invoice_id" value="<?= $inv['id'] ?>">
+                        <button type="submit" class="btn btn-sm btn-success">Bayar</button>
+                    </form>
+                    <?php else: ?>
+                    <span class="text-muted small"><?= tglIndo($inv['paid_at']) ?></span>
+                    <?php endif; ?>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+            <?php if (empty($invoices)): ?><tr><td colspan="8" class="text-center text-muted">Belum ada faktur</td></tr><?php endif; ?>
+            </tbody>
+        </table></div>
+
+    <?php elseif ($tab === 'plans'): ?>
         <div class="row">
         <?php foreach ($plans as $plan): ?>
             <div class="col-md-4 mb-3">

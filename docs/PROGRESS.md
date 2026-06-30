@@ -1,7 +1,20 @@
 # Panglong ERP - Progress & Status Report
 
-**Date:** 2026-06-30 (Cycle 6)
-**Test Status:** 90/90 PASSED
+**Date:** 2026-06-30 (Cycle 7)
+**Test Status:** 92/92 PASSED
+
+---
+
+## Cycle 7 — SaaS Dashboard & Invoice Workflow
+
+### Completed
+- Enhanced `frontend/saas.php` with revenue dashboard cards:
+  - Total, active, trial, suspended tenants
+  - Monthly revenue and pending revenue (piutang)
+- Added new `?tab=invoices` tab to list all subscription invoices
+- Added "Bayar" button for unpaid invoices in the invoice table
+- Updated `tests/e2e/saas.spec.js` with revenue dashboard and invoices tab tests
+- Full test suite: **92/92 passing**
 
 ---
 
